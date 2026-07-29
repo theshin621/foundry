@@ -1,0 +1,6 @@
+{
+  "_comment": "Runtime config lives at /home/claude/foundry/config.json in the session environment ONLY. The PAT is NEVER committed to this repo.",
+  "repo_url": "https://github.com/<user>/foundry",
+  "domain": "<pending — pages.dev subdomain until registered>",
+  "github_pat": "<env-only, never here>"
+}
