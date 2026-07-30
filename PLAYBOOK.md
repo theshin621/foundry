@@ -31,7 +31,7 @@ A **Mon–Sat run is DONE** when all six hold:
 3. **HALT + NOTIFY:** brief delivered ~05:30 SAST with push notification. **No build without an explicit reply** — "go" (build the pick), "go 2"/"go 3" (build an alternate), "skip" (log and stand down). No reply by next fire = skip, logged. Approval never times out into a build.
 4. **BUILD + VERIFY (post-go):** v1 built, deployed to staging, then **maker≠checker verified on the running deployment** (contract in §5). PASS required before public exposure; FAIL → stays staged, failing item named in the notification.
 5. **SHIP:** public URL live under the foundry domain · hub entry added · analytics beacon firing · MCP-registry submission opened where applicable · X post drafted into the brief (never posted) · `ledger.json` row appended with the checker's verdict recorded verbatim.
-6. **REPORT:** ship notification with URL + one-line what-it-is + checker verdict. Any step impossible → the run reports **FAIL with the failing step named**. The run never silently skips a step and the maker never declares its own done.
+6. **REPORT — RUN SUMMARY (required of every run, scheduled or manual, per Theshin 2026-07-30):** a fixed-format summary posted in-session AND appended to the day's `briefs/` file: **SCOUTED** (candidates, one line each) · **PICKED** (or halted/skip) · **BUILT** (what, where) · **CHECKER** (verdict verbatim) · **DEPLOYED** (URL or staged) · **LEDGER** (row n) · **BLOCKED/NEXT**. Any step impossible → the run reports **FAIL with the failing step named**. The run never silently skips a step and the maker never declares its own done.
 
 A **Sunday run is DONE** when: analytics + ledger read for every live ship → ranked by real signal (visits ex-Theshin, registry installs, inbound, revenue) → kill list proposed (kills archive to `graveyard.md`, stay in repo, go dark on the hub) → ONE iteration target proposed with a build order (payment rail allowed here — the 30-day free rule graduates winners to charging) → same halt-for-"go" gate → post-go, iteration ships under §1.4–1.6.
 
@@ -84,7 +84,7 @@ The two July 28 SCOUT runs are the **baseline map** (`research/` in the repo). T
 
 A separate subagent pass — refutation-seeking, never confirmation-seeking — against the **running preview deployment**, not the code in context:
 
-1. Fetch the URL cold. Does it load, render, and do the thing the landing copy claims? Try to make the claim false.
+1. Fetch the deployment cold. Sandbox egress cannot reach `*.workers.dev` — so the verification path is: serve `public/` locally and fetch THAT cold; confirm the push actually landed (`git ls-remote` hash = local HEAD); and when the desktop bridge is up, load the live URL through Chrome on Theshin's machine. If the live URL is unverifiable, the verdict line must carry "live-URL unverified (egress)" — it may still PASS on local+push evidence. Then: does it do what the landing copy claims? Try to make the claim false.
 2. Probe the obvious breaks: empty states, bad input, mobile viewport, the one flow a first visitor actually takes.
 3. Scan the diff for leaked secrets, tokens, personal data, vault references.
 4. Re-check the day's why-now claim against its source — if the scout's premise was wrong, the ship's landing copy is wrong.
@@ -101,9 +101,8 @@ foundry/  (GitHub monorepo — public, build-in-public)
 ├─ graveyard.md             killed candidates + killed ships, with reasons — the screen compounds
 ├─ candidates-seen.json     dedupe memory
 ├─ research/                the two 2026-07-28 SCOUT baselines + monthly refreshes
-├─ lib/                     landing template · analytics beacon · MCP scaffold · deploy scripts
-├─ hub/                     the portfolio site (ship #1 builds this)
-└─ sites/NNN-slug/          one folder per ship
+├─ lib/                     landing template · analytics-beacon placeholder — grows one reusable piece per ship
+└─ public/                  the served site — hub at public/index.html, one folder per ship at public/NNN-slug/ (wrangler.jsonc serves ./public)
 ```
 
 Ledger row: `{ n, date, slug, one_liner, gap_source_url, deploy_url, kind (mcp|app|api|data), checker_verdict, distribution: {registry_pr, hub, x_draft}, signal: {d7_visits, d7_installs, d30_visits, inbound, revenue}, status (live|staged|killed|iterating), kill_criterion }`

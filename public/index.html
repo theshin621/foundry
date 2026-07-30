@@ -3,21 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>foundry — day 000</title>
+<title>foundry — one ship a day</title>
+<meta name="description" content="One product a day, built and shipped by an AI agent under a human go/no-go gate. Ledger public, verdicts verbatim, failures included.">
 <style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0d10;color:#e8eaed;font:16px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
-  main{max-width:34rem;padding:2rem;text-align:center}
-  h1{font-size:1.4rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .75rem}
-  p{color:#9aa0a6;margin:.25rem 0}
-  .d{color:#4b535c;margin-top:2rem;font-size:.8rem}
+  :root{--bg:#0b0d10;--fg:#e8eaed;--mut:#9aa0a6;--dim:#4b535c;--line:#1c2127;--ok:#7dd97b;--fail:#e77;--pend:#d9c26b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
+  main{max-width:44rem;margin:0 auto;padding:3.5rem 1.25rem 4rem}
+  h1{font-size:1.5rem;letter-spacing:.14em;text-transform:uppercase;margin:0}
+  .strap{color:var(--mut);margin:.6rem 0 0}
+  .stats{display:flex;gap:2rem;margin:2.2rem 0 0;padding:1rem 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stats div{flex:0 0 auto}
+  .stats b{display:block;font-size:1.3rem}
+  .stats span{color:var(--dim);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase}
+  ol{list-style:none;margin:1.6rem 0 0;padding:0}
+  li{padding:1rem 0;border-bottom:1px solid var(--line)}
+  .row{display:flex;gap:.9rem;align-items:baseline;flex-wrap:wrap}
+  .n{color:var(--dim);min-width:2.6rem}
+  a{color:var(--fg)}
+  .one{color:var(--mut);margin:.25rem 0 0 3.5rem;max-width:36rem}
+  .v{font-size:.72rem;letter-spacing:.06em;padding:.1rem .5rem;border:1px solid var(--line);border-radius:3px}
+  .v.PASS{color:var(--ok)} .v.FAIL{color:var(--fail)} .v.PARTIAL,.v.pending{color:var(--pend)}
+  .empty{color:var(--dim);padding:2rem 0}
+  footer{margin-top:3rem;color:var(--dim);font-size:.8rem}
+  footer a{color:var(--dim)}
 </style>
 </head>
 <body>
 <main>
   <h1>foundry</h1>
-  <p>One product a day, built and shipped by an agent under a human go/no-go gate.</p>
-  <p>Day 000 — the factory is wiring up. First ship imminent.</p>
-  <p class="d">ledger · graveyard · verdicts recorded verbatim, including the failures</p>
+  <p class="strap">One product a day, built and shipped by an AI agent under a human go/no-go gate. The ledger below is the source of truth — checker verdicts recorded verbatim, failures included. Sundays nothing new ships: the loop kills the dead and compounds what shows pull.</p>
+  <div class="stats"><div><b id="s-total">–</b><span>ships</span></div><div><b id="s-live">–</b><span>live</span></div><div><b id="s-killed">–</b><span>killed</span></div><div><b id="s-day">–</b><span>day</span></div></div>
+  <ol id="ships"><li class="empty">Loading the ledger…</li></ol>
+  <footer>built in public · <a href="https://github.com/theshin621/foundry">github.com/theshin621/foundry</a> · every entry shipped same-day by an agent, approved by a human, verified by an independent checker</footer>
 </main>
+<script>
+fetch('./ledger.json').then(r=>r.json()).then(d=>{
+  const ships=(d.ships||[]).slice().reverse();
+  const el=document.getElementById('ships');
+  document.getElementById('s-total').textContent=ships.length;
+  document.getElementById('s-live').textContent=ships.filter(s=>String(s.status||'').startsWith('live')).length;
+  document.getElementById('s-killed').textContent=ships.filter(s=>s.status==='killed').length;
+  document.getElementById('s-day').textContent=ships.length?String(ships[0].n).padStart(3,'0'):'000';
+  if(!ships.length){el.innerHTML='<li class="empty">No ships yet — the first is imminent.</li>';return}
+  el.innerHTML=ships.map(s=>{
+    const v=(s.checker_verdict||'pending').split(' ')[0];
+    const url=s.deploy_url&&s.deploy_url.startsWith('http')?s.deploy_url:('./'+String(s.n).padStart(3,'0')+'-'+s.slug+'/');
+    const link=s.n===1?'./':url;
+    return `<li><div class="row"><span class="n">${String(s.n).padStart(3,'0')}</span><a href="${link}">${s.slug}</a><span class="v ${v}">${s.checker_verdict||'pending'}</span><span style="color:var(--dim)">${s.date||''}</span></div><p class="one">${s.one_liner||''}</p></li>`
+  }).join('');
+}).catch(()=>{document.getElementById('ships').innerHTML='<li class="empty">Ledger unavailable — see <a href="https://github.com/theshin621/foundry/blob/main/ledger.json">ledger.json on GitHub</a>.</li>'});
+</script>
 </body>
 </html>
