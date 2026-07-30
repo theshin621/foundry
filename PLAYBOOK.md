@@ -101,7 +101,7 @@ foundry/  (GitHub monorepo — public, build-in-public)
 ├─ graveyard.md             killed candidates + killed ships, with reasons — the screen compounds
 ├─ candidates-seen.json     dedupe memory
 ├─ research/                the two 2026-07-28 SCOUT baselines + monthly refreshes
-├─ lib/                     landing template · analytics beacon · MCP scaffold · deploy scripts
+├─ lib/                     landing template · analytics-beacon placeholder — grows one reusable piece per ship
 └─ public/                  the served site — hub at public/index.html, one folder per ship at public/NNN-slug/ (wrangler.jsonc serves ./public)
 ```
 
