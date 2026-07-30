@@ -27,7 +27,7 @@ Differential scan of the last 24–72h, not a full landscape rebuild (the baseli
 
 ## DAILY — phase 2: BUILD + VERIFY (after "go", fully autonomous)
 
-1. Scaffold from `lib/` — never from scratch when lib has the piece. Build v1 in `sites/NNN-slug/`.
+1. Scaffold from `lib/` — never from scratch when lib has the piece. Build v1 in `public/NNN-slug/` (wrangler.jsonc serves ./public — anything outside it never deploys).
 2. Free-first: no payment rails on Mon–Sat ships in the first 30 days. Every ship gets the analytics beacon (no cookies, no fingerprinting, no PII) and the "built by [brand] · day NNN" hub-linked footer.
 3. Push branch → Cloudflare preview deploy → **CHECKER** (mandatory, subagent, refutation-seeking, against the PREVIEW URL — not the code):
    - Fetch cold: does it do what the landing copy claims? Try to falsify the claim.

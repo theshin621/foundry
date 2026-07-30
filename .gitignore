@@ -1,0 +1,3 @@
+# never commit runtime secrets — config lives at /home/claude/foundry/config.json (env only)
+config.json
+.DS_Store

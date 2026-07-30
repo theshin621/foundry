@@ -102,8 +102,7 @@ foundry/  (GitHub monorepo — public, build-in-public)
 ├─ candidates-seen.json     dedupe memory
 ├─ research/                the two 2026-07-28 SCOUT baselines + monthly refreshes
 ├─ lib/                     landing template · analytics beacon · MCP scaffold · deploy scripts
-├─ hub/                     the portfolio site (ship #1 builds this)
-└─ sites/NNN-slug/          one folder per ship
+└─ public/                  the served site — hub at public/index.html, one folder per ship at public/NNN-slug/ (wrangler.jsonc serves ./public)
 ```
 
 Ledger row: `{ n, date, slug, one_liner, gap_source_url, deploy_url, kind (mcp|app|api|data), checker_verdict, distribution: {registry_pr, hub, x_draft}, signal: {d7_visits, d7_installs, d30_visits, inbound, revenue}, status (live|staged|killed|iterating), kill_criterion }`
