@@ -1,0 +1,7 @@
+{
+  // Fable Foundry — static assets served by a git-connected Workers Build.
+  // Deploys on every push to main via `npx wrangler deploy`. Ships live under public/NNN-slug/.
+  "name": "foundry",
+  "compatibility_date": "2026-07-01",
+  "assets": { "directory": "./public" }
+}
