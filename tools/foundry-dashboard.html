@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fable Foundry — status</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--text2:#c9d1d9;--muted:#8b949e;--pos:#3fb950;--neg:#f85149;--warn:#d29922;--accent:#58a6ff;--accent-strong:#1f6feb;--sans:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text2);font:400 12px/1.5 var(--sans)}
+  .wrap{max-width:1060px;margin:0 auto;padding:24px 16px 32px}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  h1{font:600 22px/1.3 var(--sans);color:var(--text);margin:0}
+  h2{font:600 15px/1.4 var(--sans);color:var(--text);margin:0 0 12px}
+  .mono{font-family:var(--mono)}
+  .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .pill{display:inline-block;background:var(--surface2);border-radius:4px;padding:2px 8px;font:400 11px/1.3 var(--mono)}
+  .pill.pos{color:var(--pos)} .pill.warn{color:var(--warn)} .pill.neg{color:var(--neg)} .pill.mut{color:var(--muted)}
+  .head .grow{flex:1}
+  .btn{background:var(--accent-strong);color:var(--text);border-radius:6px;padding:8px 12px;font:400 12px/1 var(--sans);display:inline-block}
+  .btn:hover{text-decoration:none;filter:brightness(1.1)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 16px}
+  .tile b{display:block;font:400 20px/1.3 var(--mono);color:var(--text)}
+  .tile span{color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px}
+  .stages{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+  .stage{flex:1;min-width:72px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 4px;font:400 11px/1.3 var(--mono);color:var(--muted)}
+  .stage.done{color:var(--pos);border-color:var(--pos)}
+  .stage.now{color:var(--warn);border-color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{color:var(--muted);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:hover td{background:var(--surface2)}
+  td.num,th.num{font-family:var(--mono);text-align:right;white-space:nowrap}
+  .one{color:var(--muted);max-width:340px}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:var(--muted)} .kv .v{font-family:var(--mono);color:var(--text2);text-align:right}
+  .card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:12px 16px;margin-bottom:8px;font-size:12px}
+  .card.warn{border-left-color:var(--warn)}
+  .card b{color:var(--text);font-weight:600}
+  .brief{font:400 12px/1.6 var(--sans);color:var(--text2);white-space:pre-wrap;max-height:280px;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:8px}
+  .empty{color:var(--muted);padding:12px 0}
+  footer{color:var(--muted);font-size:11px;margin-top:8px}
+  .src{font-family:var(--mono);font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>Fable Foundry</h1>
+    <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
+    <span class="pill mut mono" id="next-fire">next fire —</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · 2026-07-30</span>
+    <span class="grow"></span>
+    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-07-30.md">Open latest brief</a>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><b id="t-day">001</b><span>day</span></div>
+    <div class="tile"><b id="t-ships">1</b><span>ships</span></div>
+    <div class="tile"><b id="t-live">1</b><span>live</span></div>
+    <div class="tile"><b id="t-killed">0</b><span>killed</span></div>
+    <div class="tile"><b id="t-pass">1/1</b><span>checker pass</span></div>
+    <div class="tile"><b id="t-scouted">0</b><span>candidates seen</span></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Today's run</h2>
+        <div class="stages" id="stages">
+          <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
+        </div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">Day 001 (manual "go"): ship #001 — the factory itself. Checker <span class="pill pos">PASS</span> after one fix-cycle; merged and deployed. The 04:00 fire ran scout-only pre-provisioning.</div>
+        <div class="brief" id="brief-body">RUN SUMMARY — 2026-07-30 (manual "go", Day 001)
+SCOUTED: none this run — ship #001 pre-designated by PLAYBOOK §8 (the factory itself).
+PICKED: hub / factory (Theshin: "go").
+BUILT: hub (public ledger render) · lib/template · beacon placeholder · ledger row 001 · SHIPPED.md.
+CHECKER: PARTIAL → fix-cycle → residual FAIL → cured → PASS (verbatim in ledger).
+DEPLOYED: merged to main → Cloudflare Workers Build. Live-URL unverified from sandbox (egress).
+LEDGER: row 001, status live.
+NEXT: paste workers.dev URL · CF analytics token · brand domain · tomorrow = first full scout day.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Ships — the ledger</h2>
+        <table id="ships-tbl">
+          <thead><tr><th class="num">#</th><th>ship</th><th>what it is</th><th>verdict</th><th>status</th><th class="num">d7 visits</th></tr></thead>
+          <tbody id="ships-body">
+            <tr><td class="num">001</td><td class="mono"><a href="https://github.com/theshin621/foundry/tree/main/public">hub</a></td><td class="one">the foundry's own hub — public ledger, factory library, deploy pipeline proven end-to-end</td><td><span class="pill pos" title="PASS after one fix-cycle — initial PARTIAL fully cured and re-verified; live-URL unverified (egress)">PASS</span></td><td class="mono">live</td><td class="num">–</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Scouted — candidates & graveyard</h2>
+        <div id="scouted-body" class="empty">No scouted candidates in the ledger yet — Day 001 was the pre-designated factory build. The first full scout lands tomorrow 04:00; every candidate (picked or not) accumulates here, and kills land in the graveyard with reasons.</div>
+        <div id="grave-body"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Loop</h2>
+        <div class="kv"><span class="k">cadence</span><span class="v">Mon–Sat ship · Sun triage</span></div>
+        <div class="kv"><span class="k">gate</span><span class="v">nothing builds without "go"</span></div>
+        <div class="kv"><span class="k">checker</span><span class="v">independent · verdict verbatim</span></div>
+        <div class="kv"><span class="k">free-first until</span><span class="v">2026-08-29</span></div>
+        <div class="kv"><span class="k">self-kill</span><span class="v">30 ships · zero signal</span></div>
+        <div class="kv"><span class="k">trigger</span><span class="v" title="trig_01D6JMuTCGJmirvC9qk49XCe">fable-foundry-daily</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Needs Theshin</h2>
+        <div class="card warn"><b>1 · Paste the workers.dev URL</b><br>Open the Worker's overview, visit the live hub once, paste the URL into chat — it goes into config + ledger.</div>
+        <div class="card warn"><b>2 · Enable CF Web Analytics</b><br>Token into <span class="mono">lib/beacon.html</span> — until then Sunday triage has no visit signal.</div>
+        <div class="card"><b>3 · Brand domain</b><br>workers.dev works meanwhile. Candidates: dayforge.dev · shipdock.dev · oneaday.build.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Links</h2>
+        <div class="kv"><span class="k">repo</span><span class="v"><a href="https://github.com/theshin621/foundry">theshin621/foundry</a></span></div>
+        <div class="kv"><span class="k">ledger</span><span class="v"><a href="https://github.com/theshin621/foundry/blob/main/ledger.json">ledger.json</a></span></div>
+        <div class="kv"><span class="k">playbook</span><span class="v"><a href="https://github.com/theshin621/foundry/blob/main/PLAYBOOK.md">PLAYBOOK.md</a></span></div>
+        <div class="kv"><span class="k">graveyard</span><span class="v"><a href="https://github.com/theshin621/foundry/blob/main/graveyard.md">graveyard.md</a></span></div>
+        <div class="kv"><span class="k">shipped</span><span class="v"><a href="https://github.com/theshin621/foundry/blob/main/SHIPPED.md">SHIPPED.md</a></span></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Self-refreshes from the public repo on every open (raw.githubusercontent.com + GitHub API); if unreachable it shows the embedded snapshot — the freshness pill top-left tells you which you're looking at. <span class="src">vault artifact · foundry state lives in the repo, verdicts verbatim, failures included</span></footer>
+</div>
+
+<script>
+(function(){
+  var RAW='https://raw.githubusercontent.com/theshin621/foundry/main/';
+  var API='https://api.github.com/repos/theshin621/foundry/contents/';
+  var bust='?t='+Date.now();
+
+  // next 04:00 SAST (02:00 UTC)
+  function nextFire(){
+    var now=new Date(), n=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate(),2,0,0));
+    if(n<=now) n=new Date(n.getTime()+864e5);
+    var ms=n-now,h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4);
+    document.getElementById('next-fire').textContent='next fire in '+h+'h '+String(m).padStart(2,'0')+'m';
+  }
+  nextFire(); setInterval(nextFire,60000);
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function vClass(v){v=String(v||'pending');return v.indexOf('PASS')===0?'pos':(v.indexOf('FAIL')===0?'neg':'warn')}
+
+  function renderLedger(d){
+    var ships=(d.ships||[]).slice().reverse();
+    document.getElementById('t-ships').textContent=ships.length;
+    document.getElementById('t-live').textContent=ships.filter(function(s){return String(s.status||'').indexOf('live')===0}).length;
+    document.getElementById('t-killed').textContent=ships.filter(function(s){return s.status==='killed'}).length;
+    var passed=ships.filter(function(s){return String(s.checker_verdict||'').indexOf('PASS')===0}).length;
+    document.getElementById('t-pass').textContent=passed+'/'+ships.length;
+    document.getElementById('t-day').textContent=ships.length?String(ships[0].n).padStart(3,'0'):'000';
+    document.getElementById('ships-body').innerHTML=ships.map(function(s){
+      var v=String(s.checker_verdict||'pending'), short=v.split(' ')[0];
+      var d7=s.signal&&s.signal.d7_visits!=null?s.signal.d7_visits:'–';
+      var url='https://github.com/theshin621/foundry/tree/main/public'+(s.n===1?'':'/'+String(s.n).padStart(3,'0')+'-'+s.slug);
+      return '<tr><td class="num">'+String(s.n).padStart(3,'0')+'</td><td class="mono"><a href="'+url+'">'+esc(s.slug)+'</a></td><td class="one">'+esc(s.one_liner)+'</td><td><span class="pill '+vClass(v)+'" title="'+esc(v)+'">'+esc(short)+'</span></td><td class="mono">'+esc(s.status||'')+'</td><td class="num">'+esc(d7)+'</td></tr>';
+    }).join('');
+  }
+  function renderSeen(d){
+    var seen=(d&&d.seen)||[];
+    document.getElementById('t-scouted').textContent=seen.length;
+    if(seen.length){
+      document.getElementById('scouted-body').className='';
+      document.getElementById('scouted-body').innerHTML='<table><thead><tr><th>date</th><th>candidate</th><th>note</th></tr></thead><tbody>'+seen.slice(-8).reverse().map(function(c){
+        if(typeof c==='string')return '<tr><td></td><td class="mono">'+esc(c)+'</td><td></td></tr>';
+        return '<tr><td class="mono">'+esc(c.date||'')+'</td><td class="mono">'+esc(c.slug||c.name||'')+'</td><td class="one">'+esc(c.one_liner||c.note||'')+'</td></tr>';
+      }).join('')+'</tbody></table>';
+    }
+  }
+  function renderGrave(md){
+    var rows=md.split('\n').filter(function(l){return l.indexOf('|')===0&&l.indexOf('---')<0&&l.indexOf('| date')<0});
+    if(!rows.length)return;
+    document.getElementById('grave-body').innerHTML='<h2 style="margin-top:16px">Graveyard · '+rows.length+'</h2><table><thead><tr><th>date</th><th>what</th><th>why killed</th></tr></thead><tbody>'+rows.slice(-5).reverse().map(function(r){
+      var c=r.split('|').map(function(x){return x.trim()});
+      return '<tr><td class="mono">'+esc(c[1])+'</td><td class="mono">'+esc(c[2])+'</td><td class="one">'+esc(c[3])+'</td></tr>';
+    }).join('')+'</tbody></table>';
+  }
+  function renderBrief(name,text){
+    document.getElementById('brief-btn').href='https://github.com/theshin621/foundry/blob/main/briefs/'+name;
+    var sum=text.indexOf('RUN SUMMARY')>=0?text.slice(text.indexOf('RUN SUMMARY')):text;
+    sum=sum.replace(/^#+\s*/gm,'').replace(/\*\*/g,'').replace(/^- /gm,'· ');
+    document.getElementById('brief-body').textContent=sum.trim().slice(0,2200);
+    var t=text.toLowerCase(), stages=document.getElementById('stages').children, state;
+    if(t.indexOf('verdict: pass')>=0||t.indexOf('checker: pass')>=0||t.indexOf('deployed:')>=0&&t.indexOf('staged')<0) state=6;
+    else if(t.indexOf('halt')>=0||t.indexOf('awaiting')>=0) state=3;
+    else state=2;
+    for(var i=0;i<stages.length;i++){stages[i].className='stage'+(i<state?' done':(i===state?' now':''))}
+    var line=document.getElementById('today-line');
+    if(state===3) line.innerHTML='Halted at the go-gate — brief '+esc(name)+' is awaiting <span class="pill warn">GO</span>. Reply in the fable-foundry-daily session.';
+    else if(state===6) line.innerHTML='Run '+esc(name.replace('.md',''))+' shipped — checker verdict in the ledger below.';
+  }
+
+  Promise.allSettled([
+    fetch(RAW+'ledger.json'+bust).then(function(r){return r.json()}),
+    fetch(RAW+'candidates-seen.json'+bust).then(function(r){return r.json()}),
+    fetch(RAW+'graveyard.md'+bust).then(function(r){return r.text()}),
+    fetch(API+'briefs'+bust).then(function(r){return r.json()})
+  ]).then(function(res){
+    var ok=false;
+    if(res[0].status==='fulfilled'){renderLedger(res[0].value);ok=true}
+    if(res[1].status==='fulfilled'){renderSeen(res[1].value)}
+    if(res[2].status==='fulfilled'){renderGrave(res[2].value)}
+    if(res[3].status==='fulfilled'&&Array.isArray(res[3].value)){
+      var briefs=res[3].value.filter(function(f){return /\.md$/.test(f.name)}).sort(function(a,b){return a.name<b.name?1:-1});
+      if(briefs.length){fetch(RAW+'briefs/'+briefs[0].name+bust).then(function(r){return r.text()}).then(function(t){renderBrief(briefs[0].name,t)}).catch(function(){})}
+    }
+    var f=document.getElementById('fresh');
+    if(ok){f.textContent='LIVE · from repo';f.className='pill pos'}
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>
