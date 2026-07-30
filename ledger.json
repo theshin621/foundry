@@ -8,14 +8,14 @@
       "gap_source_url": "PLAYBOOK.md \u00a78 \u2014 ship #001 is the factory itself, proven on its own body before any market idea",
       "deploy_url": "/",
       "kind": "app",
-      "checker_verdict": "pending",
+      "checker_verdict": "PASS after one fix-cycle \u2014 initial PARTIAL (stale sites/ ship-path in 3 files; lib/ overclaim; verdict-before-merge) fully cured and re-verified; hub JS/stats/empty-states/mobile/secrets/PII verified against local cold fetch; live-URL unverified (egress)",
       "distribution": {
         "registry_pr": "n/a (not an MCP server)",
         "hub": "self",
         "x_draft": "drafted in briefs/2026-07-30.md"
       },
       "signal": {},
-      "status": "live-pending-verify",
+      "status": "live",
       "kill_criterion": "n/a \u2014 infrastructure ship; lives while the loop lives"
     }
   ]
