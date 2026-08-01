@@ -11,7 +11,7 @@ This file is canonical. A copy lives at the repo root as `PLAYBOOK.md`; every fr
 
 | Decision | Choice |
 |---|---|
-| Autonomy | Scout auto-fires + recommends ONE build → **halts for explicit "go"** → after go, build→verify→deploy fully autonomous |
+| Autonomy | **AMENDED 2026-07-31 (see Amendments):** scout → build → checker all run autonomously to a STAGED preview; Theshin's "go" = PUBLISH (merge). Nothing public without approval — the gate moved from build-time to publish-time. |
 | Fire time | 04:00 SAST daily (`0 2 * * *` UTC) |
 | Stack | GitHub monorepo + Cloudflare Pages/Workers (deploy-on-push) |
 | Rhythm | Mon–Sat new ships · Sunday triage (kill/keep/iterate — same approval gate) |
@@ -19,6 +19,21 @@ This file is canonical. A copy lives at the repo root as `PLAYBOOK.md`; every fr
 | Brand | New neutral brand, one domain, every ship under it (candidates in §8) |
 | Distribution | MCP-registry submission where applicable + portfolio-hub entry + DRAFTED X post in Theshin's voice (never auto-posted) |
 | Budget | No cap — the approval gate is the cost control |
+
+---
+
+### Amendments — 2026-07-31 (per Theshin, after two zero-output runs)
+
+The 2026-07-30 manual fire and the 2026-07-31 04:08 scheduled fire both died before pushing anything — no brief, no candidates, no heartbeat reached the repo (cause: quota exhaustion mid-run; the full parallel scout burned ~300k+ tokens before any durable output). The go-gate was never reached, so throughput was never a gate problem. Six binding changes, none of which relax verification:
+
+1. **Gate moved to publish-time.** Mon–Sat runs now build AND checker-verify to a **staged preview** (unmerged branch) autonomously every day. Theshin's "go" / "go N" **merges to production** — batchable ("go 2+4"), any time. Nothing is ever publicly deployed without approval; the checker still gates staging. A staged ship unreleased after **7 days** flips to `parked` in the ledger (branch kept).
+2. **Three scout lanes, same gates on all:** ORIGINAL (news-driven gap, dated why-now ≤14d — the original lane) · **CLONE** (a tool with corroborated, current revenue elsewhere, built with a named Claude edge — founders-board CREATE evidence rules; "I made $X" posts are marketing until corroborated) · **EVERGREEN** (boring schlep utilities with permanent demand — no news hook required; the why-now requirement is waived for this lane only, the occupant hunt is not). Every candidate still passes the adversarial screen, the day-build gate, and carries a kill-criterion.
+3. **Lean daily / deep Sunday scout.** Weekdays: single-pass differential scan (~100–150k tokens — changelogs, MCP registry/blog, one sweep, ≤2 subagents and only to verify the ONE recommendation). Sunday: the deep parallel scan runs alongside triage.
+4. **Heartbeat + push-early (survivability).** First action of every run after clone: append a run-start line to today's brief file and PUSH it. Push again the moment the brief is drafted, again after the checker verdict, again after staging. A run that dies mid-flight must still leave dated evidence in the repo at the last completed stage.
+5. **Dashboard refresh step.** Each run regenerates the embedded snapshot in `tools/foundry-dashboard.html`, pushes it, and updates the `foundry-dashboard` Cowork artifact when the desktop bridge is reachable (skip gracefully when not).
+6. **Ledger statuses** now: `staged` (built, verified, awaiting go) · `live` · `parked` (staged >7d unreleased) · `killed`.
+
+Clauses elsewhere in this file that say "no build without approval" are superseded by (1): the binding invariant is **no PUBLIC exposure without approval**, and the maker still never self-verdicts.
 
 ---
 
