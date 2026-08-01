@@ -55,7 +55,7 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · 2026-07-30</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · 2026-07-31</span>
     <span class="grow"></span>
     <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-07-30.md">Open latest brief</a>
   </div>
@@ -76,15 +76,12 @@
         <div class="stages" id="stages">
           <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">Day 001 (manual "go"): ship #001 — the factory itself. Checker <span class="pill pos">PASS</span> after one fix-cycle; merged and deployed. The 04:00 fire ran scout-only pre-provisioning.</div>
-        <div class="brief" id="brief-body">RUN SUMMARY — 2026-07-30 (manual "go", Day 001)
-SCOUTED: none this run — ship #001 pre-designated by PLAYBOOK §8 (the factory itself).
-PICKED: hub / factory (Theshin: "go").
-BUILT: hub (public ledger render) · lib/template · beacon placeholder · ledger row 001 · SHIPPED.md.
-CHECKER: PARTIAL → fix-cycle → residual FAIL → cured → PASS (verbatim in ledger).
-DEPLOYED: merged to main → Cloudflare Workers Build. Live-URL unverified from sandbox (egress).
-LEDGER: row 001, status live.
-NEXT: paste workers.dev URL · CF analytics token · brand domain · tomorrow = first full scout day.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-07-31: contract v3 live — two runs died mid-flight on quota before pushing anything (that is why nothing new showed here); the loop now heartbeat-pushes at every stage, scouts lean across 3 lanes, and <b>auto-stages verified ships</b> — your "go" publishes. Refire dispatched.</div>
+        <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
+· Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
+· 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
+· Lean daily scout (~100-150k tok) / deep Sunday scan. Heartbeat push at every stage — a dying run still leaves evidence.
+· Staged >7 days → parked. Ledger statuses: staged / live / parked / killed.</div>
       </div>
 
       <div class="panel">
