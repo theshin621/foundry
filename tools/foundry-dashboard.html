@@ -56,6 +56,7 @@
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
     <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-02</span>
+    <span class="pill mut" id="health" title="live-site probe from a GitHub Actions runner (the sandbox itself cannot reach workers.dev)">health —</span>
     <span class="grow"></span>
     <a class="btn" id="live-btn" href="https://foundry.theshin-naidu.workers.dev" style="background:#238636;margin-right:8px">Open live site</a>
     <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-02.md">Open latest brief</a>
@@ -254,10 +255,23 @@
     fetch(RAW+'candidates-seen.json'+bust).then(function(r){return r.json()}),
     fetch(RAW+'graveyard.md'+bust).then(function(r){return r.text()}),
     fetch(API+'briefs'+bust).then(function(r){return r.json()}),
-    shipBranchLedgers()
+    shipBranchLedgers(),
+    fetch(RAW+'health.json'+bust).then(function(r){return r.ok?r.json():null}).catch(function(){return null})
   ]).then(function(res){
     var ok=false;
     var branchLedgers=(res[4]&&res[4].status==='fulfilled'&&res[4].value)||[];
+    // health.json is written by health-check.yml after each production deploy — it is the
+    // ONLY verification that the live site actually renders (no run can reach workers.dev).
+    var health=(res[5]&&res[5].status==='fulfilled'&&res[5].value)||null;
+    (function(){
+      var h=document.getElementById('health'); if(!h)return;
+      if(!health){h.textContent='health · awaiting first probe';h.className='pill mut';return}
+      var hubOk=health.hub&&health.hub.ok;
+      var down=(health.ships||[]).filter(function(s){return s.http&&!s.ok&&s.status==='live'}).length;
+      if(hubOk&&!down){h.textContent='LIVE SITE OK · '+((health.checked_utc||'').replace('T',' ').replace('Z',''));h.className='pill pos'}
+      else{h.textContent='LIVE SITE '+(hubOk?('· '+down+' ship path(s) down'):'DOWN')+' · '+(health.checked_utc||'');h.className='pill neg'}
+      h.title='hub http '+((health.hub||{}).http||'?')+' · probed by GitHub Actions ('+(health.commit||'')+')';
+    })();
     if(res[0].status==='fulfilled'){renderLedger(res[0].value,branchLedgers);ok=true}
     if(res[1].status==='fulfilled'){renderSeen(res[1].value)}
     if(res[2].status==='fulfilled'){renderGrave(res[2].value)}
