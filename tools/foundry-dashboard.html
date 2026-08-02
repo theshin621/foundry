@@ -64,6 +64,7 @@
     <div class="tile"><b id="t-day">002</b><span>day</span></div>
     <div class="tile"><b id="t-ships">2</b><span>ships</span></div>
     <div class="tile"><b id="t-live">1</b><span>live</span></div>
+    <div class="tile"><b id="t-staged">1</b><span>staged / failed</span></div>
     <div class="tile"><b id="t-killed">0</b><span>killed</span></div>
     <div class="tile"><b id="t-pass">1/1</b><span>checker pass</span></div>
     <div class="tile"><b id="t-scouted">0</b><span>candidates seen</span></div>
@@ -76,12 +77,13 @@
         <div class="stages" id="stages">
           <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-02 (Sunday triage): <b>PUSH IS BLOCKED — nothing this run reached GitHub.</b> The PAT lives at /home/claude/foundry/config.json, which dies with the container, so a scheduled run in a fresh container has no credential and the heartbeat-push amendment cannot execute. Read works, write is 403. This is why runs go dark. Fix: put the fine-grained PAT in the scheduled task prompt, or re-create the loop as a local task on your machine. Ship 002 (gha-trigger) was built and independently checked: <b>FAIL</b> — the fix cycle closed both original blockers (glob engine now 49/49 vs GitHub’s cheat sheet) but introduced a stored XSS via an unescaped exception message. Branch unmerged, nothing public. One-line fix queued for Monday.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-02 — <b>WRITE PATH FIXED.</b> The loop had been unable to push at all: the PAT lived at /home/claude/foundry/config.json, which dies with the container, so every scheduled run in a fresh container was write-blind (read 200 / write 403). The token now travels in the scheduled-task prompt, all pushes go through <span class="mono">bin/push.sh</span>, and a fired fresh-container run pushed its heartbeat in 90s — verified end-to-end. Ship 002 (gha-trigger) is built and on an <b>unmerged</b> branch with checker verdict <b>FAIL</b>: the fix cycle took the glob engine to 49/49 against GitHub’s cheat sheet but introduced a stored XSS via an unescaped exception message. An out-of-band run is landing the one-line fix and a fresh independent re-check now. Nothing public either way.</div>
         <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
 · Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
 · 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
 · Lean daily scout (~100-150k tok) / deep Sunday scan. Heartbeat push at every stage — a dying run still leaves evidence.
-· Staged >7 days → parked. Ledger statuses: staged / live / parked / killed.</div>
+· Staged >7 days → parked. Ledger statuses: staged / live / parked / killed / failed.
+· Staged & failed ships live on unmerged branches — the dashboard now reads those branch ledgers too, so the pipeline is visible before anything is public.</div>
       </div>
 
       <div class="panel">
@@ -136,7 +138,8 @@
 
 <script>
 (function(){
-  var RAW='https://raw.githubusercontent.com/theshin621/foundry/main/';
+  var RAWBASE='https://raw.githubusercontent.com/theshin621/foundry/';
+  var RAW=RAWBASE+'main/';
   var API='https://api.github.com/repos/theshin621/foundry/contents/';
   var bust='?t='+Date.now();
 
@@ -152,19 +155,43 @@
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
   function vClass(v){v=String(v||'pending');return v.indexOf('PASS')===0?'pos':(v.indexOf('FAIL')===0?'neg':'warn')}
 
-  function renderLedger(d){
-    var ships=(d.ships||[]).slice().reverse();
+  /* Ships that are staged or checker-FAILED live on an UNMERGED branch by design
+     (nothing public without approval), so their ledger row is not on main. Reading
+     only main therefore hides exactly the ships awaiting your decision. mergeBranchShips
+     folds those rows in, flagged, so the dashboard shows the whole pipeline. */
+  function mergeBranchShips(mainLedger, branchLedgers){
+    var ships=(mainLedger.ships||[]).slice();
+    var seen={}; ships.forEach(function(s){seen[s.n]=true});
+    branchLedgers.forEach(function(bl){
+      ((bl.ledger.ships)||[]).forEach(function(s){
+        if(seen[s.n]) return;           // main is authoritative for anything merged
+        seen[s.n]=true;
+        var c={}; for(var k in s) c[k]=s[k];
+        c._branch=bl.branch;            // marks it as not-yet-public
+        ships.push(c);
+      });
+    });
+    return ships.sort(function(a,b){return a.n-b.n});
+  }
+
+  function renderLedger(d, branchLedgers){
+    var ships=mergeBranchShips(d, branchLedgers||[]).reverse();
+    var st=function(s){return String(s.status||'')};
     document.getElementById('t-ships').textContent=ships.length;
-    document.getElementById('t-live').textContent=ships.filter(function(s){return String(s.status||'').indexOf('live')===0}).length;
-    document.getElementById('t-killed').textContent=ships.filter(function(s){return s.status==='killed'}).length;
+    document.getElementById('t-live').textContent=ships.filter(function(s){return st(s).indexOf('live')===0}).length;
+    document.getElementById('t-staged').textContent=ships.filter(function(s){return st(s)==='staged'||st(s)==='failed'||st(s)==='parked'}).length;
+    document.getElementById('t-killed').textContent=ships.filter(function(s){return st(s)==='killed'}).length;
     var passed=ships.filter(function(s){return String(s.checker_verdict||'').indexOf('PASS')===0}).length;
     document.getElementById('t-pass').textContent=passed+'/'+ships.length;
     document.getElementById('t-day').textContent=ships.length?String(ships[0].n).padStart(3,'0'):'000';
     document.getElementById('ships-body').innerHTML=ships.map(function(s){
       var v=String(s.checker_verdict||'pending'), short=v.split(' ')[0];
       var d7=s.signal&&s.signal.d7_visits!=null?s.signal.d7_visits:'–';
-      var url='https://github.com/theshin621/foundry/tree/main/public'+(s.n===1?'':'/'+String(s.n).padStart(3,'0')+'-'+s.slug);
-      return '<tr><td class="num">'+String(s.n).padStart(3,'0')+'</td><td class="mono"><a href="'+url+'">'+esc(s.slug)+'</a></td><td class="one">'+esc(s.one_liner)+'</td><td><span class="pill '+vClass(v)+'" title="'+esc(v)+'">'+esc(short)+'</span></td><td class="mono">'+esc(s.status||'')+'</td><td class="num">'+esc(d7)+'</td></tr>';
+      var url=s._branch
+        ? 'https://github.com/theshin621/foundry/tree/'+encodeURI(s._branch)+'/public/'+String(s.n).padStart(3,'0')+'-'+s.slug
+        : 'https://github.com/theshin621/foundry/tree/main/public'+(s.n===1?'':'/'+String(s.n).padStart(3,'0')+'-'+s.slug);
+      var tag=s._branch?' <span class="pill warn" title="lives on unmerged branch '+esc(s._branch)+' — not publicly deployed">branch</span>':'';
+      return '<tr><td class="num">'+String(s.n).padStart(3,'0')+'</td><td class="mono"><a href="'+url+'">'+esc(s.slug)+'</a>'+tag+'</td><td class="one">'+esc(s.one_liner)+'</td><td><span class="pill '+vClass(v)+'" title="'+esc(v)+'">'+esc(short)+'</span></td><td class="mono">'+esc(s.status||'')+'</td><td class="num">'+esc(d7)+'</td></tr>';
     }).join('');
   }
   function renderSeen(d){
@@ -201,14 +228,36 @@
     else if(state===6) line.innerHTML='Run '+esc(name.replace('.md',''))+' shipped — checker verdict in the ledger below.';
   }
 
+  /* Pull ledger.json off every unmerged ship/* branch. Degrades to [] on any failure,
+     in which case the dashboard renders exactly as it did before (main only) — the
+     branch view is additive and must never be able to break the page. */
+  var BRANCHES='https://api.github.com/repos/theshin621/foundry/branches';
+  function shipBranchLedgers(){
+    return fetch(BRANCHES+bust)
+      .then(function(r){ if(!r.ok) throw 0; return r.json() })
+      .then(function(bs){
+        if(!Array.isArray(bs)) return [];
+        var names=bs.map(function(b){return b&&b.name}).filter(function(n){return n&&n.indexOf('ship/')===0});
+        return Promise.all(names.map(function(n){
+          return fetch(RAWBASE+'refs/heads/'+n+'/ledger.json'+bust)
+            .then(function(r){ if(!r.ok) throw 0; return r.json() })
+            .then(function(j){ return {branch:n, ledger:j} })
+            .catch(function(){ return null });
+        })).then(function(a){ return a.filter(Boolean) });
+      })
+      .catch(function(){ return [] });
+  }
+
   Promise.allSettled([
     fetch(RAW+'ledger.json'+bust).then(function(r){return r.json()}),
     fetch(RAW+'candidates-seen.json'+bust).then(function(r){return r.json()}),
     fetch(RAW+'graveyard.md'+bust).then(function(r){return r.text()}),
-    fetch(API+'briefs'+bust).then(function(r){return r.json()})
+    fetch(API+'briefs'+bust).then(function(r){return r.json()}),
+    shipBranchLedgers()
   ]).then(function(res){
     var ok=false;
-    if(res[0].status==='fulfilled'){renderLedger(res[0].value);ok=true}
+    var branchLedgers=(res[4]&&res[4].status==='fulfilled'&&res[4].value)||[];
+    if(res[0].status==='fulfilled'){renderLedger(res[0].value,branchLedgers);ok=true}
     if(res[1].status==='fulfilled'){renderSeen(res[1].value)}
     if(res[2].status==='fulfilled'){renderGrave(res[2].value)}
     if(res[3].status==='fulfilled'&&Array.isArray(res[3].value)){
