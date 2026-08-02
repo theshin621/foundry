@@ -4,49 +4,49 @@
       "date": "2026-08-02",
       "lane": "EVERGREEN",
       "slug": "gha-trigger",
-      "outcome": "built as ship 002",
-      "note": "occupant hunt empty; no runtime secret required"
+      "outcome": "built as ship 002 - checker FAIL, unmerged (do not re-propose as new)",
+      "note": "XSS fixed and confirmed dead; 56/56 vs GitHub cheat sheet, 0 inverted verdicts. Fails on a glob-engine ReDoS that a static complexity budget cannot bound. REVISIT AS A REBUILD, not a new candidate: replace globToRegex/gmatch with a linear-time non-backtracking matcher (two-pointer + backtrack memo, or DP), verify against the existing 56-case published oracle and the ~67M-pair differential harness."
     },
     {
       "date": "2026-08-02",
       "lane": "ORIGINAL",
       "slug": "cimdkit",
-      "outcome": "runner-up \u2014 first pick for Monday",
+      "outcome": "runner-up — first pick for Monday",
       "note": "MCP final spec 2026-07-28 deprecated DCR for CIMD; no free validator/generator found across 4 query formulations"
     },
     {
       "date": "2026-08-02",
       "lane": "ORIGINAL",
       "slug": "provenance-audit",
-      "outcome": "parked \u2014 needs explicit approval",
+      "outcome": "parked — needs explicit approval",
       "note": "EU AI Act Art.50 + California AITA both effective 2026-08-02; asserting compliance is a legal conclusion, HARD RULES gate it"
     },
     {
       "date": "2026-08-02",
       "lane": "ORIGINAL",
       "slug": "mcp-conformance-index",
-      "outcome": "parked \u2014 derivative",
+      "outcome": "parked — derivative",
       "note": "mcp-spec-check already scanned the registry 2026-07-12 vs the RC; only the publishing layer is missing"
     },
     {
       "date": "2026-08-02",
       "lane": "CLONE",
       "slug": "bulk-alt-text",
-      "outcome": "blocked \u2014 no runtime inference key",
+      "outcome": "blocked — no runtime inference key",
       "note": "alttext.ai corroborated: 20k+ WP installs + Shopify 4.5/135"
     },
     {
       "date": "2026-08-02",
       "lane": "CLONE",
       "slug": "policy-spam-filter",
-      "outcome": "blocked \u2014 no runtime inference key",
+      "outcome": "blocked — no runtime inference key",
       "note": "Akismet corroborated: 6M+ WP installs, $9.95/mo for 500 checks"
     },
     {
       "date": "2026-08-02",
       "lane": "EVERGREEN",
       "slug": "nginx-location-sim",
-      "outcome": "queued \u2014 strong second",
+      "outcome": "queued — strong second",
       "note": "htaccess equivalent used 7.5M times/10yr; seowebchecker tests one pattern, not which block wins"
     },
     {
