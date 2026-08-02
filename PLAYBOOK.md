@@ -47,7 +47,8 @@ The 2026-08-02 run produced a full brief, a build and two checker verdicts and *
 | `git push origin` (proxy, via `url.insteadOf`) | **403 — the proxy is read-only** |
 | `https://github.com/…/info/refs?service=git-upload-pack` | **200** |
 | `https://github.com/…/info/refs?service=git-receive-pack` | **401** — auth required, *not* blocked |
-| `api.github.com` | **200** |
+| `api.github.com` (bare root) | 200 — **but this is misleading, see below** |
+| `api.github.com/repos/theshin621/foundry/*` | **403** — sandbox proxy: "GitHub access to this repository is not enabled for this session" |
 | `/home/claude/foundry/config.json` | **absent** |
 
 **The network was never the problem. The credential was.** §8 stores the PAT at `/home/claude/foundry/config.json`, a container path — and a scheduled run gets a *fresh container*, so the file never exists. Every scheduled fire is therefore write-blind, which is why Amendment 4's heartbeat-push could not execute and why runs went dark. Ship 001 and the amendments landed from interactive sessions where the PAT was in context, never from a scheduled fire.
@@ -59,6 +60,8 @@ Binding consequences:
 3. **A run that cannot push reports BLOCKED and hands over a `git bundle`** covering all refs, so the run's state survives outside the repo. It never works stateless and never pretends the push happened.
 4. **The day-build gate now also tests for runtime credentials**, not just app-store review / KYC / marketplace approval. The 2026-08-02 scout found the entire CLONE lane unbuildable because every candidate's edge is runtime inference and the loop has no inference key — a provisioning fact the old gate could not see.
 5. **`ledger.json` gains a `failed` status** — a checker-FAILed build is neither `staged` nor `killed`, and mislabelling it either way corrupts the ledger. Statuses: `staged | live | parked | killed | failed`.
+6. **The GitHub REST API is NOT usable from a run.** Git over HTTPS works with the PAT; `api.github.com` *repo* endpoints are intercepted by the sandbox proxy and return 403 regardless of credential. (An earlier note in this amendment claimed "api.github.com 200" — that was a bare-root probe and was wrong; corrected 2026-08-02.) Consequences: step F **cannot open a registry PR via the API**, and anything else API-shaped must be done by Theshin or from a session running on his machine. `git push` prints a ready-made `…/pull/new/<branch>` URL — put that in the notification instead of pretending a PR was opened. The dashboard's API calls are unaffected because they execute in Theshin's browser, not here.
+7. **The "go" channel is the loop's remaining single point of failure.** A scheduled fire is a *fresh session*: it cannot see a reply Theshin typed into yesterday's session, and there is no durable inbox for the word "go". Until that is resolved, a staged ship publishes only if Theshin replies inside a session that is still alive. The durable fix is to make **merging the branch itself the approval** — the loop stages, notifies with the `pull/new` URL, and Theshin merges when ready; the next run detects `git merge-base --is-ancestor <branch> main` and flips the ledger to `live`. No message needs to survive.
 
 ---
 
