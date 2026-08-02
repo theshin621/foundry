@@ -55,13 +55,16 @@ fi
 
 [ $# -gt 0 ] || set -- main
 
-# -c url...insteadOf= clears the read-only proxy rewrite for this invocation only.
+# The proxy rewrite is url."http://…/git/".insteadOf = "https://github.com/".
+# A credentialed URL does NOT match that prefix, so it is never rewritten and goes
+# direct. Do NOT try to clear the rule with `-c url.https://github.com/.insteadOf=`:
+# git treats the empty value as a prefix matching everything and mangles the URL into
+# https://github.com/https://x-access-token:...@github.com/... (verified 2026-08-02).
 URL="https://x-access-token:${PAT}@github.com/${REPO_SLUG}"
 rc=0
 for ref in "$@"; do
   echo "pushing ${ref} ..."
-  if git -c "url.https://github.com/.insteadOf=" push "$URL" "${ref}:refs/heads/${ref}" 2>&1 \
-       | sed "s#${PAT}#***#g"; then :; else rc=1; fi
+  if git push "$URL" "${ref}:refs/heads/${ref}" 2>&1 | sed "s#${PAT}#***#g"; then :; else rc=1; fi
 done
 
 # Never leave the token in .git/config or the reflog of a public repo.
