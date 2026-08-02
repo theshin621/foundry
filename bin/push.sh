@@ -64,7 +64,14 @@ URL="https://x-access-token:${PAT}@github.com/${REPO_SLUG}"
 rc=0
 for ref in "$@"; do
   echo "pushing ${ref} ..."
-  if git push "$URL" "${ref}:refs/heads/${ref}" 2>&1 | sed "s#${PAT}#***#g"; then :; else rc=1; fi
+  if git push "$URL" "${ref}:refs/heads/${ref}" 2>&1 | sed "s#${PAT}#***#g"; then
+    # Pushing to an explicit URL does NOT update refs/remotes/origin/*, so git (and
+    # any tooling that checks tracking refs) keeps reporting the branch as unpushed
+    # long after it landed. Sync the tracking ref ourselves so "ahead of origin"
+    # means genuinely unpushed. (Verified 2026-08-02: without this, a pushed main
+    # still showed 2 "unpushed" commits.)
+    git update-ref "refs/remotes/origin/${ref}" "$(git rev-parse "${ref}")" 2>/dev/null || true
+  else rc=1; fi
 done
 
 # Never leave the token in .git/config or the reflog of a public repo.
