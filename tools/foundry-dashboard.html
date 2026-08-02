@@ -57,6 +57,7 @@
     <span class="pill mut mono" id="next-fire">next fire —</span>
     <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-02</span>
     <span class="grow"></span>
+    <a class="btn" id="live-btn" href="https://foundry.theshin-naidu.workers.dev" style="background:#238636;margin-right:8px">Open live site</a>
     <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-02.md">Open latest brief</a>
   </div>
 
@@ -77,7 +78,7 @@
         <div class="stages" id="stages">
           <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-02 — <b>WRITE PATH FIXED.</b> The loop had been unable to push at all: the PAT lived at /home/claude/foundry/config.json, which dies with the container, so every scheduled run in a fresh container was write-blind (read 200 / write 403). The token now travels in the scheduled-task prompt, all pushes go through <span class="mono">bin/push.sh</span>, and a fired fresh-container run pushed its heartbeat in 90s — verified end-to-end. Ship 002 (gha-trigger) is built and on an <b>unmerged</b> branch with checker verdict <b>FAIL</b>: the fix cycle took the glob engine to 49/49 against GitHub’s cheat sheet but introduced a stored XSS via an unescaped exception message. An out-of-band run is landing the one-line fix and a fresh independent re-check now. Nothing public either way.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-02 — <b>LOOP NOW AUTONOMOUS TO THE GATE.</b> Write path fixed (the PAT died with each fresh container; it now travels in the task prompt and all pushes go through <span class="mono">bin/push.sh</span>) — proven by a fired fresh-container run that pushed in 90s. <b>Approval is now the merge itself:</b> merge <span class="mono">ship/NNN-slug</span> into main from GitHub, any time, any device — that IS the deploy, and the next run reconciles the ledger via <span class="mono">bin/reconcile-merged.sh</span>. No message has to survive between sessions. Analytics beacon is LIVE (cookieless), so ships from day 003 are measured. Ship 002 sits unmerged pending a fresh checker verdict. Remaining human tasks: merge to publish, and eyeball the live site — no cloud run can reach workers.dev.</div>
         <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
 · Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
 · 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
