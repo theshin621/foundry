@@ -37,6 +37,18 @@ Clauses elsewhere in this file that say "no build without approval" are supersed
 
 ---
 
+### Amendment — 2026-08-02b (deployment quality — more ships reach staged, and you see them before you merge)
+
+After ship 002 failed four checker passes over two runs, the bottleneck is visibly in *build strategy and deploy verification*, not in candidates or approvals. Five binding changes, none of which relax the gate:
+
+1. **A GitHub Actions sidecar closes the sandbox's two blind spots.** The build sandbox cannot reach `*.workers.dev` or the GitHub REST API, but a workflow running *in the repo* can, for free, with the built-in `GITHUB_TOKEN` — no new secret. `.github/workflows/ship-preview.yml` opens a **draft PR** for every `ship/**` push (Cloudflare then attaches a preview deployment, so Theshin looks at the real page before merging — this is the "PRs get preview URLs" line finally made real). `.github/workflows/health-check.yml` probes the live site after every `main` deploy and commits `public/health.json`; the next run **reads that file and knows** whether the site renders, turning "live-URL unverified (egress)" from a permanent caveat into a verified fact inside the loop.
+2. **Borrow-don't-build at pick time.** Ship 002 died three times on one hand-rolled glob engine when a correct, tested reference implementation (nektos/act's `pkg/workflowpattern`, MIT) existed the whole time. **If a ship's risky core — parser, matcher, sanitiser, crypto — has a reference implementation, port it with attribution; hand-rolling one is a reason to prefer a different candidate.** Day-buildable must also mean day-verifiable.
+3. **A rebuild lane for architectural FAILs.** A checker-FAIL whose fix is structural (not a one-liner) re-enters the *next* morning's pick as a rebuild candidate carrying the checker's constraint as its build order — failed work becomes the cheapest next ship instead of sunk cost. (Ship 002 → Monday's rebuild: linear-time non-backtracking matcher, verified against `lib/checks/gha-filter-oracle.json`.)
+4. **`lib/checks/` compounds verification the way `lib/` compounds building.** The checker reuses the accumulated payload corpora / oracles / timing probes and contributes one piece back per ship. The `esc()` boundary helper is now `lib/esc.js` — both of ship 002's security findings were unescaped input reaching `innerHTML`, so every ship routes HTML-from-input through it and the checker greps for raw `innerHTML=` that bypasses it.
+5. **Kill-criteria must be measurable by the beacon.** Cloudflare's free Web Analytics is **pageview-only** (no custom events), so a criterion like "<25 tool runs" is unmeasurable and quietly makes Sunday triage ceremonial. Every kill-criterion is phrased in **per-path visits** (which the beacon does provide) or it is not a valid criterion.
+
+---
+
 ### Amendment — 2026-08-02 (the write path; verified, do not re-derive)
 
 The 2026-08-02 run produced a full brief, a build and two checker verdicts and **could not push a single byte**. Diagnosis, verified by test rather than assumed:

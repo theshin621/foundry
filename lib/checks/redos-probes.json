@@ -1,0 +1,11 @@
+{
+  "_doc": "Pattern shapes that cause catastrophic backtracking in a naive glob->regex compiler. Ship 002's finding: a STATIC COMPLEXITY BUDGET CANNOT BOUND THIS (a pattern sitting exactly at the cap still hung >10s, and the budget broke a correct verdict). The only sound fix is a non-backtracking linear-time matcher. Use these to prove one.",
+  "probes": [
+    {"pattern": "****a****b****c****d", "value": "aXbXcXd_no_match_tail", "note": "ship 002 re-check FAIL — sat at the cap, hung >10s"},
+    {"pattern": "*?*?*?*?*?*?*?*?*?*?x", "value": "aaaaaaaaaaaaaaaaaaaaaaz", "note": "alternating star/quant"},
+    {"pattern": "*****a+a+a+a+Z", "value": "aaaaaaaaaaaaaaaaaaaaaa", "note": "passed all 3 budget dimensions, still ~4.5s"},
+    {"pattern": "**/**/**/**/**/**/x", "value": "a/a/a/a/a/a/a/a/a/a/y", "note": "adjacent **/ runs before the collapse fix"}
+  ],
+  "ceiling_ms": 50,
+  "assert": "Every probe must resolve (match or no-match) in < ceiling_ms with no UI freeze. A synchronous render() that can exceed this freezes the tab and bypasses try/catch — so the matcher must be linear-time, not merely budgeted. Verify against a wall-clock timer, not a static line count."
+}

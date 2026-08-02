@@ -1,0 +1,17 @@
+{
+  "_doc": "HTML/JS injection strings for any ship that builds HTML from user input. Assert zero script execution and zero injected elements when each is fed through every user-derived field. The 'sink' field records where the analogous payload actually bit a real ship.",
+  "payloads": [
+    {"s": "<img src=x onerror=alert(1)>", "sink": "template interpolation (ship 002 round 1)"},
+    {"s": "<svg onload=alert(1)>", "sink": "template interpolation"},
+    {"s": "\"><img src=x onerror=alert(1)>", "sink": "attribute breakout"},
+    {"s": "'><script>alert(1)</script>", "sink": "quoted-attribute breakout"},
+    {"s": "</span><script>alert(1)</script>", "sink": "element close + inject"},
+    {"s": "- *<img src=x onerror=alert(1)>", "sink": "value echoed into a THROWN Error message, then rendered (ship 002 round 2 — the one the fix introduced)"},
+    {"s": "&<svg onload=alert(2)>", "sink": "YAML anchor form echoed into an error message"},
+    {"s": "javascript:alert(1)", "sink": "href/src attribute"},
+    {"s": "<iframe src=javascript:alert(1)>", "sink": "element injection"},
+    {"s": "{{constructor.constructor('alert(1)')()}}", "sink": "template-engine expression (only if a framework is used)"},
+    {"s": "<img src=x onerror=alert(1)>", "sink": "unicode-escaped angle brackets"}
+  ],
+  "assert": "For each payload P and each user-derived input field F: set F=P, exercise the page, and confirm (a) no dialog/script executes, (b) the DOM contains P as literal text not as an element, (c) it survives a round-trip through any thrown-and-rendered error path."
+}
