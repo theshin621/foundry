@@ -17,6 +17,24 @@
       "signal": {},
       "status": "live",
       "kill_criterion": "n/a \u2014 infrastructure ship; lives while the loop lives"
+    },
+    {
+      "n": 2,
+      "date": "2026-08-02",
+      "slug": "gha-trigger",
+      "one_liner": "paste a GitHub Actions workflow and an event, get WILL RUN / WON'T RUN plus the exact filter that decided it",
+      "gap_source_url": "https://github.com/orgs/community/discussions/25285 \u2014 recurring 'workflow didn't trigger' thread; root cause confirmed as Go path.Match not crossing '/'. Occupant hunt found no simulator: actionlint lints syntax only, nektos/act skips the event-filter layer entirely.",
+      "deploy_url": "staged: ship/002-gha-trigger",
+      "kind": "app",
+      "checker_verdict": "pending",
+      "distribution": {
+        "registry_pr": "n/a (not an MCP server)",
+        "hub": "pending \u2014 hub reads public/ledger.json on next main merge",
+        "x_draft": "drafted in briefs/2026-08-02.md"
+      },
+      "signal": {},
+      "status": "staged",
+      "kill_criterion": "<300 unique organic sessions in 30 days, or zero inbound links by day 30 -> kill to graveyard.md"
     }
   ]
 }

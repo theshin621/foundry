@@ -1,0 +1,589 @@
+<!doctype html>
+<!-- built from lib/template.html · ship 002 · self-contained, cookieless, no third-party runtime -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Will my GitHub Actions workflow run? — trigger simulator · foundry day 002</title>
+<meta name="description" content="Paste a workflow YAML and describe an event. Get WILL RUN / WON'T RUN plus the exact filter that decided it. Models branch and path glob rules, filter conjunction, negation order, and the gotchas that silently stop workflows.">
+<style>
+  :root{--bg:#0b0d10;--fg:#e8eaed;--mut:#9aa0a6;--dim:#4b535c;--line:#1c2127;--panel:#101317;
+        --ok:#7dd97b;--no:#e77;--warn:#d9c26b;--acc:#6ea8fe}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
+  main{max-width:60rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+  h1{font-size:1.35rem;letter-spacing:.06em;margin:0 0 .5rem}
+  .strap{color:var(--mut);margin:0 0 1.6rem;max-width:44rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  fieldset{border:1px solid var(--line);border-radius:6px;padding:1rem;margin:0;background:var(--panel);min-width:0}
+  legend{color:var(--dim);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;padding:0 .4rem}
+  label{display:block;color:var(--mut);font-size:.78rem;margin:.7rem 0 .25rem;letter-spacing:.03em}
+  textarea,input,select{width:100%;background:#0b0d10;color:var(--fg);border:1px solid var(--line);
+        border-radius:4px;padding:.5rem .6rem;font:13px/1.55 ui-monospace,Menlo,monospace}
+  textarea{resize:vertical}
+  textarea#wf{min-height:19rem}
+  textarea#files{min-height:5.5rem}
+  select{cursor:pointer}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .chk{display:flex;align-items:center;gap:.5rem;margin:.8rem 0 0;color:var(--mut);font-size:.8rem}
+  .chk input{width:auto}
+  .presets{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 0}
+  .presets button{background:#141922;color:var(--mut);border:1px solid var(--line);border-radius:999px;
+        padding:.25rem .7rem;font:12px ui-monospace,Menlo,monospace;cursor:pointer}
+  .presets button:hover{color:var(--fg);border-color:var(--dim)}
+  #verdict{margin:1.5rem 0 0;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .vhead{padding:1rem 1.1rem;display:flex;align-items:baseline;gap:.9rem;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .vbig{font-size:1.25rem;letter-spacing:.08em}
+  .vbig.run{color:var(--ok)} .vbig.norun{color:var(--no)} .vbig.info{color:var(--warn)} .vbig.err{color:var(--no)}
+  .vwhy{color:var(--mut);font-size:.85rem}
+  .vwhy code{color:var(--fg);background:#161b22;padding:.05rem .35rem;border-radius:3px}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  td{padding:.5rem 1.1rem;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.s{width:2.2rem;text-align:center}
+  td.k{color:var(--mut);width:11rem;white-space:nowrap}
+  .pass{color:var(--ok)} .fail{color:var(--no)} .skip{color:var(--dim)} .note{color:var(--warn)}
+  .gotchas{margin:1.25rem 0 0;border:1px solid var(--line);border-radius:6px;padding:.4rem 1.1rem}
+  .gotchas h3{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);margin:.8rem 0 .4rem}
+  .gotchas li{color:var(--mut);font-size:.83rem;margin:.35rem 0}
+  .gotchas code{color:var(--fg)}
+  details{margin:1.5rem 0 0;border-top:1px solid var(--line);padding-top:1rem}
+  summary{cursor:pointer;color:var(--mut);font-size:.85rem}
+  details p,details li{color:var(--mut);font-size:.85rem}
+  footer{margin-top:2.5rem;color:var(--dim);font-size:.8rem;border-top:1px solid var(--line);padding-top:1rem}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Will this workflow run?</h1>
+  <p class="strap">Paste a GitHub Actions workflow, describe an event, and get <b>WILL RUN</b> / <b>WON'T RUN</b> with the exact filter that decided it. Everything runs in your browser — nothing is uploaded.</p>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="grid" style="margin-top:1rem">
+    <fieldset>
+      <legend>workflow yaml</legend>
+      <textarea id="wf" spellcheck="false"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>the event</legend>
+      <label for="ev">Event</label>
+      <select id="ev">
+        <option value="push">push</option>
+        <option value="pull_request">pull_request</option>
+        <option value="pull_request_target">pull_request_target</option>
+        <option value="workflow_dispatch">workflow_dispatch</option>
+        <option value="schedule">schedule</option>
+      </select>
+
+      <div class="two">
+        <div>
+          <label for="reftype">Ref type</label>
+          <select id="reftype"><option value="branch">branch</option><option value="tag">tag</option></select>
+        </div>
+        <div>
+          <label for="ref">Ref name <span id="reflabel" style="color:var(--dim)"></span></label>
+          <input id="ref" spellcheck="false" value="feat/new-thing">
+        </div>
+      </div>
+
+      <div class="two">
+        <div>
+          <label for="base">PR base branch</label>
+          <input id="base" spellcheck="false" value="main">
+        </div>
+        <div>
+          <label for="action">PR activity type</label>
+          <select id="action">
+            <option>opened</option><option>synchronize</option><option>reopened</option>
+            <option>closed</option><option>labeled</option><option>unlabeled</option>
+            <option>ready_for_review</option><option>edited</option><option>assigned</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="deft">Repository default branch</label>
+      <input id="deft" spellcheck="false" value="main">
+
+      <label for="files">Changed files (one per line)</label>
+      <textarea id="files" spellcheck="false">apps/web/src/index.ts</textarea>
+
+      <div class="chk"><input type="checkbox" id="fork"><label for="fork" style="margin:0">PR comes from a forked repository</label></div>
+    </fieldset>
+  </div>
+
+  <div id="verdict"></div>
+  <div class="gotchas" id="gotchas" hidden></div>
+
+  <details>
+    <summary>What this models — and what it deliberately does not</summary>
+    <p><b>Modelled:</b> event presence in <code>on:</code>; <code>branches</code> / <code>branches-ignore</code> / <code>tags</code> / <code>tags-ignore</code> / <code>paths</code> / <code>paths-ignore</code>; <code>types</code> including the <code>pull_request</code> defaults; GitHub's filter-pattern glob rules (<code>*</code> does not cross <code>/</code>, <code>**</code> does, <code>?</code>, <code>+</code>, character ranges); conjunction across filter categories and disjunction within one; order-dependent <code>!</code> negation; branch-vs-tag filter exclusivity on <code>push</code>; the filters <code>schedule</code> and <code>workflow_dispatch</code> ignore; and the mutually-exclusive-key config errors GitHub rejects.</p>
+    <p><b>Not modelled</b> (these can still stop a run that this tool says WILL RUN): job- and step-level <code>if:</code> conditions · <code>concurrency</code> cancellation · <code>workflow_call</code> / reusable workflows · runner availability, billing limits and spending caps · required-status or ruleset gating · org/repo policy disabling Actions · <code>[skip ci]</code> in the commit message · GitHub's 300-file cap on the changed-file list used by <code>paths</code> filters · and whether the workflow file is valid in every other respect.</p>
+    <p>A "WILL RUN" here means <i>the event filters admit this event</i> — not that the run will succeed.</p>
+  </details>
+
+  <details>
+    <summary>Why <code>on:</code> is a trap in YAML (and why this parser ignores the spec on purpose)</summary>
+    <p>In YAML 1.1 the bare token <code>on</code> is a boolean — the same family as <code>yes</code>, <code>no</code>, <code>true</code>. A strict YAML 1.1 parser reads the key <code>on:</code> in every Actions workflow as the boolean <code>true</code>, so <code>workflow["on"]</code> is undefined and <code>workflow[true]</code> holds your triggers. GitHub's own parser special-cases this. This tool's parser never coerces scalars to booleans or numbers at all, which sidesteps the trap and keeps <code>on</code> a string. If you write <code>"on":</code> quoted, that works here too.</p>
+  </details>
+
+  <footer>built by <a href="../">foundry</a> · day 002 · verified before ship · runs entirely client-side, no cookies, nothing uploaded</footer>
+</main>
+
+<script>
+/* ---------------------------------------------------------------------------
+ * miniYAML — inlined from lib/mini-yaml.js (canonical source; fix bugs there).
+ * Scalars are never coerced, so the `on:` → boolean-true trap cannot bite.
+ * ------------------------------------------------------------------------- */
+var miniYAML=(function(){
+'use strict';
+function stripComment(line){var out='',q=null;for(var i=0;i<line.length;i++){var c=line[i];
+  if(q){out+=c;if(c===q&&line[i-1]!=='\\')q=null;}
+  else if(c==='"'||c==="'"){q=c;out+=c;}
+  else if(c==='#'&&(i===0||/\s/.test(line[i-1])))break;
+  else out+=c;}
+  return out.replace(/\s+$/,'');}
+function indentOf(l){var m=l.match(/^[ ]*/);return m?m[0].length:0;}
+function unquote(s){s=s.trim();if(s.length>=2){var a=s[0],b=s[s.length-1];
+  if((a==='"'&&b==='"')||(a==="'"&&b==="'")){var inner=s.slice(1,-1);
+    return a==='"'?inner.replace(/\\"/g,'"').replace(/\\n/g,'\n'):inner.replace(/''/g,"'");}}
+  return s;}
+function splitFlow(s){var parts=[],depth=0,q=null,cur='';
+  for(var i=0;i<s.length;i++){var c=s[i];
+    if(q){cur+=c;if(c===q)q=null;continue;}
+    if(c==='"'||c==="'"){q=c;cur+=c;continue;}
+    if(c==='['||c==='{'){depth++;cur+=c;continue;}
+    if(c===']'||c==='}'){depth--;cur+=c;continue;}
+    if(c===','&&depth===0){parts.push(cur);cur='';continue;}
+    cur+=c;}
+  if(cur.trim()!=='')parts.push(cur);return parts;}
+function findColon(s){var q=null;for(var i=0;i<s.length;i++){var c=s[i];
+  if(q){if(c===q)q=null;continue;}
+  if(c==='"'||c==="'"){q=c;continue;}
+  if(c===':'&&(i+1>=s.length||/\s/.test(s[i+1])))return i;}
+  return -1;}
+function parseFlow(s){s=s.trim();
+  if(s[0]==='['&&s[s.length-1]===']'){var inner=s.slice(1,-1).trim();if(inner==='')return[];
+    return splitFlow(inner).map(function(p){return parseFlow(p);});}
+  if(s[0]==='{'&&s[s.length-1]==='}'){var body=s.slice(1,-1).trim(),obj={};if(body==='')return obj;
+    splitFlow(body).forEach(function(p){var idx=findColon(p);
+      if(idx===-1){obj[unquote(p)]=null;return;}
+      obj[unquote(p.slice(0,idx))]=parseFlow(p.slice(idx+1));});
+    return obj;}
+  return unquote(s);}
+function parseBlock(lines,i,base,st){if(i>=lines.length)return[null,i];
+  if(lines[i].text[0]==='-'&&(lines[i].text.length===1||lines[i].text[1]===' '))return parseSeq(lines,i,base,st);
+  return parseMap(lines,i,base,st);}
+function parseSeq(lines,i,base,st){var arr=[];
+  while(i<lines.length){var ln=lines[i];
+    if(ln.indent<base)break;
+    if(ln.indent>base){i++;continue;}
+    if(!(ln.text[0]==='-'&&(ln.text.length===1||ln.text[1]===' ')))break;
+    var rest=ln.text.slice(1).trim();
+    if(rest===''){var j=i+1;
+      if(j<lines.length&&lines[j].indent>base){var r=parseBlock(lines,j,lines[j].indent,st);arr.push(r[0]);i=r[1];}
+      else{arr.push(null);i++;}}
+    else{var colon=findColon(rest);
+      if(colon!==-1){var ii=base+2,syn=[{indent:ii,text:rest}],k=i+1;
+        while(k<lines.length&&lines[k].indent>base){syn.push(lines[k]);k++;}
+        var norm=syn.map(function(s,idx){return idx===0?s:{indent:s.indent<ii?ii:s.indent,text:s.text};});
+        var m=parseMap(norm,0,ii,st);arr.push(m[0]);i=k;}
+      else{arr.push(parseFlow(rest));i++;}}}
+  return[arr,i];}
+function parseMap(lines,i,base,st){var obj={};
+  while(i<lines.length){var ln=lines[i];
+    if(ln.indent<base)break;
+    if(ln.indent>base){i++;continue;}
+    if(ln.text[0]==='-'&&(ln.text.length===1||ln.text[1]===' '))break;
+    var colon=findColon(ln.text);
+    if(colon===-1){i++;continue;}
+    var key=unquote(ln.text.slice(0,colon)),val=ln.text.slice(colon+1).trim();
+    if(val===''){var j=i+1;
+      if(j<lines.length&&lines[j].indent>base){var r=parseBlock(lines,j,lines[j].indent,st);obj[key]=r[0];i=r[1];}
+      else if(j<lines.length&&lines[j].indent===base&&lines[j].text[0]==='-'&&(lines[j].text.length===1||lines[j].text[1]===' ')){
+        var r2=parseSeq(lines,j,base,st);obj[key]=r2[0];i=r2[1];}
+      else{obj[key]=null;i++;}}
+    else if(val==='|'||val==='>'||/^[|>][-+]?\d*$/.test(val)){
+      var buf=[],k=i+1;while(k<lines.length&&lines[k].indent>base){buf.push(lines[k].text);k++;}
+      obj[key]=buf.join('\n');i=k;}
+    else{obj[key]=parseFlow(val);i++;}}
+  return[obj,i];}
+function parse(text){if(typeof text!=='string')throw new Error('expects a string');
+  var raw=text.replace(/\r\n?/g,'\n').split('\n'),lines=[];
+  for(var i=0;i<raw.length;i++){
+    if(/\t/.test(raw[i].match(/^[ \t]*/)[0]))throw new Error('line '+(i+1)+': tab used for indentation — YAML forbids tabs');
+    var code=stripComment(raw[i]);
+    if(code.trim()===''||code.trim()==='---')continue;
+    lines.push({indent:indentOf(code),text:code.trim(),lineNo:i+1});}
+  if(!lines.length)return{};
+  return parseBlock(lines,0,lines[0].indent,{})[0];}
+return{parse:parse};
+})();
+
+/* ---------------------------------------------------------------------------
+ * GitHub filter-pattern glob. Rules per GitHub's filter-pattern cheat sheet:
+ *   *  matches zero or more chars, NEVER crossing /
+ *   ** matches zero or more chars, INCLUDING /
+ *   ?  matches one char (not /)
+ *   +  one or more of the preceding character
+ *   [] character ranges
+ * Patterns are anchored — they must match the whole ref/path.
+ * ------------------------------------------------------------------------- */
+function globToRegex(p){
+  var out='',i=0;
+  while(i<p.length){
+    var c=p[i];
+    if(c==='*'){ if(p[i+1]==='*'){out+='.*';i+=2;} else {out+='[^/]*';i++;} }
+    else if(c==='?'){ out+='[^/]';i++; }
+    else if(c==='+'){ out += (out==='' ? '\\+' : '+'); i++; }
+    else if(c==='['){ var j=p.indexOf(']',i+1);
+      if(j===-1){out+='\\[';i++;} else {out+=p.slice(i,j+1);i=j+1;} }
+    else if('.^$(){}|\\/'.indexOf(c)!==-1){ out+= (c==='/'?'/':'\\'+c); i++; }
+    else { out+=c;i++; }
+  }
+  try{ return new RegExp('^'+out+'$'); }catch(e){ return {test:function(){return false;},bad:true}; }
+}
+function gmatch(pattern,value){ return globToRegex(pattern).test(value); }
+
+function asList(v){
+  if(v===null||v===undefined)return null;
+  if(Array.isArray(v))return v.map(String);
+  return [String(v)];
+}
+
+/* Ordered evaluation with ! negation: later matches override earlier ones. */
+function matchInclude(patterns,value){
+  var matched=false,by=null,anyPositive=false;
+  patterns.forEach(function(p){
+    var neg=p.charAt(0)==='!', pat=neg?p.slice(1):p;
+    if(!neg)anyPositive=true;
+    if(gmatch(pat,value)){ matched=!neg; by=p; }
+  });
+  return {matched:matched,by:by,anyPositive:anyPositive};
+}
+function matchIgnore(patterns,value){
+  for(var i=0;i<patterns.length;i++){ if(gmatch(patterns[i],value))return patterns[i]; }
+  return null;
+}
+function anyFileMatches(patterns,files){
+  for(var i=0;i<files.length;i++){ var r=matchInclude(patterns,files[i]); if(r.matched)return {file:files[i],by:r.by}; }
+  return null;
+}
+function allFilesIgnored(patterns,files){
+  for(var i=0;i<files.length;i++){ if(!matchIgnore(patterns,files[i]))return {file:files[i]}; }
+  return null;
+}
+
+/* ------------------------------ evaluator -------------------------------- */
+var PR_DEFAULT_TYPES=['opened','synchronize','reopened'];
+
+function evaluate(yamlText,ev){
+  var T=[],G=[];
+  function step(s,k,d){T.push({s:s,k:k,d:d});}
+
+  var doc;
+  try{ doc=miniYAML.parse(yamlText); }
+  catch(e){ return {verdict:'INVALID YAML',cls:'err',why:e.message,trace:T,gotchas:G}; }
+  if(!doc||typeof doc!=='object'||Array.isArray(doc))
+    return {verdict:'INVALID YAML',cls:'err',why:'The document did not parse to a mapping. A workflow file must be a YAML map with an <code>on:</code> key.',trace:T,gotchas:G};
+
+  var on = doc['on']!==undefined?doc['on'] : (doc['true']!==undefined?doc['true']:undefined);
+  if(on===undefined||on===null)
+    return {verdict:'WON\'T RUN',cls:'norun',why:'No <code>on:</code> key found. A workflow with no triggers never runs.',trace:T,gotchas:G};
+
+  // normalise on: → { eventName: config|null }
+  var triggers={};
+  if(typeof on==='string'){ triggers[on]=null; }
+  else if(Array.isArray(on)){ on.forEach(function(e){ triggers[String(e)]=null; }); }
+  else { Object.keys(on).forEach(function(k){ triggers[k]=on[k]; }); }
+
+  var names=Object.keys(triggers);
+  step(names.indexOf(ev.type)!==-1?'ok':'no','event in on:',
+       'declared: '+(names.length?names.map(function(n){return '<code>'+esc(n)+'</code>';}).join(', '):'(none)'));
+  if(names.indexOf(ev.type)===-1)
+    return {verdict:'WON\'T RUN',cls:'norun',why:'<code>'+esc(ev.type)+'</code> is not declared in <code>on:</code>.',trace:T,gotchas:G};
+
+  var cfg=triggers[ev.type];
+  if(cfg===null||cfg===undefined)cfg={};
+  if(typeof cfg!=='object'||Array.isArray(cfg))cfg={};
+
+  var branches=asList(cfg['branches']), bIgnore=asList(cfg['branches-ignore']);
+  var tags=asList(cfg['tags']), tIgnore=asList(cfg['tags-ignore']);
+  var paths=asList(cfg['paths']), pIgnore=asList(cfg['paths-ignore']);
+  var types=asList(cfg['types']);
+
+  // config errors GitHub itself rejects
+  if(branches&&bIgnore) return cfgErr('branches','branches-ignore');
+  if(tags&&tIgnore)     return cfgErr('tags','tags-ignore');
+  if(paths&&pIgnore)    return cfgErr('paths','paths-ignore');
+  function cfgErr(a,b){
+    return {verdict:'INVALID WORKFLOW',cls:'err',
+      why:'<code>'+a+'</code> and <code>'+b+'</code> cannot both be used on the same event — GitHub rejects the workflow.',
+      trace:T,gotchas:G};
+  }
+
+  // ---- schedule ----------------------------------------------------------
+  if(ev.type==='schedule'){
+    var cron=triggers['schedule'];
+    var hasCron=Array.isArray(cron)&&cron.length&&cron.some(function(c){return c&&c.cron;});
+    step(hasCron?'ok':'no','cron defined',hasCron?'<code>'+esc(String(cron.map(function(c){return c.cron;}).join(', ')))+'</code>':'a <code>schedule:</code> trigger needs at least one <code>- cron:</code> entry');
+    if(!hasCron) return {verdict:'WON\'T RUN',cls:'norun',why:'<code>schedule:</code> has no <code>- cron:</code> entry.',trace:T,gotchas:G};
+    var onDefault = ev.ref===ev.defaultBranch && ev.refType==='branch';
+    step(onDefault?'ok':'no','runs on default branch only',
+      onDefault?'the workflow file on <code>'+esc(ev.defaultBranch)+'</code> is the one that runs'
+               :'scheduled runs only ever use the workflow file on the default branch (<code>'+esc(ev.defaultBranch)+'</code>) — a copy on <code>'+esc(ev.ref)+'</code> is never scheduled');
+    step('skip','branch / path filters','not supported on <code>schedule</code> — any <code>branches:</code> or <code>paths:</code> here is silently ignored');
+    if(branches||paths||bIgnore||pIgnore)
+      G.push('This <code>schedule:</code> block carries branch or path filters. GitHub ignores them — they do not narrow when the cron fires.');
+    G.push('Scheduled workflows are <b>automatically disabled after 60 days of repository inactivity</b>. A repo that goes quiet stops its own crons silently.');
+    G.push('Cron is UTC, the shortest interval is 5 minutes, and GitHub delays runs under load — a job scheduled on the hour commonly starts minutes late, and can be dropped entirely at peak times.');
+    if(!onDefault) return {verdict:'WON\'T RUN',cls:'norun',why:'Scheduled workflows only run from the default branch.',trace:T,gotchas:G};
+    return {verdict:'WILL RUN',cls:'run',why:'The cron fires against the default branch and no filter applies.',trace:T,gotchas:G};
+  }
+
+  // ---- workflow_dispatch -------------------------------------------------
+  if(ev.type==='workflow_dispatch'){
+    step('ok','trigger declared','<code>workflow_dispatch</code> is present');
+    step('skip','branch / path filters','not supported on <code>workflow_dispatch</code> — the ref comes from whoever presses Run');
+    if(branches||paths||bIgnore||pIgnore)
+      G.push('This <code>workflow_dispatch:</code> block carries branch or path filters. They are ignored — dispatch runs on whatever ref is chosen.');
+    G.push('The <b>Run workflow</b> button only appears once a workflow containing <code>workflow_dispatch</code> exists on the <b>default branch</b>. Adding it on a feature branch alone shows no button — a very common "why can\'t I trigger it" cause.');
+    if(ev.refType==='tag') G.push('You selected a tag. Dispatch can target a tag via the API, but the UI branch picker lists branches only.');
+    return {verdict:'WILL RUN',cls:'run',why:'Manual dispatch is unfiltered — it runs on the ref you choose.',trace:T,gotchas:G};
+  }
+
+  // ---- pull_request / pull_request_target --------------------------------
+  if(ev.type==='pull_request'||ev.type==='pull_request_target'){
+    var effective = types||PR_DEFAULT_TYPES;
+    var typeOk = effective.indexOf(ev.action)!==-1;
+    step(typeOk?'ok':'no','activity type',
+      'this event is <code>'+esc(ev.action)+'</code>; accepted: '+effective.map(function(t){return '<code>'+esc(t)+'</code>';}).join(', ')+
+      (types?' (explicit <code>types:</code>)':' (default — <code>types:</code> not set)'));
+    if(!typeOk){
+      if(!types) G.push('<code>types:</code> is not set, so only <code>opened</code>, <code>synchronize</code> and <code>reopened</code> fire. <code>'+esc(ev.action)+'</code> needs an explicit <code>types:</code> list — this is the single most common reason a <code>pull_request</code> workflow "never runs".');
+      else G.push('Setting <code>types:</code> <b>replaces</b> the defaults, it does not add to them. Listing <code>[labeled]</code> alone means opening a PR no longer triggers the workflow.');
+      return {verdict:'WON\'T RUN',cls:'norun',why:'Activity type <code>'+esc(ev.action)+'</code> is not in the accepted <code>types:</code>.',trace:T,gotchas:G};
+    }
+    var br=checkRef(branches,bIgnore,ev.base,'base branch','branches');
+    if(br) return br;
+    var pr=checkPaths(paths,pIgnore,ev.files);
+    if(pr) return pr;
+    prGotchas(G,ev);
+    return {verdict:'WILL RUN',cls:'run',why:'The activity type is accepted and every filter admits this pull request.',trace:T,gotchas:G};
+  }
+
+  // ---- push --------------------------------------------------------------
+  if(ev.type==='push'){
+    var hasBranchFilter=!!(branches||bIgnore), hasTagFilter=!!(tags||tIgnore);
+    if(ev.refType==='tag'){
+      if(hasBranchFilter&&!hasTagFilter){
+        step('no','branch-only filters','this push is a <b>tag</b> push, but the trigger defines only <code>branches</code>/<code>branches-ignore</code>');
+        G.push('Defining only <code>branches</code> (or <code>branches-ignore</code>) makes a <code>push</code> trigger <b>ignore tag pushes entirely</b>. Add a <code>tags:</code> filter, or a second <code>push</code> trigger, if tags should build.');
+        return {verdict:'WON\'T RUN',cls:'norun',why:'Only branch filters are defined, so tag pushes never match.',trace:T,gotchas:G};
+      }
+      if(hasTagFilter){ var tr=checkRef(tags,tIgnore,ev.ref,'tag','tags'); if(tr)return tr; }
+      else step('ok','no ref filters','no <code>branches</code>/<code>tags</code> filters — every push matches');
+    } else {
+      if(hasTagFilter&&!hasBranchFilter){
+        step('no','tag-only filters','this push is a <b>branch</b> push, but the trigger defines only <code>tags</code>/<code>tags-ignore</code>');
+        G.push('Defining only <code>tags</code> (or <code>tags-ignore</code>) makes a <code>push</code> trigger <b>ignore branch pushes entirely</b>.');
+        return {verdict:'WON\'T RUN',cls:'norun',why:'Only tag filters are defined, so branch pushes never match.',trace:T,gotchas:G};
+      }
+      if(hasBranchFilter){ var brr=checkRef(branches,bIgnore,ev.ref,'branch','branches'); if(brr)return brr; }
+      else step('ok','no ref filters','no <code>branches</code>/<code>tags</code> filters — every push matches');
+    }
+    var pp=checkPaths(paths,pIgnore,ev.files);
+    if(pp) return pp;
+    return {verdict:'WILL RUN',cls:'run',why:'Every filter on this <code>push</code> trigger admits the event.',trace:T,gotchas:G};
+  }
+
+  step('skip','filters','this simulator does not model filters for <code>'+esc(ev.type)+'</code>');
+  return {verdict:'WILL RUN',cls:'run',why:'The event is declared and no modelled filter excludes it.',trace:T,gotchas:G};
+
+  // --- helpers that close over T/G ---------------------------------------
+  function checkRef(inc,ign,value,label,key){
+    if(ign){
+      var hit=matchIgnore(ign,value);
+      step(hit?'no':'ok',key+'-ignore',
+        hit?'<code>'+esc(value)+'</code> is excluded by <code>'+esc(hit)+'</code>'
+           :'<code>'+esc(value)+'</code> matches none of the ignore patterns');
+      if(hit) return {verdict:'WON\'T RUN',cls:'norun',
+        why:'The '+label+' <code>'+esc(value)+'</code> is excluded by <code>'+esc(hit)+'</code> in <code>'+key+'-ignore</code>.',trace:T,gotchas:G};
+      return null;
+    }
+    if(inc){
+      var r=matchInclude(inc,value);
+      step(r.matched?'ok':'no',key,
+        (r.matched?'<code>'+esc(value)+'</code> matched by <code>'+esc(r.by)+'</code>'
+                  :'<code>'+esc(value)+'</code> matched none of '+inc.map(function(p){return '<code>'+esc(p)+'</code>';}).join(', ')));
+      if(!r.anyPositive&&inc.length)
+        G.push('<code>'+key+'</code> contains only negated patterns. A filter list needs at least one positive pattern — with only <code>!</code> entries nothing is ever included.');
+      if(r.matched===false&&r.by)
+        G.push('<code>'+esc(value)+'</code> <i>was</i> matched by an earlier pattern but a later <code>'+esc(r.by)+'</code> excluded it. Negation is <b>order-dependent</b> — the last matching pattern wins, so put <code>!</code> entries after the positive ones they carve out of.');
+      starGotcha(G,inc,value,key);
+      if(!r.matched) return {verdict:'WON\'T RUN',cls:'norun',
+        why:'The '+label+' <code>'+esc(value)+'</code> matches no pattern in <code>'+key+'</code>.',trace:T,gotchas:G};
+    }
+    return null;
+  }
+
+  function checkPaths(inc,ign,files){
+    if(!inc&&!ign) return null;
+    if(!files.length){
+      step('note','paths','no changed files supplied — a <code>paths</code> filter cannot be decided without them');
+      return {verdict:'NEEDS CHANGED FILES',cls:'info',
+        why:'This trigger has a <code>'+(inc?'paths':'paths-ignore')+'</code> filter, so the verdict depends on which files the commit touched. Add them on the right.',trace:T,gotchas:G};
+    }
+    if(ign){
+      var left=allFilesIgnored(ign,files);
+      step(left?'ok':'no','paths-ignore',
+        left?'<code>'+esc(left.file)+'</code> is outside the ignore patterns, so the push still counts'
+            :'every changed file matches <code>paths-ignore</code>');
+      if(!left) return {verdict:'WON\'T RUN',cls:'norun',
+        why:'Every changed file is excluded by <code>paths-ignore</code>. The filter passes only if at least one changed file falls outside it.',trace:T,gotchas:G};
+      return null;
+    }
+    var hit=anyFileMatches(inc,files);
+    step(hit?'ok':'no','paths',
+      hit?'<code>'+esc(hit.file)+'</code> matched by <code>'+esc(hit.by)+'</code>'
+         :'no changed file matched '+inc.map(function(p){return '<code>'+esc(p)+'</code>';}).join(', '));
+    if(!hit){
+      files.forEach(function(f){ starGotcha(G,inc,f,'paths'); });
+      return {verdict:'WON\'T RUN',cls:'norun',
+        why:'No changed file matches <code>paths</code>. The filter needs at least one file in the commit to match.',trace:T,gotchas:G};
+    }
+    return null;
+  }
+}
+
+/* The single most common glob mistake: `*` used where `**` was meant. */
+function starGotcha(G,patterns,value,key){
+  if(value.indexOf('/')===-1) return;
+  patterns.forEach(function(p){
+    var neg=p.charAt(0)==='!', pat=neg?p.slice(1):p;
+    if(pat.indexOf('**')!==-1) return;
+    if(pat.indexOf('*')===-1) return;
+    if(gmatch(pat,value)) return;
+    var widened=pat.replace(/\*/g,'**');
+    if(gmatch(widened,value)){
+      var msg='<code>'+esc(pat)+'</code> does not match <code>'+esc(value)+'</code> because a single <code>*</code> never crosses a <code>/</code>. <code>'+esc(widened)+'</code> would match. This is the most common '+key+'-filter bug.';
+      if(G.indexOf(msg)===-1) G.push(msg);
+    }
+  });
+}
+
+function prGotchas(G,ev){
+  if(ev.type==='pull_request_target'){
+    G.push('<code>pull_request_target</code> runs the workflow file from the <b>base</b> branch, in the base repo context, <b>with secrets and a write token</b> — the fork\'s changes do not alter the workflow that runs. Never check out and execute PR head code inside it; that is the classic privilege-escalation footgun.');
+  } else if(ev.fork){
+    G.push('This PR is from a fork, so the run gets <b>no repository secrets</b> and a <b>read-only</b> <code>GITHUB_TOKEN</code>. Steps that need secrets will fail here even though the workflow triggers.');
+    G.push('Depending on the repo\'s Actions settings, first-time contributors may also need <b>manual approval</b> before the run starts.');
+  }
+  if(ev.action==='closed') G.push('<code>closed</code> fires for both merged and abandoned PRs. Gate on <code>github.event.pull_request.merged == true</code> if you only want merges.');
+  if(ev.action==='synchronize') G.push('<code>synchronize</code> fires on every new push to the PR head — expect repeat runs, and use <code>concurrency</code> to cancel superseded ones.');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ------------------------------ presets ---------------------------------- */
+var PRESETS=[
+  {label:'paths: the * vs ** trap',
+   wf:'name: CI\non:\n  push:\n    branches:\n      - main\n    paths:\n      - "apps/*.ts"\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n',
+   ev:{type:'push',refType:'branch',ref:'main',files:'apps/web/src/index.ts'}},
+  {label:'pull_request: labeled never fires',
+   wf:'name: Triage\non:\n  pull_request:\n    branches: [main]\n\njobs:\n  label:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo "labelled"\n',
+   ev:{type:'pull_request',action:'labeled',base:'main',ref:'feat/x',files:'src/a.ts'}},
+  {label:'branches: release* vs release/1.0',
+   wf:'name: Release\non:\n  push:\n    branches:\n      - "release*"\n\njobs:\n  ship:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./ship.sh\n',
+   ev:{type:'push',refType:'branch',ref:'release/1.0',files:'CHANGELOG.md'}},
+  {label:'tag push, branch-only filter',
+   wf:'name: Publish\non:\n  push:\n    branches:\n      - main\n\njobs:\n  publish:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm publish\n',
+   ev:{type:'push',refType:'tag',ref:'v1.4.2',files:'package.json'}},
+  {label:'negation order',
+   wf:'name: Docs\non:\n  push:\n    branches:\n      - "feat/**"\n      - "!feat/wip-**"\n\njobs:\n  docs:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make docs\n',
+   ev:{type:'push',refType:'branch',ref:'feat/wip-parser',files:'docs/a.md'}},
+  {label:'schedule on a feature branch',
+   wf:'name: Nightly\non:\n  schedule:\n    - cron: "0 3 * * *"\n\njobs:\n  nightly:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./nightly.sh\n',
+   ev:{type:'schedule',refType:'branch',ref:'feat/new-thing',files:''}},
+  {label:'fork PR + secrets',
+   wf:'name: CI\non:\n  pull_request:\n    types: [opened, synchronize, reopened]\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+   ev:{type:'pull_request',action:'opened',base:'main',ref:'contrib/fix',files:'src/a.ts',fork:true}}
+];
+
+/* ------------------------------ wiring ----------------------------------- */
+var $=function(id){return document.getElementById(id);};
+var els=['wf','ev','reftype','ref','base','action','deft','files','fork'].map($);
+
+function readEvent(){
+  return {
+    type:$('ev').value,
+    refType:$('reftype').value,
+    ref:$('ref').value.trim(),
+    base:$('base').value.trim(),
+    action:$('action').value,
+    defaultBranch:$('deft').value.trim(),
+    files:$('files').value.split('\n').map(function(s){return s.trim();}).filter(Boolean),
+    fork:$('fork').checked
+  };
+}
+
+function syncFormState(){
+  var t=$('ev').value, isPR=(t==='pull_request'||t==='pull_request_target');
+  $('base').disabled=!isPR; $('action').disabled=!isPR; $('fork').disabled=!isPR;
+  $('reftype').disabled=(t!=='push');
+  if(t!=='push') $('reftype').value='branch';
+  $('reflabel').textContent = isPR ? '(PR head branch)' : ($('reftype').value==='tag'?'(tag)':'(branch)');
+  [$('base'),$('action'),$('fork'),$('reftype')].forEach(function(e){ e.style.opacity=e.disabled?.45:1; });
+}
+
+function render(){
+  syncFormState();
+  var ev=readEvent();
+  var r=evaluate($('wf').value,ev);
+
+  var rows=r.trace.map(function(t){
+    var sym={ok:'<span class="pass">✓</span>',no:'<span class="fail">✕</span>',
+              skip:'<span class="skip">–</span>',note:'<span class="note">?</span>'}[t.s];
+    return '<tr><td class="s">'+sym+'</td><td class="k">'+esc(t.k)+'</td><td>'+t.d+'</td></tr>';
+  }).join('');
+
+  $('verdict').innerHTML =
+    '<div class="vhead"><span class="vbig '+r.cls+'">'+esc(r.verdict)+'</span><span class="vwhy">'+r.why+'</span></div>'+
+    (rows?'<table>'+rows+'</table>':'');
+
+  var g=$('gotchas');
+  if(r.gotchas.length){
+    g.hidden=false;
+    g.innerHTML='<h3>Also worth knowing</h3><ul>'+r.gotchas.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>';
+  } else { g.hidden=true; g.innerHTML=''; }
+}
+
+function applyPreset(p){
+  $('wf').value=p.wf;
+  $('ev').value=p.ev.type;
+  $('reftype').value=p.ev.refType||'branch';
+  $('ref').value=p.ev.ref||'main';
+  $('base').value=p.ev.base||'main';
+  $('action').value=p.ev.action||'opened';
+  $('files').value=p.ev.files||'';
+  $('fork').checked=!!p.ev.fork;
+  render();
+}
+
+$('presets').innerHTML=PRESETS.map(function(p,i){
+  return '<button type="button" data-i="'+i+'">'+esc(p.label)+'</button>';
+}).join('');
+$('presets').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  applyPreset(PRESETS[+b.getAttribute('data-i')]);
+});
+
+els.forEach(function(e){ e.addEventListener('input',render); e.addEventListener('change',render); });
+
+applyPreset(PRESETS[0]);
+</script>
+</body>
+</html>
