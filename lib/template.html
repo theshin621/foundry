@@ -1,6 +1,7 @@
 <!doctype html>
 <!-- lib/template.html — ship-page skeleton. Copy to public/NNN-slug/index.html and fill.
-     Rules: self-contained (inline CSS/JS) · cookieless (no analytics until lib/beacon.html has a real token) ·
+     Rules: self-contained (inline CSS/JS) · the Cloudflare beacon at the bottom is LIVE and
+     cookieless (POPIA-safe) — keep it, it is the only signal Sunday triage has ·
      footer stays — it is the hub's distribution loop. -->
 <html lang="en">
 <head>
@@ -13,5 +14,6 @@
   <!-- SHIP CONTENT -->
   <footer>built by <a href="../">foundry</a> · day NNN · verified before ship</footer>
 </main>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
 </body>
 </html>

@@ -1,5 +1,13 @@
-<!-- lib/beacon.html — analytics placeholder.
-     POLICY: cookieless, no fingerprinting, no PII (POPIA-safe by construction).
-     TODO (Theshin): enable Cloudflare Web Analytics on the foundry Worker, paste the CF beacon token here:
-     <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TOKEN_HERE"}'></script>
-     Until then ships carry NO analytics — Sunday triage falls back to registry installs + inbound as signal. -->
+<!-- lib/beacon.html — analytics beacon. LIVE since 2026-08-02.
+     POLICY (binding): cookieless, no fingerprinting, no PII — POPIA-safe by construction.
+     Cloudflare Web Analytics, free on all plans, works without putting the site behind
+     Cloudflare's DNS proxy. Site: foundry.theshin-naidu.workers.dev
+
+     EVERY ship inlines the <script> line below, immediately before </body>.
+     Until 2026-08-02 this file held no token and ships carried NO analytics, which is why
+     ledger signal before that date is UNMEASURABLE rather than zero — do not read the
+     absence of early numbers as evidence that nothing worked.
+
+     If Cloudflare ever changes this beacon to set a cookie, it violates the hard rule and
+     must be removed the same day — the rule outranks the metric. -->
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
