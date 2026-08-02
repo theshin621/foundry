@@ -23,7 +23,7 @@
       "date": "2026-08-02",
       "slug": "gha-trigger",
       "one_liner": "paste a GitHub Actions workflow and an event, get WILL RUN / WON'T RUN plus the exact filter that decided it",
-      "gap_source_url": "https://github.com/orgs/community/discussions/25285 \u2014 recurring 'workflow didn't trigger' thread; root cause confirmed as Go path.Match not crossing '/'. Occupant hunt found no simulator: actionlint lints syntax only, nektos/act skips the event-filter layer entirely.",
+      "gap_source_url": "https://github.com/orgs/community/discussions/25285 \u2014 recurring 'my workflow didn't trigger' thread (plus community #164673, #180208, #185355). Occupant hunt found no simulator: rhysd/actionlint lints filter-pattern SYNTAX only and never evaluates a concrete event; nektos/act selects workflows by event name alone (its CLI skips the filter layer, though its pkg/workflowpattern library implements the semantics correctly).",
       "deploy_url": "staged: ship/002-gha-trigger",
       "kind": "app",
       "checker_verdict": "pending",

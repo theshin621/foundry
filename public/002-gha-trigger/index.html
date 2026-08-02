@@ -120,8 +120,8 @@
 
   <details>
     <summary>What this models — and what it deliberately does not</summary>
-    <p><b>Modelled:</b> event presence in <code>on:</code>; <code>branches</code> / <code>branches-ignore</code> / <code>tags</code> / <code>tags-ignore</code> / <code>paths</code> / <code>paths-ignore</code>; <code>types</code> including the <code>pull_request</code> defaults; GitHub's filter-pattern glob rules (<code>*</code> does not cross <code>/</code>, <code>**</code> does, <code>?</code>, <code>+</code>, character ranges); conjunction across filter categories and disjunction within one; order-dependent <code>!</code> negation; branch-vs-tag filter exclusivity on <code>push</code>; the filters <code>schedule</code> and <code>workflow_dispatch</code> ignore; and the mutually-exclusive-key config errors GitHub rejects.</p>
-    <p><b>Not modelled</b> (these can still stop a run that this tool says WILL RUN): job- and step-level <code>if:</code> conditions · <code>concurrency</code> cancellation · <code>workflow_call</code> / reusable workflows · runner availability, billing limits and spending caps · required-status or ruleset gating · org/repo policy disabling Actions · <code>[skip ci]</code> in the commit message · GitHub's 300-file cap on the changed-file list used by <code>paths</code> filters · and whether the workflow file is valid in every other respect.</p>
+    <p><b>Modelled:</b> event presence in <code>on:</code>; <code>branches</code> / <code>branches-ignore</code> / <code>tags</code> / <code>tags-ignore</code> / <code>paths</code> / <code>paths-ignore</code>; <code>types</code> including the <code>pull_request</code> defaults; GitHub's filter-pattern glob rules — <code>*</code> never crosses <code>/</code>, <code>**</code> does, a leading <code>**/</code> may match <b>zero</b> segments (so <code>**/README.md</code> matches a root <code>README.md</code>), <code>?</code> and <code>+</code> are quantifiers on the <i>preceding</i> character (so <code>*.jsx?</code> matches both <code>page.js</code> and <code>page.jsx</code>), character ranges, and <code>\</code> to escape a literal <code>*</code>, <code>?</code>, <code>+</code> or <code>[</code>; conjunction across filter categories and disjunction within one; order-dependent <code>!</code> negation in both include and ignore lists; branch-vs-tag filter exclusivity on <code>push</code>; the fact that <b>path filters are not evaluated for tag pushes</b>; and the config errors GitHub rejects outright (mutually-exclusive keys, and any key other than <code>inputs</code> under <code>workflow_dispatch</code>).</p>
+    <p><b>Not modelled</b> (these can still stop a run that this tool says WILL RUN): job- and step-level <code>if:</code> conditions · <code>concurrency</code> cancellation · <code>workflow_call</code> / reusable workflows · runner availability, billing limits and spending caps · required-status or ruleset gating · org/repo policy disabling Actions · <code>[skip ci]</code> in the commit message · and the changed-file edge cases where GitHub gives up on <code>paths</code> filtering — a diff over <b>3,000</b> files whose matches fall outside the first 3,000 returned, a push of more than 1,000 commits, or a diff that times out (the last two make the workflow run regardless of the filter).</p>
     <p>A "WILL RUN" here means <i>the event filters admit this event</i> — not that the run will succeed.</p>
   </details>
 
@@ -130,7 +130,7 @@
     <p>In YAML 1.1 the bare token <code>on</code> is a boolean — the same family as <code>yes</code>, <code>no</code>, <code>true</code>. A strict YAML 1.1 parser reads the key <code>on:</code> in every Actions workflow as the boolean <code>true</code>, so <code>workflow["on"]</code> is undefined and <code>workflow[true]</code> holds your triggers. GitHub's own parser special-cases this. This tool's parser never coerces scalars to booleans or numbers at all, which sidesteps the trap and keeps <code>on</code> a string. If you write <code>"on":</code> quoted, that works here too.</p>
   </details>
 
-  <footer>built by <a href="../">foundry</a> · day 002 · verified before ship · runs entirely client-side, no cookies, nothing uploaded</footer>
+  <footer>built by <a href="../">foundry</a> · day 002 · independently checked, verdict recorded verbatim in the <a href="../ledger.json">public ledger</a> · runs entirely client-side, no cookies, nothing uploaded</footer>
 </main>
 
 <script>
@@ -173,6 +173,8 @@ function parseFlow(s){s=s.trim();
       if(idx===-1){obj[unquote(p)]=null;return;}
       obj[unquote(p.slice(0,idx))]=parseFlow(p.slice(idx+1));});
     return obj;}
+  if((s[0]==='*'||s[0]==='&')&&s.length>1)
+    throw new Error('unquoted '+s+' — YAML reads a leading * as an alias and & as an anchor. Quote the pattern: "'+s+'"');
   return unquote(s);}
 function parseBlock(lines,i,base,st){if(i>=lines.length)return[null,i];
   if(lines[i].text[0]==='-'&&(lines[i].text.length===1||lines[i].text[1]===' '))return parseSeq(lines,i,base,st);
@@ -232,17 +234,25 @@ return{parse:parse};
  *   [] character ranges
  * Patterns are anchored — they must match the whole ref/path.
  * ------------------------------------------------------------------------- */
+function escLit(c){ return '^$.|?*+()[]{}\\/'.indexOf(c)!==-1 ? '\\'+c : c; }
 function globToRegex(p){
   var out='',i=0;
   while(i<p.length){
     var c=p[i];
-    if(c==='*'){ if(p[i+1]==='*'){out+='.*';i+=2;} else {out+='[^/]*';i++;} }
-    else if(c==='?'){ out+='[^/]';i++; }
-    else if(c==='+'){ out += (out==='' ? '\\+' : '+'); i++; }
+    if(c==='\\'&&i+1<p.length){ out+=escLit(p[i+1]); i+=2; }
+    else if(c==='*'){
+      if(p[i+1]==='*'){
+        // `**/` may match ZERO path segments: '**/README.md' matches 'README.md'
+        if(p[i+2]==='/'){ out+='(.+/)?'; i+=3; }
+        else { out+='.*'; i+=2; }
+      } else { out+='[^/]*'; i++; }
+    }
+    // `?` and `+` are quantifiers on the PRECEDING character, per GitHub's cheat sheet:
+    // '*.jsx?' matches both page.js and page.jsx.
+    else if(c==='?'||c==='+'){ out += (out===''? escLit(c) : c); i++; }
     else if(c==='['){ var j=p.indexOf(']',i+1);
       if(j===-1){out+='\\[';i++;} else {out+=p.slice(i,j+1);i=j+1;} }
-    else if('.^$(){}|\\/'.indexOf(c)!==-1){ out+= (c==='/'?'/':'\\'+c); i++; }
-    else { out+=c;i++; }
+    else { out+=escLit(c); i++; }
   }
   try{ return new RegExp('^'+out+'$'); }catch(e){ return {test:function(){return false;},bad:true}; }
 }
@@ -250,7 +260,11 @@ function gmatch(pattern,value){ return globToRegex(pattern).test(value); }
 
 function asList(v){
   if(v===null||v===undefined)return null;
-  if(Array.isArray(v))return v.map(String);
+  if(Array.isArray(v)){
+    for(var i=0;i<v.length;i++){ if(v[i]===null||typeof v[i]==='object')return 'BAD'; }
+    return v.map(String);
+  }
+  if(typeof v==='object')return 'BAD';
   return [String(v)];
 }
 
@@ -264,9 +278,10 @@ function matchInclude(patterns,value){
   });
   return {matched:matched,by:by,anyPositive:anyPositive};
 }
+/* Ignore lists honour `!` re-inclusion too, with the same last-match-wins ordering. */
 function matchIgnore(patterns,value){
-  for(var i=0;i<patterns.length;i++){ if(gmatch(patterns[i],value))return patterns[i]; }
-  return null;
+  var r=matchInclude(patterns,value);
+  return r.matched ? (r.by||patterns[0]) : null;
 }
 function anyFileMatches(patterns,files){
   for(var i=0;i<files.length;i++){ var r=matchInclude(patterns,files[i]); if(r.matched)return {file:files[i],by:r.by}; }
@@ -319,6 +334,12 @@ function evaluate(yamlText,ev){
   if(branches&&bIgnore) return cfgErr('branches','branches-ignore');
   if(tags&&tIgnore)     return cfgErr('tags','tags-ignore');
   if(paths&&pIgnore)    return cfgErr('paths','paths-ignore');
+  var badKey=null;
+  [['branches',branches],['branches-ignore',bIgnore],['tags',tags],['tags-ignore',tIgnore],
+   ['paths',paths],['paths-ignore',pIgnore],['types',types]].forEach(function(pr){
+     if(pr[1]==='BAD'&&!badKey)badKey=pr[0]; });
+  if(badKey) return {verdict:'INVALID WORKFLOW',cls:'err',
+    why:'<code>'+esc(badKey)+'</code> must be a list of strings.',trace:T,gotchas:G};
   function cfgErr(a,b){
     return {verdict:'INVALID WORKFLOW',cls:'err',
       why:'<code>'+a+'</code> and <code>'+b+'</code> cannot both be used on the same event — GitHub rejects the workflow.',
@@ -328,17 +349,16 @@ function evaluate(yamlText,ev){
   // ---- schedule ----------------------------------------------------------
   if(ev.type==='schedule'){
     var cron=triggers['schedule'];
-    var hasCron=Array.isArray(cron)&&cron.length&&cron.some(function(c){return c&&c.cron;});
-    step(hasCron?'ok':'no','cron defined',hasCron?'<code>'+esc(String(cron.map(function(c){return c.cron;}).join(', ')))+'</code>':'a <code>schedule:</code> trigger needs at least one <code>- cron:</code> entry');
+    var crons=Array.isArray(cron)?cron.filter(function(c){return c&&c.cron;}).map(function(c){return String(c.cron);}):[];
+    var hasCron=crons.length>0;
+    step(hasCron?'ok':'no','cron defined',hasCron?'<code>'+esc(crons.join(', '))+'</code>':'a <code>schedule:</code> trigger needs at least one <code>- cron:</code> entry');
     if(!hasCron) return {verdict:'WON\'T RUN',cls:'norun',why:'<code>schedule:</code> has no <code>- cron:</code> entry.',trace:T,gotchas:G};
     var onDefault = ev.ref===ev.defaultBranch && ev.refType==='branch';
     step(onDefault?'ok':'no','runs on default branch only',
       onDefault?'the workflow file on <code>'+esc(ev.defaultBranch)+'</code> is the one that runs'
                :'scheduled runs only ever use the workflow file on the default branch (<code>'+esc(ev.defaultBranch)+'</code>) — a copy on <code>'+esc(ev.ref)+'</code> is never scheduled');
-    step('skip','branch / path filters','not supported on <code>schedule</code> — any <code>branches:</code> or <code>paths:</code> here is silently ignored');
-    if(branches||paths||bIgnore||pIgnore)
-      G.push('This <code>schedule:</code> block carries branch or path filters. GitHub ignores them — they do not narrow when the cron fires.');
-    G.push('Scheduled workflows are <b>automatically disabled after 60 days of repository inactivity</b>. A repo that goes quiet stops its own crons silently.');
+    step('skip','branch / path filters','<code>schedule</code> takes only <code>- cron:</code> entries — there is nowhere to put a branch or path filter');
+    G.push('<b>In a public repository</b>, scheduled workflows are automatically disabled after 60 days with no repository activity. (Private repos are not auto-disabled this way.)');
     G.push('Cron is UTC, the shortest interval is 5 minutes, and GitHub delays runs under load — a job scheduled on the hour commonly starts minutes late, and can be dropped entirely at peak times.');
     if(!onDefault) return {verdict:'WON\'T RUN',cls:'norun',why:'Scheduled workflows only run from the default branch.',trace:T,gotchas:G};
     return {verdict:'WILL RUN',cls:'run',why:'The cron fires against the default branch and no filter applies.',trace:T,gotchas:G};
@@ -346,10 +366,15 @@ function evaluate(yamlText,ev){
 
   // ---- workflow_dispatch -------------------------------------------------
   if(ev.type==='workflow_dispatch'){
+    var badWd=Object.keys(cfg).filter(function(k){return k!=='inputs';});
+    if(badWd.length){
+      step('no','workflow_dispatch keys','only <code>inputs</code> is valid here; found '+badWd.map(function(k){return '<code>'+esc(k)+'</code>';}).join(', '));
+      return {verdict:'INVALID WORKFLOW',cls:'err',
+        why:'<code>workflow_dispatch</code> accepts only <code>inputs</code>. A key like <code>'+esc(badWd[0])+'</code> makes GitHub reject the whole workflow file — it is not "ignored", the workflow simply never runs.',
+        trace:T,gotchas:G};
+    }
     step('ok','trigger declared','<code>workflow_dispatch</code> is present');
-    step('skip','branch / path filters','not supported on <code>workflow_dispatch</code> — the ref comes from whoever presses Run');
-    if(branches||paths||bIgnore||pIgnore)
-      G.push('This <code>workflow_dispatch:</code> block carries branch or path filters. They are ignored — dispatch runs on whatever ref is chosen.');
+    step('skip','branch / path filters','<code>workflow_dispatch</code> has no filter keys — the ref comes from whoever presses Run');
     G.push('The <b>Run workflow</b> button only appears once a workflow containing <code>workflow_dispatch</code> exists on the <b>default branch</b>. Adding it on a feature branch alone shows no button — a very common "why can\'t I trigger it" cause.');
     if(ev.refType==='tag') G.push('You selected a tag. Dispatch can target a tag via the API, but the UI branch picker lists branches only.');
     return {verdict:'WILL RUN',cls:'run',why:'Manual dispatch is unfiltered — it runs on the ref you choose.',trace:T,gotchas:G};
@@ -395,8 +420,15 @@ function evaluate(yamlText,ev){
       if(hasBranchFilter){ var brr=checkRef(branches,bIgnore,ev.ref,'branch','branches'); if(brr)return brr; }
       else step('ok','no ref filters','no <code>branches</code>/<code>tags</code> filters — every push matches');
     }
-    var pp=checkPaths(paths,pIgnore,ev.files);
-    if(pp) return pp;
+    if(ev.refType==='tag'){
+      if(paths||pIgnore){
+        step('skip','paths','not evaluated for tag pushes — GitHub never applies path filters when the pushed ref is a tag');
+        G.push('<b>Path filters are not evaluated for pushes of tags.</b> A <code>paths:</code> filter that would block a branch push has no effect here — tagging a commit that touches nothing relevant still triggers the workflow.');
+      }
+    } else {
+      var pp=checkPaths(paths,pIgnore,ev.files);
+      if(pp) return pp;
+    }
     return {verdict:'WILL RUN',cls:'run',why:'Every filter on this <code>push</code> trigger admits the event.',trace:T,gotchas:G};
   }
 
@@ -540,6 +572,15 @@ function syncFormState(){
 }
 
 function render(){
+  try{ renderInner(); }
+  catch(e){
+    $('verdict').innerHTML='<div class="vhead"><span class="vbig err">TOOL ERROR</span>'+
+      '<span class="vwhy">This input hit a bug in the simulator, so there is no verdict — do not read the panel above as an answer. '+
+      'Details: <code>'+esc(e&&e.message?e.message:String(e))+'</code></span></div>';
+    $('gotchas').hidden=true;
+  }
+}
+function renderInner(){
   syncFormState();
   var ev=readEvent();
   var r=evaluate($('wf').value,ev);
