@@ -1,3 +1,11 @@
 # never commit runtime secrets — config lives at /home/claude/foundry/config.json (env only)
 config.json
 .DS_Store
+
+# Test scaffolding — never source, never committed.
+# Checker runs install Playwright to drive the real page; doing that inside the repo
+# leaves 19MB / 174 files of untracked deps that a well-meaning run could commit to a
+# PUBLIC repo. Install to a scratch dir outside the tree instead (see bin/ notes).
+node_modules/
+package.json
+package-lock.json
