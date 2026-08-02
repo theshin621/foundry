@@ -55,14 +55,14 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · 2026-07-31</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-02</span>
     <span class="grow"></span>
-    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-07-30.md">Open latest brief</a>
+    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-02.md">Open latest brief</a>
   </div>
 
   <div class="tiles">
-    <div class="tile"><b id="t-day">001</b><span>day</span></div>
-    <div class="tile"><b id="t-ships">1</b><span>ships</span></div>
+    <div class="tile"><b id="t-day">002</b><span>day</span></div>
+    <div class="tile"><b id="t-ships">2</b><span>ships</span></div>
     <div class="tile"><b id="t-live">1</b><span>live</span></div>
     <div class="tile"><b id="t-killed">0</b><span>killed</span></div>
     <div class="tile"><b id="t-pass">1/1</b><span>checker pass</span></div>
@@ -76,7 +76,7 @@
         <div class="stages" id="stages">
           <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-07-31: contract v3 live — two runs died mid-flight on quota before pushing anything (that is why nothing new showed here); the loop now heartbeat-pushes at every stage, scouts lean across 3 lanes, and <b>auto-stages verified ships</b> — your "go" publishes. Refire dispatched.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-02 (Sunday triage): <b>PUSH IS BLOCKED — nothing this run reached GitHub.</b> The PAT lives at /home/claude/foundry/config.json, which dies with the container, so a scheduled run in a fresh container has no credential and the heartbeat-push amendment cannot execute. Read works, write is 403. This is why runs go dark. Fix: put the fine-grained PAT in the scheduled task prompt, or re-create the loop as a local task on your machine. Ship 002 (gha-trigger) was built and independently checked: <b>FAIL</b> — the fix cycle closed both original blockers (glob engine now 49/49 vs GitHub’s cheat sheet) but introduced a stored XSS via an unescaped exception message. Branch unmerged, nothing public. One-line fix queued for Monday.</div>
         <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
 · Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
 · 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
@@ -90,6 +90,7 @@
           <thead><tr><th class="num">#</th><th>ship</th><th>what it is</th><th>verdict</th><th>status</th><th class="num">d7 visits</th></tr></thead>
           <tbody id="ships-body">
             <tr><td class="num">001</td><td class="mono"><a href="https://github.com/theshin621/foundry/tree/main/public">hub</a></td><td class="one">the foundry's own hub — public ledger, factory library, deploy pipeline proven end-to-end</td><td><span class="pill pos" title="PASS after one fix-cycle — initial PARTIAL fully cured and re-verified; live-URL unverified (egress)">PASS</span></td><td class="mono">live</td><td class="num">–</td></tr>
+            <tr><td class="num">002</td><td class="mono">gha-trigger</td><td class="one">will my GitHub Actions workflow run? simulates the event filters and names the one that decided it</td><td><span class="pill neg" title="FAIL — glob engine fixed to 49/49 vs GitHub cheat sheet, but the fix introduced stored XSS via unescaped exception message reaching innerHTML">FAIL</span></td><td class="mono">failed — unmerged</td><td class="num">–</td></tr>
           </tbody>
         </table>
       </div>

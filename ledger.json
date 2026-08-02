@@ -24,16 +24,16 @@
       "slug": "gha-trigger",
       "one_liner": "paste a GitHub Actions workflow and an event, get WILL RUN / WON'T RUN plus the exact filter that decided it",
       "gap_source_url": "https://github.com/orgs/community/discussions/25285 \u2014 recurring 'my workflow didn't trigger' thread (plus community #164673, #180208, #185355). Occupant hunt found no simulator: rhysd/actionlint lints filter-pattern SYNTAX only and never evaluates a concrete event; nektos/act selects workflows by event name alone (its CLI skips the filter layer, though its pkg/workflowpattern library implements the semantics correctly).",
-      "deploy_url": "staged: ship/002-gha-trigger",
+      "deploy_url": "unmerged: ship/002-gha-trigger (checker FAIL \u2014 never staged, never deployed)",
       "kind": "app",
-      "checker_verdict": "pending",
+      "checker_verdict": "FAIL \u2014 The fix cycle closed the substance of the Priority-1 correctness case: the rewritten glob engine now scores 49/49 against every example GitHub publishes in its filter-pattern cheat sheet (the coordinator's 38/38 undercounts; the real figure over the full published set is 49/49), passes all five \\-escape cases, and shows zero divergence from nektos/act's pkg/workflowpattern across 300 differential fuzz pairs, so all four real-world verdict inversions (paths-ignore: ['**/*.md'], paths: ['**/*.js' | '**/package.json' | '**/Dockerfile']) are now answered the way GitHub answers them; tag pushes correctly skip path filters while branch pushes still apply them; the stray-bare-dash schedule: crash and its stale-green-verdict cascade are gone, with a 1,500-document random fuzz producing zero uncaught errors and zero tool-error panels; the 300->3,000 file cap, the \"in a public repository\" qualifier on the 60-day auto-disable, the workflow_dispatch-unknown-key rejection, the \\ escape and the ledger's gap_source_url/x_draft/footer claims are all now accurate and the footer's ../ and ../ledger.json links both resolve \u2014 but the fix introduced a live cross-site-scripting vulnerability that fails the ship on its own: the new YAML alias/anchor guard (public/002-gha-trigger/index.html:176, mirrored at lib/mini-yaml.js:89) interpolates the raw user scalar into an exception message that reaches innerHTML through the one unescaped sink in the file (index.html:304, why:e.message), so pasting a workflow containing - *<img src=x onerror=alert(1)> executes attacker JavaScript on the page's origin \u2014 confirmed firing four different ways in a tool whose entire premise is \"paste a workflow file someone sent you\"; three further items remain open: [object Object] still leaks through the untouched on:-as-sequence normalisation (index.html:314), the newly-asserted ! re-inclusion inside *-ignore lists is undocumented by GitHub and contradicts the only reference implementation, and the \"whether the workflow file is valid in every other respect\" caveat was deleted from the Not-modelled list while the unclosed-flow-sequence and duplicate-on: gaps it covered are still present by design. One-line fix (why:esc(e.message)) clears the blocker.",
       "distribution": {
         "registry_pr": "n/a (not an MCP server)",
-        "hub": "pending \u2014 hub reads public/ledger.json on next main merge",
+        "hub": "none \u2014 not merged, not on the hub",
         "x_draft": "drafted in briefs/2026-08-02.md"
       },
       "signal": {},
-      "status": "staged",
+      "status": "failed",
       "kill_criterion": "<300 unique organic sessions in 30 days, or zero inbound links by day 30 -> kill to graveyard.md"
     }
   ]
