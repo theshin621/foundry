@@ -120,8 +120,9 @@
 
   <details>
     <summary>What this models — and what it deliberately does not</summary>
-    <p><b>Modelled:</b> event presence in <code>on:</code>; <code>branches</code> / <code>branches-ignore</code> / <code>tags</code> / <code>tags-ignore</code> / <code>paths</code> / <code>paths-ignore</code>; <code>types</code> including the <code>pull_request</code> defaults; GitHub's filter-pattern glob rules — <code>*</code> never crosses <code>/</code>, <code>**</code> does, a leading <code>**/</code> may match <b>zero</b> segments (so <code>**/README.md</code> matches a root <code>README.md</code>), <code>?</code> and <code>+</code> are quantifiers on the <i>preceding</i> character (so <code>*.jsx?</code> matches both <code>page.js</code> and <code>page.jsx</code>), character ranges, and <code>\</code> to escape a literal <code>*</code>, <code>?</code>, <code>+</code> or <code>[</code>; conjunction across filter categories and disjunction within one; order-dependent <code>!</code> negation in both include and ignore lists; branch-vs-tag filter exclusivity on <code>push</code>; the fact that <b>path filters are not evaluated for tag pushes</b>; and the config errors GitHub rejects outright (mutually-exclusive keys, and any key other than <code>inputs</code> under <code>workflow_dispatch</code>).</p>
+    <p><b>Modelled:</b> event presence in <code>on:</code>; <code>branches</code> / <code>branches-ignore</code> / <code>tags</code> / <code>tags-ignore</code> / <code>paths</code> / <code>paths-ignore</code>; <code>types</code> including the <code>pull_request</code> defaults; GitHub's filter-pattern glob rules — <code>*</code> never crosses <code>/</code>, <code>**</code> does, a leading <code>**/</code> may match <b>zero</b> segments (so <code>**/README.md</code> matches a root <code>README.md</code>), <code>?</code> and <code>+</code> are quantifiers on the <i>preceding</i> character (so <code>*.jsx?</code> matches both <code>page.js</code> and <code>page.jsx</code>), character ranges, and <code>\</code> to escape a literal <code>*</code>, <code>?</code>, <code>+</code> or <code>[</code>; conjunction across filter categories and disjunction within one; order-dependent <code>!</code> negation in the positive lists (<code>branches</code> / <code>tags</code> / <code>paths</code>), where GitHub documents it; branch-vs-tag filter exclusivity on <code>push</code>; the fact that <b>path filters are not evaluated for tag pushes</b>; and the config errors GitHub rejects outright (mutually-exclusive keys, and any key other than <code>inputs</code> under <code>workflow_dispatch</code>).</p>
     <p><b>Not modelled</b> (these can still stop a run that this tool says WILL RUN): job- and step-level <code>if:</code> conditions · <code>concurrency</code> cancellation · <code>workflow_call</code> / reusable workflows · runner availability, billing limits and spending caps · required-status or ruleset gating · org/repo policy disabling Actions · <code>[skip ci]</code> in the commit message · and the changed-file edge cases where GitHub gives up on <code>paths</code> filtering — a diff over <b>3,000</b> files whose matches fall outside the first 3,000 returned, a push of more than 1,000 commits, or a diff that times out (the last two make the workflow run regardless of the filter).</p>
+    <p><b>Modelled by choice, beyond the docs:</b> GitHub documents <code>!</code> negation only for the positive lists. This tool also applies the same last-match-wins ordering to <code>!</code> inside a <code>-ignore</code> list, a shape GitHub neither documents nor demonstrates — treat a verdict that turns on it as unconfirmed.</p>
     <p>A "WILL RUN" here means <i>the event filters admit this event</i> — not that the run will succeed.</p>
   </details>
 
@@ -237,25 +238,49 @@ return{parse:parse};
  * Patterns are anchored — they must match the whole ref/path.
  * ------------------------------------------------------------------------- */
 function escLit(c){ return '^$.|?*+()[]{}\\/'.indexOf(c)!==-1 ? '\\'+c : c; }
+/* Backtracking budget (measured 2026-08-02, do not re-derive by guesswork).
+ * JS regex backtracking blows up on ADJACENT ambiguous constructs, not on their total
+ * count. Measured against a non-matching subject:
+ *   [^/]* x3 = 3ms   x4 = 123ms   x5 = 3,659ms
+ *   a+    x3 = 14ms  x4 = 573ms   x5 = 22,863ms
+ * Every pattern in GitHub's published cheat sheet has a wildcard run of <=2 and at most
+ * one ?/+ quantifier, so these caps sit above real filters and below the cliff. Exceeding
+ * them throws, which paints an explicit no-verdict panel — it never silently returns
+ * "no match", because a silent false here would INVERT a verdict, which is worse. */
+var GLOB_MAX_RUN=3, GLOB_MAX_QUANT=4, GLOB_MAX_AMB=12;
 function globToRegex(p){
-  var out='',i=0;
+  var out='',i=0,amb=0,run=0,quant=0,maxRun=0;
+  function wild(s){ out+=s; amb++; run++; if(run>maxRun)maxRun=run; }
+  function lit(s){ out+=s; run=0; }
   while(i<p.length){
     var c=p[i];
-    if(c==='\\'&&i+1<p.length){ out+=escLit(p[i+1]); i+=2; }
+    if(c==='\\'&&i+1<p.length){ lit(escLit(p[i+1])); i+=2; }
     else if(c==='*'){
       if(p[i+1]==='*'){
         // `**/` may match ZERO path segments: '**/README.md' matches 'README.md'
-        if(p[i+2]==='/'){ out+='(.+/)?'; i+=3; }
-        else { out+='.*'; i+=2; }
-      } else { out+='[^/]*'; i++; }
+        if(p[i+2]==='/'){
+          wild('(.+/)?'); i+=3;
+          // '**/**/x' matches EXACTLY what '**/x' matches — one (.+/)? already spans any
+          // number of segments. Collapse the run instead of emitting adjacent optional
+          // groups: those backtrack exponentially on a near-miss and freeze the tab.
+          while(p[i]==='*'&&p[i+1]==='*'&&p[i+2]==='/'){ i+=3; }
+        }
+        else { wild('.*'); i+=2; }
+      } else { wild('[^/]*'); i++; }
     }
     // `?` and `+` are quantifiers on the PRECEDING character, per GitHub's cheat sheet:
     // '*.jsx?' matches both page.js and page.jsx.
-    else if(c==='?'||c==='+'){ out += (out===''? escLit(c) : c); i++; }
+    else if(c==='?'||c==='+'){
+      if(out===''){ lit(escLit(c)); }           // nothing to quantify — a literal
+      else { out+=c; amb++; quant++; }          // quantifier: does not extend a wildcard run
+      i++;
+    }
     else if(c==='['){ var j=p.indexOf(']',i+1);
-      if(j===-1){out+='\\[';i++;} else {out+=p.slice(i,j+1);i=j+1;} }
-    else { out+=escLit(c); i++; }
+      if(j===-1){lit('\\[');i++;} else {lit(p.slice(i,j+1));i=j+1;} }
+    else { lit(escLit(c)); i++; }
   }
+  if(maxRun>GLOB_MAX_RUN||quant>GLOB_MAX_QUANT||amb>GLOB_MAX_AMB)
+    throw new Error('filter pattern too complex to simulate safely — matching it could hang this page, so it is refused rather than answered: '+(p.length>60?p.slice(0,60)+'…':p));
   try{ return new RegExp('^'+out+'$'); }catch(e){ return {test:function(){return false;},bad:true}; }
 }
 function gmatch(pattern,value){ return globToRegex(pattern).test(value); }
@@ -317,7 +342,12 @@ function evaluate(yamlText,ev){
   // normalise on: → { eventName: config|null }
   var triggers={};
   if(typeof on==='string'){ triggers[on]=null; }
-  else if(Array.isArray(on)){ on.forEach(function(e){ triggers[String(e)]=null; }); }
+  else if(Array.isArray(on)){ on.forEach(function(e){
+    // A list entry that parsed to a map (`on:` written as a list of `event: {…}` items)
+    // must contribute its KEYS, not the string "[object Object]".
+    if(e&&typeof e==='object'&&!Array.isArray(e)){ Object.keys(e).forEach(function(k){ triggers[k]=e[k]; }); }
+    else { triggers[String(e)]=null; }
+  }); }
   else { Object.keys(on).forEach(function(k){ triggers[k]=on[k]; }); }
 
   var names=Object.keys(triggers);
@@ -580,7 +610,7 @@ function render(){
   try{ renderInner(); }
   catch(e){
     $('verdict').innerHTML='<div class="vhead"><span class="vbig err">TOOL ERROR</span>'+
-      '<span class="vwhy">This input hit a bug in the simulator, so there is no verdict — do not read the panel above as an answer. '+
+      '<span class="vwhy">The simulator stopped on this input, so there is no verdict — do not read the panel above as an answer. '+
       'Details: <code>'+esc(e&&e.message?e.message:String(e))+'</code></span></div>';
     $('gotchas').hidden=true;
   }
