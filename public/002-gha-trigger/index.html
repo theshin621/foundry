@@ -173,8 +173,10 @@ function parseFlow(s){s=s.trim();
       if(idx===-1){obj[unquote(p)]=null;return;}
       obj[unquote(p.slice(0,idx))]=parseFlow(p.slice(idx+1));});
     return obj;}
-  if((s[0]==='*'||s[0]==='&')&&s.length>1)
-    throw new Error('unquoted '+s+' — YAML reads a leading * as an alias and & as an anchor. Quote the pattern: "'+s+'"');
+  if((s[0]==='*'||s[0]==='&')&&s.length>1){
+    var q=s.length>60?s.slice(0,60)+'…':s; // bounded excerpt; the sink still escapes it
+    throw new Error('unquoted '+q+' — YAML reads a leading * as an alias and & as an anchor. Quote the pattern: "'+q+'"');
+  }
   return unquote(s);}
 function parseBlock(lines,i,base,st){if(i>=lines.length)return[null,i];
   if(lines[i].text[0]==='-'&&(lines[i].text.length===1||lines[i].text[1]===' '))return parseSeq(lines,i,base,st);
@@ -301,7 +303,10 @@ function evaluate(yamlText,ev){
 
   var doc;
   try{ doc=miniYAML.parse(yamlText); }
-  catch(e){ return {verdict:'INVALID YAML',cls:'err',why:e.message,trace:T,gotchas:G}; }
+  // esc() is MANDATORY here: r.why is written to innerHTML (the other why values carry
+  // intentional <code> markup), and a parser message embeds the offending raw scalar.
+  // Unescaped, `- *<img src=x onerror=...>` in a pasted workflow executes on this origin.
+  catch(e){ return {verdict:'INVALID YAML',cls:'err',why:esc(e&&e.message?e.message:String(e)),trace:T,gotchas:G}; }
   if(!doc||typeof doc!=='object'||Array.isArray(doc))
     return {verdict:'INVALID YAML',cls:'err',why:'The document did not parse to a mapping. A workflow file must be a YAML map with an <code>on:</code> key.',trace:T,gotchas:G};
 
