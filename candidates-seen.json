@@ -1,1 +1,78 @@
-{"seen": []}
+{
+  "seen": [
+    {
+      "date": "2026-08-02",
+      "lane": "EVERGREEN",
+      "slug": "gha-trigger",
+      "outcome": "built as ship 002",
+      "note": "occupant hunt empty; no runtime secret required"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "ORIGINAL",
+      "slug": "cimdkit",
+      "outcome": "runner-up \u2014 first pick for Monday",
+      "note": "MCP final spec 2026-07-28 deprecated DCR for CIMD; no free validator/generator found across 4 query formulations"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "ORIGINAL",
+      "slug": "provenance-audit",
+      "outcome": "parked \u2014 needs explicit approval",
+      "note": "EU AI Act Art.50 + California AITA both effective 2026-08-02; asserting compliance is a legal conclusion, HARD RULES gate it"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "ORIGINAL",
+      "slug": "mcp-conformance-index",
+      "outcome": "parked \u2014 derivative",
+      "note": "mcp-spec-check already scanned the registry 2026-07-12 vs the RC; only the publishing layer is missing"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "CLONE",
+      "slug": "bulk-alt-text",
+      "outcome": "blocked \u2014 no runtime inference key",
+      "note": "alttext.ai corroborated: 20k+ WP installs + Shopify 4.5/135"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "CLONE",
+      "slug": "policy-spam-filter",
+      "outcome": "blocked \u2014 no runtime inference key",
+      "note": "Akismet corroborated: 6M+ WP installs, $9.95/mo for 500 checks"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "EVERGREEN",
+      "slug": "nginx-location-sim",
+      "outcome": "queued \u2014 strong second",
+      "note": "htaccess equivalent used 7.5M times/10yr; seowebchecker tests one pattern, not which block wins"
+    },
+    {
+      "date": "2026-08-02",
+      "lane": "EVERGREEN",
+      "slug": "excel-csv-preflight",
+      "outcome": "queued",
+      "note": "~6 CSV structure linters, none simulate Excel's destructive import"
+    }
+  ],
+  "dropped_on_occupancy": [
+    "cron-explainer",
+    "gitignore-debugger",
+    "robots-txt-ai-crawler",
+    "invisible-char-detector",
+    "ics-rrule-validator",
+    "grok-debugger",
+    "en16931-einvoice-validator",
+    "epub-a11y-checker",
+    "date-format-converter",
+    "regex-tester",
+    "us-state-ai-law-tracker",
+    "c2pa-single-file-verifier",
+    "llm-status-aggregator",
+    "schema-jsonld-generator",
+    "redirect-mapper",
+    "bank-statement-to-csv"
+  ]
+}
