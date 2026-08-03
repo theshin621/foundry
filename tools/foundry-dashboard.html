@@ -55,11 +55,11 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-02</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-03</span>
     <span class="pill mut" id="health" title="live-site probe from a GitHub Actions runner (the sandbox itself cannot reach workers.dev)">health —</span>
     <span class="grow"></span>
     <a class="btn" id="live-btn" href="https://foundry.theshin-naidu.workers.dev" style="background:#238636;margin-right:8px">Open live site</a>
-    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-02.md">Open latest brief</a>
+    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-03.md">Open latest brief</a>
   </div>
 
   <div class="tiles">
@@ -68,8 +68,8 @@
     <div class="tile"><b id="t-live">1</b><span>live</span></div>
     <div class="tile"><b id="t-staged">1</b><span>staged / failed</span></div>
     <div class="tile"><b id="t-killed">0</b><span>killed</span></div>
-    <div class="tile"><b id="t-pass">1/1</b><span>checker pass</span></div>
-    <div class="tile"><b id="t-scouted">0</b><span>candidates seen</span></div>
+    <div class="tile"><b id="t-pass">2/2</b><span>checker pass</span></div>
+    <div class="tile"><b id="t-scouted">11</b><span>candidates seen</span></div>
   </div>
 
   <div class="grid">
@@ -79,7 +79,7 @@
         <div class="stages" id="stages">
           <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-02 (run 2) — <b>Ship 002 re-checked from scratch: FAIL. It does not stage.</b> Four independent checker passes, the primary on a <b>different model from the maker</b>. The stored XSS that killed run 1 is <b>dead</b> (~440 executed payloads, two independent adversaries, zero executions), correctness is <b>56/56</b> against GitHub&rsquo;s published cheat sheet with <b>0 inverted verdicts</b> across ~67M differential comparisons, and the <span class="mono">**/</span>-collapse fix was proved a semantic identity. It fails on a glob-engine <b>ReDoS</b>: a static complexity budget provably cannot bound it (a pattern sitting exactly at the cap still hangs &gt;10s), and the budget itself broke a correct verdict via the pattern-widening probe. <b>The remedy is architectural, not another patch</b> — rebuild the matcher backtrack-free (linear-time two-pointer or DP) against the 56-case published oracle and the ~67M-pair differential harness already written. That is Monday&rsquo;s build. <b>Write path held all run</b> — heartbeat, fix, verdict and ledger each pushed and hash-verified. Beacon is LIVE, so signal from day 003 is measured by construction; ship 002 predates it and must carry it on rebuild. Nothing public, nothing staged — a checker-FAIL that stays unmerged is the loop working.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-03 (Monday, daily) — <b>Ship 002 rebuilt and STAGED — PASS after one fix cycle.</b> Three independent checkers, none given a prior verdict, all on a <b>different model from the maker</b>. The risky core was <b>borrowed, not hand-rolled</b>: pattern semantics ported line-for-line from <span class="mono">nektos/act pkg/workflowpattern</span> (MIT, <span class="mono">4f41128</span>) — but its <i>execution</i> was deliberately thrown away, because act is only safe by virtue of Go&rsquo;s RE2 and a verbatim JS port would have reintroduced the very ReDoS that killed the first two attempts. Execution is a <b>Thompson NFA / Pike-VM</b> simulation instead. <b>211,118</b> pattern/value pairs by the maker plus <b>56,766</b> and <b>~69,500</b> by two checkers, each against their <i>own</i> Go/RE2 build of act — <b>zero divergences in every set</b>; 46/46 on GitHub&rsquo;s published cheat sheet and 64/64 on act&rsquo;s own corpus, run against the live page; ~870 XSS payloads including the thrown-<span class="mono">Error</span> sink → <b>zero injections</b>. Then the checkers found the real defect: <b>linear time is not bounded time</b>. The exponential blow-up was gone (ReDoS probes 0.04 ms) but cost is still O(pattern × value) and the user pastes both — 7,755 ms on 5,000 files × 100 patterns, 12.9 s on deeply nested YAML with no patterns at all, and a <b>tab crash</b> at 20,000 levels. One fix cycle added a work budget <i>decremented by states actually visited</i> — not the static budget that failed before, because it measures work done rather than predicting a blow-up — plus parser limits and encode-once. Re-check: <b>7,755→150 ms · 5,618→188 ms · >90 s→194 ms · crash→refused in 0 ms</b>, with zero wrong verdicts across ~75k comparisons. <b>Two LOW residuals carried, not ground down</b> (a sub-second stale repaint, and a latency figure scoped to matching only) — recorded verbatim rather than fixed after the verdict. <b>Nothing is public. Merging is Theshin&rsquo;s act.</b></div>
         <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
 · Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
 · 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
@@ -119,8 +119,8 @@
 
       <div class="panel">
         <h2>Needs Theshin</h2>
-        <div class="card warn"><b>1 · Paste the workers.dev URL</b><br>Open the Worker's overview, visit the live hub once, paste the URL into chat — it goes into config + ledger.</div>
-        <div class="card warn"><b>2 · Enable CF Web Analytics</b><br>Token into <span class="mono">lib/beacon.html</span> — until then Sunday triage has no visit signal.</div>
+        <div class="card warn"><b>1 · Merge ship 002 to publish</b><br>Branch <span class="mono">ship/002-gha-trigger</span> @ <span class="mono">26bf223</span> — PASS, clean one-click merge verified. Merging <i>is</i> the deploy.</div>
+        <div class="card warn"><b>2 · Add the two workflows (only you can)</b><br><span class="mono">.github/workflows/ship-preview.yml</span> + <span class="mono">health-check.yml</span> are still absent. The PAT lacks the <span class="mono">workflow</span> scope <i>by design</i>, so no run can ever add them. Until they exist: no auto draft-PR, <b>no Cloudflare preview URL</b>, and <b>no live-render signal at all</b> — <span class="mono">public/health.json</span> has never been written.</div>
         <div class="card"><b>3 · Brand domain</b><br>workers.dev works meanwhile. Candidates: dayforge.dev · shipdock.dev · oneaday.build.</div>
       </div>
 
