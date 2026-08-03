@@ -253,6 +253,35 @@
 
   var LIVE='https://foundry.theshin-naidu.workers.dev';
 
+  // health-check.yml is not installed (the loop's PAT cannot push .github/workflows —
+  // measured 2026-08-03), so public/health.json has never been written. But THIS page runs
+  // in Theshin's browser, which CAN reach workers.dev. An <img> load is not subject to
+  // CORS, so onload/onerror is a true reachability signal for the deployment. It cannot
+  // read an HTTP status or check per-ship paths; that is what the workflow adds, and the
+  // label says reachability rather than implying more.
+  // Fired immediately on load — it has no dependency on the GitHub fetches below.
+  var probeDone=false;
+  function browserProbe(){
+    var h=document.getElementById('health'); if(!h||probeDone)return;
+    h.textContent='live site · probing…'; h.className='pill mut';
+    var t0=Date.now(), im=new Image();
+    function settle(okNow,why){
+      if(probeDone)return; probeDone=true;
+      if(okNow){
+        h.textContent='LIVE SITE SERVING · '+(Date.now()-t0)+'ms'; h.className='pill pos';
+        h.title='probed from your browser just now (GET '+LIVE+'/up.svg). Reachability only — install health-check.yml for per-path HTTP status and a beacon check.';
+      }else{
+        h.textContent='LIVE SITE UNREACHABLE'; h.className='pill neg';
+        h.title='your browser could not load '+LIVE+'/up.svg ('+why+'). Either the deployment is down, or up.svg has not reached main yet.';
+      }
+    }
+    im.onload=function(){settle(true)};
+    im.onerror=function(){settle(false,'load error')};
+    setTimeout(function(){settle(false,'timeout')},12000);
+    im.src=LIVE+'/up.svg?t='+Date.now();
+  }
+  browserProbe();
+
   Promise.allSettled([
     fetch(RAW+'ledger.json'+bust).then(function(r){return r.json()}),
     fetch(RAW+'candidates-seen.json'+bust).then(function(r){return r.json()}),
@@ -268,27 +297,8 @@
     var health=(res[5]&&res[5].status==='fulfilled'&&res[5].value)||null;
     (function(){
       var h=document.getElementById('health'); if(!h)return;
-      if(!health){
-        // health-check.yml is not installed (the loop's PAT cannot push .github/workflows,
-        // measured 2026-08-03), so public/health.json has never been written. But THIS page
-        // runs in Theshin's browser, which CAN reach workers.dev — so probe it here instead.
-        // An <img> load is not subject to CORS, so onload/onerror is a true reachability
-        // signal for the deployment. It cannot read an HTTP status or check per-ship paths;
-        // that is what the workflow adds, and the label says so rather than implying more.
-        h.textContent='live site · probing…'; h.className='pill mut';
-        var t0=Date.now(), im=new Image(), done=false;
-        function settle(okNow,why){
-          if(done)return; done=true;
-          if(okNow){h.textContent='LIVE SITE SERVING · '+(Date.now()-t0)+'ms';h.className='pill pos';
-                    h.title='probed from your browser just now (GET '+LIVE+'/up.svg). Reachability only — install health-check.yml for per-path HTTP status and a beacon check.';}
-          else{h.textContent='LIVE SITE UNREACHABLE';h.className='pill neg';
-               h.title='your browser could not load '+LIVE+'/up.svg ('+why+'). Either the deploy is down, or up.svg has not reached main yet.';}
-        }
-        im.onload=function(){settle(true)}; im.onerror=function(){settle(false,'load error')};
-        setTimeout(function(){settle(false,'timeout')}, 12000);
-        im.src=LIVE+'/up.svg?t='+Date.now();
-        return;
-      }
+      if(!health){ return; }        // the browser probe already fired on load
+      probeDone=true;               // health.json is richer than reachability — it wins
       var hubOk=health.hub&&health.hub.ok;
       var down=(health.ships||[]).filter(function(s){return s.http&&!s.ok&&s.status==='live'}).length;
       if(hubOk&&!down){h.textContent='LIVE SITE OK · '+((health.checked_utc||'').replace('T',' ').replace('Z',''));h.className='pill pos'}
