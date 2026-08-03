@@ -121,10 +121,17 @@ footer a{color:var(--faint)}
        <code>pkg/workflowpattern</code></a> (MIT), pinned at commit <code>4f41128</code>. The pattern
        <em>semantics</em> are that library’s, line for line. The <em>execution</em> is not: act relies on Go’s RE2
        engine, which is linear-time, and JavaScript’s <code>RegExp</code> backtracks — so this page compiles each
-       pattern to an NFA and runs a state-set simulation instead. No input can make it hang.</p>
+       pattern to an NFA and runs a state-set simulation instead. <strong>No pattern can trigger catastrophic
+       backtracking</strong>: cost is linear in pattern length × input length, never exponential.</p>
+    <p>Linear is not the same as free, though. That product is still yours to control, so an evaluation stops
+       once it has spent a fixed amount of matching work (about a fifth of a second) and says
+       <strong>CANNOT TELL</strong> rather than freezing the tab or guessing. The workflow parser refuses
+       documents over 1 MiB or nested deeper than 64 levels, and the event form caps the changed-file list at
+       5,000 entries. Real workflows are nowhere near any of these.</p>
     <p>Verified before publishing: <strong>211,118</strong> (pattern, value) pairs diffed against a real
-       Go/RE2 build of act with zero divergences · GitHub’s own published filter cheat-sheet, 46/46 ·
-       act’s own 64-case test corpus, 64/64 · every known catastrophic-backtracking probe under 0.2 ms.</p>
+       Go/RE2 build of act with zero divergences, plus an independent 56,766-pair differential by a second
+       checker, also zero · GitHub’s own published filter cheat-sheet, 46/46 · act’s own 64-case test corpus,
+       64/64 · every known catastrophic-backtracking probe under 0.2 ms.</p>
 
     <h2>What it models</h2>
     <ul>
@@ -152,6 +159,8 @@ footer a{color:var(--faint)}
       <li>Non-ASCII characters in patterns. The matcher compares them byte-wise; GitHub’s behaviour there is
           undocumented and unverified, so treat such a verdict as unknown rather than authoritative.</li>
       <li>Reusable workflows (<code>workflow_call</code>) and the remaining ~30 webhook events.</li>
+      <li>Inputs past the limits above. Beyond them the page says <strong>CANNOT TELL</strong> and names the
+          limit — it will not return a verdict it did not finish computing.</li>
     </ul>
   </div>
 
@@ -293,14 +302,19 @@ footer a{color:var(--faint)}
     return unquote(s);
   }
 
-  // Index of the key/value colon (a colon followed by space or end), outside quotes.
+  // Index of the key/value colon (a colon followed by space or end), outside quotes AND
+  // outside flow collections. The depth test was added 2026-08-03: without it a sequence
+  // item like `- {a: b}` was read as a mapping whose key is the literal "{a", producing a
+  // mangled parse of perfectly legal YAML.
   function findColon(s) {
-    var q = null;
+    var q = null, depth = 0;
     for (var i = 0; i < s.length; i++) {
       var c = s[i];
       if (q) { if (c === q) q = null; continue; }
       if (c === '"' || c === "'") { q = c; continue; }
-      if (c === ':' && (i + 1 >= s.length || /[\s]/.test(s[i + 1]))) return i;
+      if (c === '[' || c === '{') { depth++; continue; }
+      if (c === ']' || c === '}') { if (depth > 0) depth--; continue; }
+      if (depth === 0 && c === ':' && (i + 1 >= s.length || /[\s]/.test(s[i + 1]))) return i;
     }
     return -1;
   }
@@ -310,6 +324,18 @@ footer a{color:var(--faint)}
   function parseBlock(lines, i, base, state) {
     // Decide sequence vs map by the first line of the block.
     if (i >= lines.length) return [null, i];
+    state.depth = (state.depth || 0) + 1;
+    if (state.depth > MAX_DEPTH) {
+      throw new Error('nesting deeper than ' + MAX_DEPTH + ' levels; refusing to parse it');
+    }
+    try {
+      return parseBlockInner(lines, i, base, state);
+    } finally {
+      state.depth--;
+    }
+  }
+
+  function parseBlockInner(lines, i, base, state) {
     if (lines[i].text[0] === '-' && (lines[i].text.length === 1 || lines[i].text[1] === ' ')) {
       return parseSeq(lines, i, base, state);
     }
@@ -386,8 +412,22 @@ footer a{color:var(--faint)}
     return [obj, i];
   }
 
+  /* HARD INPUT LIMITS (added 2026-08-03 after a checker round).
+     A hand-rolled block parser is O(depth x lines) in the worst case — a document of
+     2,000 nested single-key maps blocked the main thread for ~13s, and 20,000 levels
+     crashed the tab outright. No workflow file looks remotely like that, so the honest
+     fix is to refuse the input by name rather than to try to be fast at it. These are
+     ~500x larger than any real GitHub Actions workflow. */
+  var MAX_BYTES = 1048576;   /* 1 MiB document                                        */
+  var MAX_LINES = 20000;     /* lines of actual content                               */
+  var MAX_DEPTH = 64;        /* nesting levels                                        */
+
   function parse(text) {
     if (typeof text !== 'string') throw new Error('miniYAML.parse expects a string');
+    if (text.length > MAX_BYTES) {
+      throw new Error('document is ' + text.length + ' characters; this parser refuses anything over ' +
+                      MAX_BYTES + ' (no real workflow file is that large)');
+    }
     var raw = text.replace(/\r\n?/g, '\n').split('\n');
     var lines = [];
     for (var i = 0; i < raw.length; i++) {
@@ -397,9 +437,12 @@ footer a{color:var(--faint)}
       var code = stripComment(raw[i]);
       if (code.trim() === '' || code.trim() === '---') continue;
       lines.push({ indent: indentOf(code), text: code.trim(), lineNo: i + 1 });
+      if (lines.length > MAX_LINES) {
+        throw new Error('document has more than ' + MAX_LINES + ' content lines; refusing to parse it');
+      }
     }
     if (!lines.length) return {};
-    var res = parseBlock(lines, 0, lines[0].indent, {});
+    var res = parseBlock(lines, 0, lines[0].indent, { depth: 0 });
     return res[0];
   }
 
@@ -452,6 +495,20 @@ footer a{color:var(--faint)}
  * matches the bytes literally (the sane behaviour). GitHub's own behaviour here
  * is unverified, so callers should say so rather than claim it. The differential
  * harness in lib/checks is therefore run over ASCII.
+ *
+ * BOUNDED WALL CLOCK — added after the 2026-08-03 checker round. Linear time is not
+ * the same as bounded time: this VM is O(len(program) x len(value)), and BOTH are
+ * attacker-controlled, so a big enough paste (a 3,000-char pattern against a 40 KB
+ * path, or 5,000 changed files against 100 patterns) still blocked the main thread for
+ * seconds. Every entry point therefore takes a `budget` whose `left` counter is
+ * decremented by ACTUAL WORK PERFORMED and checked inside the loop.
+ *   This is NOT the static complexity budget that failed here before. That one tried to
+ *   PREDICT, from a pattern's shape, whether a backtracking engine would explode — an
+ *   exponential cost function cannot be predicted, so a pattern under the cap could
+ *   still hang. This counter measures work already done against a hard ceiling, so the
+ *   ceiling cannot be "satisfied and exceeded" at the same time. When it runs out the
+ *   caller gets `budget.exceeded === true` and must report "cannot evaluate", never a
+ *   verdict — refusing to answer is honest; a wrong answer or a frozen tab is not.
  *
  * NEVER THROWS. Every entry point returns a value; invalid patterns come back as
  * `{error: "..."}`. Ship 002's second security finding was untrusted input
@@ -694,6 +751,16 @@ footer a{color:var(--faint)}
     return { patterns: out };
   }
 
+  /* ── work budget ───────────────────────────────────────────────────────── */
+  /* One "step" = one NFA state visited. Measured at ~40M steps/second in Chromium,
+     so the default ceiling is roughly 200 ms of worst-case compute for an entire
+     evaluation (all patterns x all values), which keeps the page responsive on any
+     input at all. Callers share ONE budget across a whole evaluation. */
+  var DEFAULT_STEP_BUDGET = 8000000;
+  function makeBudget(steps) {
+    return { left: (typeof steps === 'number' && steps > 0) ? steps : DEFAULT_STEP_BUDGET, exceeded: false };
+  }
+
   /* ── run: Pike VM. Linear in len(value) x len(prog). Cannot backtrack. ─── */
   function testByte(ins, b) {
     if (ins.k === LIT) return b === ins.b;
@@ -701,13 +768,14 @@ footer a{color:var(--faint)}
     return ins.s[b] === 1;
   }
 
-  function addThread(prog, list, pc, gen, g, stack) {
+  function addThread(prog, list, pc, gen, g, stack, budget) {
     stack.length = 0;
     stack.push(pc);
     while (stack.length) {
       var q = stack.pop();
       if (gen[q] === g) continue;
       gen[q] = g;
+      if (budget) budget.left--;
       var ins = prog[q];
       if (ins.op === SPLIT) { stack.push(ins.y); stack.push(ins.x); }
       else if (ins.op === JMP) { stack.push(ins.x); }
@@ -716,42 +784,86 @@ footer a{color:var(--faint)}
   }
 
   /* Whole-string (anchored) match of `value` against a compiled pattern. */
-  function matches(compiled, value) {
+  function matches(compiled, value, budget) {
     if (!compiled || compiled.error || !compiled.prog) return false;
+    if (budget && budget.exceeded) return false;
     var prog = compiled.prog, n = prog.length;
-    var bytes = utf8(String(value == null ? '' : value));
-    var gen = new Int32Array(n);
-    for (var z = 0; z < n; z++) gen[z] = -1;
-    var clist = [], nlist = [], stack = [], g = 0, i, k, pc, ins;
+    /* `value` may be a pre-encoded Uint8Array. skip()/filter() encode each value ONCE and
+       reuse it across every pattern — otherwise a 20 MB ref is re-encoded per pattern and
+       the encode alone, which does no NFA steps, dominates the wall clock. */
+    var bytes;
+    if (value && typeof value !== 'string' && typeof value.length === 'number' && typeof value.BYTES_PER_ELEMENT === 'number') {
+      bytes = value;
+    } else {
+      var str = String(value == null ? '' : value);
+      if (budget) {
+        budget.left -= (str.length >> 3);          /* charge for the encode itself */
+        if (budget.left <= 0) { budget.exceeded = true; return false; }
+      }
+      bytes = utf8(str);
+    }
+    /* Scratch state is cached ON the compiled pattern and reused across calls. Allocating a
+       fresh Int32Array(prog) plus three arrays for every (pattern, value) pair dominated the
+       wall clock when thousands of files meet dozens of patterns — measured 2026-08-03.
+       The generation counter makes reuse safe without clearing the array. */
+    if (!compiled._gen || compiled._gen.length !== n || compiled._g > 2000000000) {
+      compiled._gen = new Int32Array(n);
+      for (var z = 0; z < n; z++) compiled._gen[z] = -1;
+      compiled._g = 0;
+      compiled._c = []; compiled._n = []; compiled._s = [];
+    }
+    var gen = compiled._gen;
+    var clist = compiled._c, nlist = compiled._n, stack = compiled._s;
+    clist.length = 0; nlist.length = 0;
+    var g = ++compiled._g, i, k, pc, ins;
+    compiled._g += bytes.length + 1;
 
-    addThread(prog, clist, 0, gen, g, stack);
+    addThread(prog, clist, 0, gen, g, stack, budget);
     for (i = 0; i < bytes.length; i++) {
       if (clist.length === 0) return false;
+      if (budget) {
+        budget.left -= clist.length;
+        if (budget.left <= 0) { budget.exceeded = true; return false; }
+      }
       g++;
       nlist.length = 0;
       var b = bytes[i];
       for (k = 0; k < clist.length; k++) {
         pc = clist[k];
         ins = prog[pc];
-        if (ins.op === CHAR && testByte(ins, b)) addThread(prog, nlist, pc + 1, gen, g, stack);
+        if (ins.op === CHAR && testByte(ins, b)) addThread(prog, nlist, pc + 1, gen, g, stack, budget);
       }
       var t = clist; clist = nlist; nlist = t;
     }
+    compiled._c = clist; compiled._n = nlist;
+    if (budget && budget.left <= 0) { budget.exceeded = true; return false; }
     for (k = 0; k < clist.length; k++) if (prog[clist[k]].op === MATCH) return true;
     return false;
+  }
+
+  function encodeOnce(value, budget) {
+    var str = String(value == null ? '' : value);
+    if (budget) {
+      budget.left -= (str.length >> 3);
+      if (budget.left <= 0) { budget.exceeded = true; return new Uint8Array(0); }
+    }
+    return utf8(str);
   }
 
   /* ── act's set logic, ported exactly ───────────────────────────────────── */
 
   /* Skip(): the semantics of an INCLUDE list (branches:, tags:, paths:).
      Returns true when the workflow should be SKIPPED. Trace entries explain why. */
-  function skip(sequence, input, trace) {
+  function skip(sequence, input, trace, budget) {
     if (!sequence || sequence.length === 0) return false;
     for (var f = 0; f < input.length; f++) {
+      if (budget && budget.exceeded) return false;
       var file = input[f], matched = false;
+      var fbytes = encodeOnce(file, budget);
+      if (budget && budget.exceeded) return false;
       for (var i = 0; i < sequence.length; i++) {
         var item = sequence[i];
-        if (matches(item, file)) {
+        if (matches(item, fbytes, budget)) {
           if (item.negative) {
             matched = false;
             if (trace) trace.push({ value: file, pattern: '!' + item.pattern, effect: 'excluded' });
@@ -768,13 +880,16 @@ footer a{color:var(--faint)}
 
   /* Filter(): the semantics of an IGNORE list (branches-ignore:, paths-ignore:).
      Returns true when the workflow should be SKIPPED. */
-  function filter(sequence, input, trace) {
+  function filter(sequence, input, trace, budget) {
     if (!sequence || sequence.length === 0) return false;
     for (var f = 0; f < input.length; f++) {
+      if (budget && budget.exceeded) return false;
       var file = input[f], matched = false;
+      var fbytes = encodeOnce(file, budget);
+      if (budget && budget.exceeded) return false;
       for (var i = 0; i < sequence.length; i++) {
         var item = sequence[i];
-        if (matches(item, file) === !item.negative) {
+        if (matches(item, fbytes, budget) === !item.negative) {
           if (trace) trace.push({ value: file, pattern: (item.negative ? '!' : '') + item.pattern, effect: 'ignored' });
           matched = true;
           break;
@@ -788,6 +903,8 @@ footer a{color:var(--faint)}
   return {
     compilePattern: compilePattern,
     compilePatterns: compilePatterns,
+    makeBudget: makeBudget,
+    DEFAULT_STEP_BUDGET: DEFAULT_STEP_BUDGET,
     matches: matches,
     skip: skip,
     filter: filter,
@@ -854,17 +971,21 @@ footer a{color:var(--faint)}
 
   /* ── the filter evaluator ──────────────────────────────────────────────── */
   /* Returns {ok:true, skip:bool, trace:[]} or {ok:false, error:"..."} */
-  function applyInclude(patterns, values) {
+  function applyInclude(patterns, values, budget) {
     var cp = G.compilePatterns(patterns);
     if (cp.error) return { ok: false, error: cp.error };
     var trace = [];
-    return { ok: true, skip: G.skip(cp.patterns, values, trace), trace: trace };
+    var sk = G.skip(cp.patterns, values, trace, budget);
+    if (budget.exceeded) return { ok: false, overBudget: true };
+    return { ok: true, skip: sk, trace: trace };
   }
-  function applyIgnore(patterns, values) {
+  function applyIgnore(patterns, values, budget) {
     var cp = G.compilePatterns(patterns);
     if (cp.error) return { ok: false, error: cp.error };
     var trace = [];
-    var r = { ok: true, skip: G.filter(cp.patterns, values, trace), trace: trace };
+    var fl = G.filter(cp.patterns, values, trace, budget);
+    if (budget.exceeded) return { ok: false, overBudget: true };
+    var r = { ok: true, skip: fl, trace: trace };
     /* GitHub documents `!` for the INCLUDE forms (branches:, tags:, paths:). It does not
        define what `!` means inside a `*-ignore` list. We apply act's interpretation and
        say so, rather than presenting an undocumented answer as authoritative. */
@@ -872,6 +993,20 @@ footer a{color:var(--faint)}
       if (String(patterns[i]).charAt(0) === '!') { r.undocumented = true; break; }
     }
     return r;
+  }
+
+  /* A filter could not be evaluated. Two very different reasons, and conflating them
+     would be a lie: an invalid pattern is the USER's config error; an exhausted work
+     budget means WE declined to answer. Never emit a verdict in the second case. */
+  function notOk(r, steps) {
+    if (r.overBudget) {
+      return {
+        verdict: 'CANNOT TELL',
+        reason: 'this input needs more matching work than the page spends in one evaluation, so it stopped instead of freezing the tab. Nothing is wrong with your workflow — shorten the patterns or trim the changed-file list and it will answer.',
+        steps: steps
+      };
+    }
+    return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
   }
 
   var PR_DEFAULT_TYPES = ['opened', 'synchronize', 'reopened'];
@@ -958,13 +1093,13 @@ footer a{color:var(--faint)}
     var r;
     if (isTag) {
       if (has(cfg, 'tags')) {
-        r = applyInclude(asList(cfg['tags']), [refName]);
-        if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+        r = applyInclude(asList(cfg['tags']), [refName], ev.budget);
+        if (!r.ok) return notOk(r, steps);
         steps.push({ label: 'tags:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['tags']), trace: r.trace });
         if (r.skip) return { verdict: "WON'T RUN", reason: 'the tag `' + refName + '` matches no pattern in `tags:`', steps: steps };
       } else if (has(cfg, 'tags-ignore')) {
-        r = applyIgnore(asList(cfg['tags-ignore']), [refName]);
-        if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+        r = applyIgnore(asList(cfg['tags-ignore']), [refName], ev.budget);
+        if (!r.ok) return notOk(r, steps);
         steps.push({ label: 'tags-ignore:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['tags-ignore']), trace: r.trace, caveat: r.undocumented });
         if (r.skip) return { verdict: "WON'T RUN", reason: 'the tag `' + refName + '` is excluded by `tags-ignore:`', steps: steps };
       }
@@ -975,13 +1110,13 @@ footer a{color:var(--faint)}
     }
 
     if (has(cfg, 'branches')) {
-      r = applyInclude(asList(cfg['branches']), [refName]);
-      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      r = applyInclude(asList(cfg['branches']), [refName], ev.budget);
+      if (!r.ok) return notOk(r, steps);
       steps.push({ label: 'branches:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches']), trace: r.trace });
       if (r.skip) return { verdict: "WON'T RUN", reason: 'the branch `' + refName + '` matches no pattern in `branches:`', steps: steps };
     } else if (has(cfg, 'branches-ignore')) {
-      r = applyIgnore(asList(cfg['branches-ignore']), [refName]);
-      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      r = applyIgnore(asList(cfg['branches-ignore']), [refName], ev.budget);
+      if (!r.ok) return notOk(r, steps);
       steps.push({ label: 'branches-ignore:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches-ignore']), trace: r.trace, caveat: r.undocumented });
       if (r.skip) return { verdict: "WON'T RUN", reason: 'the branch `' + refName + '` is excluded by `branches-ignore:`', steps: steps };
     }
@@ -1004,13 +1139,13 @@ footer a{color:var(--faint)}
 
     var r;
     if (has(cfg, 'branches')) {
-      r = applyInclude(asList(cfg['branches']), [ev.base]);
-      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      r = applyInclude(asList(cfg['branches']), [ev.base], ev.budget);
+      if (!r.ok) return notOk(r, steps);
       steps.push({ label: 'branches: (base)', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches']), trace: r.trace });
       if (r.skip) return { verdict: "WON'T RUN", reason: 'the **base** branch `' + ev.base + '` matches no pattern in `branches:` (for `pull_request`, `branches` filters the base, not the head)', steps: steps };
     } else if (has(cfg, 'branches-ignore')) {
-      r = applyIgnore(asList(cfg['branches-ignore']), [ev.base]);
-      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      r = applyIgnore(asList(cfg['branches-ignore']), [ev.base], ev.budget);
+      if (!r.ok) return notOk(r, steps);
       steps.push({ label: 'branches-ignore: (base)', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches-ignore']), trace: r.trace, caveat: r.undocumented });
       if (r.skip) return { verdict: "WON'T RUN", reason: 'the **base** branch `' + ev.base + '` is excluded by `branches-ignore:`', steps: steps };
     }
@@ -1025,8 +1160,8 @@ footer a{color:var(--faint)}
         steps.push({ label: 'paths:', result: 'no', detail: patternList(cfg['paths']) });
         return { verdict: "WON'T RUN", reason: 'no changed files were given, so nothing can match `paths:`', steps: steps };
       }
-      r = applyInclude(asList(cfg['paths']), files);
-      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      r = applyInclude(asList(cfg['paths']), files, ev.budget);
+      if (!r.ok) return notOk(r, steps);
       steps.push({ label: 'paths:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['paths']), trace: r.trace });
       if (r.skip) return { verdict: "WON'T RUN", reason: 'not one changed file matches any pattern in `paths:`', steps: steps };
     } else if (has(cfg, 'paths-ignore')) {
@@ -1034,8 +1169,8 @@ footer a{color:var(--faint)}
         steps.push({ label: 'paths-ignore:', result: 'yes', detail: patternList(cfg['paths-ignore']) });
         return { verdict: 'WILL RUN', reason: 'no changed files were given, so `paths-ignore:` excludes nothing', steps: steps };
       }
-      r = applyIgnore(asList(cfg['paths-ignore']), files);
-      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      r = applyIgnore(asList(cfg['paths-ignore']), files, ev.budget);
+      if (!r.ok) return notOk(r, steps);
       steps.push({ label: 'paths-ignore:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['paths-ignore']), trace: r.trace, caveat: r.undocumented });
       if (r.skip) return { verdict: "WON'T RUN", reason: 'every changed file is excluded by `paths-ignore:`', steps: steps };
     }
@@ -1066,7 +1201,8 @@ footer a{color:var(--faint)}
 
   function render(result, out) {
     clear(out);
-    var cls = result.verdict === 'WILL RUN' ? 'ok' : (result.verdict === 'CONFIG ERROR' ? 'err' : 'no');
+    var cls = result.verdict === 'WILL RUN' ? 'ok'
+            : (result.verdict === 'CONFIG ERROR' || result.verdict === 'CANNOT TELL') ? 'err' : 'no';
     var badge = el('div', 'verdict ' + cls);
     badge.appendChild(el('span', 'dot'));
     badge.appendChild(el('span', 'vtext', result.verdict));
@@ -1139,16 +1275,45 @@ footer a{color:var(--faint)}
   /* ── wiring ────────────────────────────────────────────────────────────── */
   var $ = function (id) { return document.getElementById(id); };
 
+  /* Caps on the free-text event fields. The work budget already bounds the matcher, but
+     an absurd input deserves a message that names the limit rather than a generic
+     "cannot tell". These are far larger than any real push. */
+  var MAX_FILES = 5000, MAX_REF = 4096, MAX_FILES_TEXT = 1048576, MAX_WORKFLOW_TEXT = 1048576;
+
   function currentEvent() {
     var event = $('event').value;
     var refKind = event === 'push' ? $('refkind').value : 'branch';
+    /* textLength is read from the control WITHOUT materialising a JS copy of the string.
+       Reading `.value` on a 200 MB textarea costs a 200 MB allocation and ~3 s all by
+       itself, before a single line of parsing — measured 2026-08-03. Check the size first,
+       then read. */
+    var filesEl = $('files');
+    var filesLen = (typeof filesEl.textLength === 'number') ? filesEl.textLength : filesEl.value.length;
+    if (filesLen > MAX_FILES_TEXT) {
+      return { tooBig: 'the changed-file list is ' + filesLen + ' characters; the limit is ' + MAX_FILES_TEXT };
+    }
+    var filesText = filesEl.value;
+    var files = filesText.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (files.length > MAX_FILES) {
+      return { tooBig: 'that is ' + files.length + ' changed files; the limit is ' + MAX_FILES };
+    }
+    var ref = $('ref').value.trim(), base = $('base').value.trim();
+    if (ref.length > MAX_REF || base.length > MAX_REF) {
+      return { tooBig: 'a ref name longer than ' + MAX_REF + ' characters is not a ref name' };
+    }
+    for (var i = 0; i < files.length; i++) {
+      if (files[i].length > MAX_REF) {
+        return { tooBig: 'a changed-file path longer than ' + MAX_REF + ' characters is not a path' };
+      }
+    }
     return {
       event: event,
       refKind: refKind,
-      ref: $('ref').value.trim(),
-      base: $('base').value.trim(),
+      ref: ref,
+      base: base,
       activity: $('activity').value,
-      files: $('files').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean)
+      files: files,
+      budget: G.makeBudget()
     };
   }
 
@@ -1165,10 +1330,22 @@ footer a{color:var(--faint)}
 
   function run() {
     var out = $('out');
+    /* Clear BEFORE computing. A previous verdict must never sit on screen looking
+       authoritative while a new input is being evaluated. */
+    clear(out);
+    $('timing').textContent = '';
     var t0 = (self.performance && performance.now) ? performance.now() : 0;
+    /* Size-check before reading .value — see the note in currentEvent(). */
+    var wfEl = $('workflow');
+    var wfLen = (typeof wfEl.textLength === 'number') ? wfEl.textLength : wfEl.value.length;
+    if (wfLen > MAX_WORKFLOW_TEXT) {
+      renderError('the workflow document is ' + wfLen + ' characters; the limit is ' +
+                  MAX_WORKFLOW_TEXT + ' (no real workflow file is that large)', out);
+      return;
+    }
     var wf;
     try {
-      wf = Y.parse($('workflow').value);
+      wf = Y.parse(wfEl.value);
     } catch (e) {
       renderError(e && e.message ? e.message : String(e), out);
       return;
@@ -1177,9 +1354,11 @@ footer a{color:var(--faint)}
       renderError('the document did not parse as a YAML mapping', out);
       return;
     }
+    var ev = currentEvent();
+    if (ev.tooBig) { renderError(ev.tooBig, out); return; }
     var res;
     try {
-      res = evaluate(wf, currentEvent());
+      res = evaluate(wf, ev);
     } catch (e) {
       renderError(e && e.message ? e.message : String(e), out);
       return;

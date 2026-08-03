@@ -1,11 +1,103 @@
 {
-  "_doc": "Pattern shapes that cause catastrophic backtracking in a naive glob->regex compiler. Ship 002's finding: a STATIC COMPLEXITY BUDGET CANNOT BOUND THIS (a pattern sitting exactly at the cap still hung >10s, and the budget broke a correct verdict). The only sound fix is a non-backtracking linear-time matcher. Use these to prove one.",
+ "_doc": "Pattern shapes that cause catastrophic backtracking in a naive glob->regex compiler. Ship 002's finding: a STATIC COMPLEXITY BUDGET CANNOT BOUND THIS (a pattern sitting exactly at the cap still hung >10s, and the budget broke a correct verdict). The only sound fix is a non-backtracking linear-time matcher. Use these to prove one. 2026-08-03: the linear-time matcher closes this whole class \u2014 all four probes now resolve in <0.2ms. But two independent checkers then showed that LINEAR IS NOT BOUNDED: cost is O(pattern x value) and BOTH are attacker-controlled, so a big enough paste still froze the tab for 5-13 seconds and a 400MB one crashed it. The scale_probes below are those inputs. They are the lesson the backtracking probes could not teach: a matcher that cannot explode can still be asked to do too much work, and the only sound answers are a measured work budget and refusing oversized input BY NAME. Corpora only grow \u2014 never trim either list.",
+ "probes": [
+  {
+   "pattern": "****a****b****c****d",
+   "value": "aXbXcXd_no_match_tail",
+   "note": "ship 002 re-check FAIL \u2014 sat at the cap, hung >10s"
+  },
+  {
+   "pattern": "*?*?*?*?*?*?*?*?*?*?x",
+   "value": "aaaaaaaaaaaaaaaaaaaaaaz",
+   "note": "alternating star/quant"
+  },
+  {
+   "pattern": "*****a+a+a+a+Z",
+   "value": "aaaaaaaaaaaaaaaaaaaaaa",
+   "note": "passed all 3 budget dimensions, still ~4.5s"
+  },
+  {
+   "pattern": "**/**/**/**/**/**/x",
+   "value": "a/a/a/a/a/a/a/a/a/a/y",
+   "note": "adjacent **/ runs before the collapse fix"
+  }
+ ],
+ "ceiling_ms": 50,
+ "assert": "Every probe must resolve (match or no-match) in < ceiling_ms with no UI freeze. A synchronous render() that can exceed this freezes the tab and bypasses try/catch \u2014 so the matcher must be linear-time, not merely budgeted. Verify against a wall-clock timer, not a static line count.",
+ "scale_probes": {
+  "_doc": "Each entry must EITHER resolve within ceiling_ms OR return an explicit refusal naming the limit. A verdict that was never finished, a frozen tab, and a stale previous verdict left on screen are all failures. Measure in a real browser: a synchronous handler blocks the event loop, so wall clock inside the page is the only honest number. Found by the 2026-08-03 checker round against ship 002's rebuild.",
   "probes": [
-    {"pattern": "****a****b****c****d", "value": "aXbXcXd_no_match_tail", "note": "ship 002 re-check FAIL — sat at the cap, hung >10s"},
-    {"pattern": "*?*?*?*?*?*?*?*?*?*?x", "value": "aaaaaaaaaaaaaaaaaaaaaaz", "note": "alternating star/quant"},
-    {"pattern": "*****a+a+a+a+Z", "value": "aaaaaaaaaaaaaaaaaaaaaa", "note": "passed all 3 budget dimensions, still ~4.5s"},
-    {"pattern": "**/**/**/**/**/**/x", "value": "a/a/a/a/a/a/a/a/a/a/y", "note": "adjacent **/ runs before the collapse fix"}
+   {
+    "shape": "one long pattern vs one long value",
+    "pattern": "'*' x 3000",
+    "value": "'a' x 40000",
+    "measured_before_fix_ms": 5618,
+    "note": "checker A; app's own timing readout"
+   },
+   {
+    "shape": "long **/ run vs long path",
+    "pattern": "'**/' x 2500 + 'z'",
+    "value": "'a/' x 2500 + 'b'",
+    "measured_before_fix_ms": 1625,
+    "note": "checker A"
+   },
+   {
+    "shape": "file-count x pattern-count cross product",
+    "pattern": "100 patterns 'src/**/dirN/*.js'",
+    "value": "5000 changed files",
+    "measured_before_fix_ms": 7755,
+    "note": "checker B; worst case is when NOTHING matches - include-list logic early-exits on the first match, so a matching corpus hides this"
+   },
+   {
+    "shape": "cross product, larger",
+    "pattern": "300 patterns",
+    "value": "20000 changed files",
+    "measured_before_fix_ms": ">90000 (aborted)",
+    "note": "checker B"
+   },
+   {
+    "shape": "repeated quantified class",
+    "pattern": "'[a-z]+' x 8000",
+    "value": "'a' x 20000",
+    "measured_before_fix_ms": 9675,
+    "note": "checker B"
+   },
+   {
+    "shape": "repeated star-quant",
+    "pattern": "'*?' x 20000",
+    "value": "'a' x 50000",
+    "measured_before_fix_ms": ">90000 (aborted)",
+    "note": "checker B"
+   },
+   {
+    "shape": "huge single value",
+    "pattern": "50 branch patterns",
+    "value": "20 MB ref string",
+    "measured_before_fix_ms": 4578,
+    "note": "checker B; the UTF-8 encode alone dominated - encode each value ONCE per evaluation, not once per pattern"
+   },
+   {
+    "shape": "deep YAML nesting, no glob patterns at all",
+    "pattern": "n/a",
+    "value": "2000 levels of nested single-key maps (~3.9MB)",
+    "measured_before_fix_ms": 12889,
+    "note": "checker B; the PARSER is a second, independent source of freezes - probe it separately from the matcher"
+   },
+   {
+    "shape": "deep YAML nesting, extreme",
+    "pattern": "n/a",
+    "value": "20000 levels (~200M chars)",
+    "measured_before_fix_ms": "tab crash",
+    "note": "checker B"
+   },
+   {
+    "shape": "reading .value on a huge textarea",
+    "pattern": "n/a",
+    "value": "200M-char textarea",
+    "measured_before_fix_ms": 3090,
+    "note": "reading .value materialises a full JS copy BEFORE any parsing. Check .textLength first - it is O(1) and needs no copy."
+   }
   ],
-  "ceiling_ms": 50,
-  "assert": "Every probe must resolve (match or no-match) in < ceiling_ms with no UI freeze. A synchronous render() that can exceed this freezes the tab and bypasses try/catch — so the matcher must be linear-time, not merely budgeted. Verify against a wall-clock timer, not a static line count."
+  "assert": "Every shape resolves or refuses within ceiling_ms of in-page time, the event loop keeps ticking, and no previous verdict is left on screen while a new input is being evaluated."
+ }
 }
