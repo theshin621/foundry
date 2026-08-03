@@ -1,0 +1,674 @@
+{
+ "_doc": "nektos/act's OWN test corpus for pkg/workflowpattern, extracted verbatim from workflow_pattern_test.go @ 4f411281417e88660bea1c1a1749aa71ae0bd60f (MIT). Unlike gha-filter-oracle.json (single pattern/value pairs from GitHub's published cheat sheet) this corpus exercises the SET logic \u2014 how a LIST of patterns, including negated ones, combines over a LIST of inputs. That combination is where order-sensitive '!' re-includes live, and it is not testable one pair at a time. skip  = the include-list semantics (branches:, tags:, paths:)  -> true means the workflow is SKIPPED. filter = the ignore-list semantics (branches-ignore:, paths-ignore:) -> true means SKIPPED. Contributed by ship 002's rebuild (2026-08-03). Extend, never trim.",
+ "source": "https://github.com/nektos/act/blob/master/pkg/workflowpattern/workflow_pattern_test.go",
+ "licence": "MIT (nektos/act)",
+ "commit": "4f411281417e88660bea1c1a1749aa71ae0bd60f",
+ "count": 64,
+ "cases": [
+  {
+   "patterns": [
+    "*"
+   ],
+   "inputs": [
+    "path/with/slash"
+   ],
+   "skip": true,
+   "filter": false
+  },
+  {
+   "patterns": [
+    "path/a",
+    "path/b",
+    "path/c"
+   ],
+   "inputs": [
+    "meta",
+    "path/b",
+    "otherfile"
+   ],
+   "skip": false,
+   "filter": false
+  },
+  {
+   "patterns": [
+    "path/a",
+    "path/b",
+    "path/c"
+   ],
+   "inputs": [
+    "path/b"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "path/a",
+    "path/b",
+    "path/c"
+   ],
+   "inputs": [
+    "path/c",
+    "path/b"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "path/a",
+    "path/b",
+    "path/c"
+   ],
+   "inputs": [
+    "path/c",
+    "path/b",
+    "path/a"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "path/a",
+    "path/b",
+    "path/c"
+   ],
+   "inputs": [
+    "path/c",
+    "path/b",
+    "path/d",
+    "path/a"
+   ],
+   "skip": false,
+   "filter": false
+  },
+  {
+   "patterns": [],
+   "inputs": [],
+   "skip": false,
+   "filter": false
+  },
+  {
+   "patterns": [
+    "\\!file"
+   ],
+   "inputs": [
+    "!file"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "escape\\\\backslash"
+   ],
+   "inputs": [
+    "escape\\backslash"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    ".yml"
+   ],
+   "inputs": [
+    "fyml"
+   ],
+   "skip": true,
+   "filter": false
+  },
+  {
+   "patterns": [
+    "feature/*"
+   ],
+   "inputs": [
+    "feature/my-branch"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "feature/*"
+   ],
+   "inputs": [
+    "feature/your-branch"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "feature/**"
+   ],
+   "inputs": [
+    "feature/beta-a/my-branch"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "feature/**"
+   ],
+   "inputs": [
+    "feature/beta-a/my-branch"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "feature/**"
+   ],
+   "inputs": [
+    "feature/mona/the/octocat"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "main",
+    "releases/mona-the-octocat"
+   ],
+   "inputs": [
+    "main"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "main",
+    "releases/mona-the-octocat"
+   ],
+   "inputs": [
+    "releases/mona-the-octocat"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*"
+   ],
+   "inputs": [
+    "main"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*"
+   ],
+   "inputs": [
+    "releases"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**"
+   ],
+   "inputs": [
+    "all/the/branches"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**"
+   ],
+   "inputs": [
+    "every/tag"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*feature"
+   ],
+   "inputs": [
+    "mona-feature"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*feature"
+   ],
+   "inputs": [
+    "feature"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*feature"
+   ],
+   "inputs": [
+    "ver-10-feature"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "v2*"
+   ],
+   "inputs": [
+    "v2"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "v2*"
+   ],
+   "inputs": [
+    "v2.0"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "v2*"
+   ],
+   "inputs": [
+    "v2.9"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "v[12].[0-9]+.[0-9]+"
+   ],
+   "inputs": [
+    "v1.10.1"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "v[12].[0-9]+.[0-9]+"
+   ],
+   "inputs": [
+    "v2.0.0"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*"
+   ],
+   "inputs": [
+    "README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*"
+   ],
+   "inputs": [
+    "server.rb"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.jsx?"
+   ],
+   "inputs": [
+    "page.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.jsx?"
+   ],
+   "inputs": [
+    "page.jsx"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**"
+   ],
+   "inputs": [
+    "all/the/files.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.js"
+   ],
+   "inputs": [
+    "app.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.js"
+   ],
+   "inputs": [
+    "index.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**.js"
+   ],
+   "inputs": [
+    "index.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**.js"
+   ],
+   "inputs": [
+    "js/index.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**.js"
+   ],
+   "inputs": [
+    "src/js/app.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/*"
+   ],
+   "inputs": [
+    "docs/README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/*"
+   ],
+   "inputs": [
+    "docs/file.txt"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/**"
+   ],
+   "inputs": [
+    "docs/README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/**"
+   ],
+   "inputs": [
+    "docs/mona/octocat.txt"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/**/*.md"
+   ],
+   "inputs": [
+    "docs/README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/**/*.md"
+   ],
+   "inputs": [
+    "docs/mona/hello-world.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "docs/**/*.md"
+   ],
+   "inputs": [
+    "docs/a/markdown/file.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/docs/**"
+   ],
+   "inputs": [
+    "docs/hello.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/docs/**"
+   ],
+   "inputs": [
+    "dir/docs/my-file.txt"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/docs/**"
+   ],
+   "inputs": [
+    "space/docs/plan/space.doc"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/README.md"
+   ],
+   "inputs": [
+    "README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/README.md"
+   ],
+   "inputs": [
+    "js/README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/*src/**"
+   ],
+   "inputs": [
+    "a/src/app.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/*src/**"
+   ],
+   "inputs": [
+    "my-src/code/js/app.js"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/*-post.md"
+   ],
+   "inputs": [
+    "my-post.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/*-post.md"
+   ],
+   "inputs": [
+    "path/their-post.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/migrate-*.sql"
+   ],
+   "inputs": [
+    "migrate-10909.sql"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/migrate-*.sql"
+   ],
+   "inputs": [
+    "db/migrate-v1.0.sql"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "**/migrate-*.sql"
+   ],
+   "inputs": [
+    "db/sept/migrate-v1.sql"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.md",
+    "!README.md"
+   ],
+   "inputs": [
+    "hello.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.md",
+    "!README.md"
+   ],
+   "inputs": [
+    "README.md"
+   ],
+   "skip": true,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.md",
+    "!README.md"
+   ],
+   "inputs": [
+    "docs/hello.md"
+   ],
+   "skip": true,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.md",
+    "!README.md",
+    "README*"
+   ],
+   "inputs": [
+    "hello.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.md",
+    "!README.md",
+    "README*"
+   ],
+   "inputs": [
+    "README.md"
+   ],
+   "skip": false,
+   "filter": true
+  },
+  {
+   "patterns": [
+    "*.md",
+    "!README.md",
+    "README*"
+   ],
+   "inputs": [
+    "README.doc"
+   ],
+   "skip": false,
+   "filter": true
+  }
+ ]
+}
