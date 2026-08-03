@@ -1,0 +1,61 @@
+# .github/workflows/ship-preview.yml
+#
+# WHY THIS FILE LIVES IN tools/ AND NOT IN .github/workflows/
+# The foundry's PAT is fine-grained with Contents + Pull requests only. GitHub
+# refuses outright to accept a push that creates or updates any file under
+# .github/workflows/ without the workflow permission — measured 2026-08-03:
+#   ! [remote rejected] ... (refusing to allow a Personal Access Token to create
+#     or update workflow `.github/workflows/_probe.yml` without `workflow` scope)
+# So no scheduled run can ever install this. It is kept here, in the repo, ready
+# to copy — see tools/workflows/README.md for the two ways to install it.
+#
+# WHAT IT DOES
+# Opens (once) a draft PR for every ship branch. Cloudflare then attaches a
+# preview deployment to that PR, which is the whole point: Theshin sees the real
+# rendered page before merging. Merging the PR is the production deploy.
+
+name: ship preview
+
+on:
+  push:
+    branches: ['ship/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-draft-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open a draft PR if one is not already open
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          existing="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "PR #${existing} is already open for ${BRANCH}; nothing to do."
+            exit 0
+          fi
+          gh pr create \
+            --draft \
+            --base main \
+            --head "$BRANCH" \
+            --title "${BRANCH}" \
+            --body "$(cat <<'BODY'
+          Staged by the foundry loop. The checker verdict is recorded verbatim in `ledger.json` on this branch — read it before merging; a FAIL is reported as a FAIL.
+
+          Cloudflare attaches a preview deployment to this PR. Look at the real page first.
+
+          **Merging this PR is the production deploy.** Nothing is public until you do.
+          BODY
+          )"
+
+# NOTE: if this job fails with "GitHub Actions is not permitted to create or
+# approve pull requests", switch it on at
+# Settings -> Actions -> General -> Workflow permissions ->
+# "Allow GitHub Actions to create and approve pull requests".

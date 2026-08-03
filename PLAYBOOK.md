@@ -49,6 +49,50 @@ After ship 002 failed four checker passes over two runs, the bottleneck is visib
 
 ---
 
+### Amendment — 2026-08-03 (the workflow blocker, measured — and routed around)
+
+Theshin, 2026-08-03: *"its been 3 days now and nothing shipped. I need the foundry to work
+end to end."* Three findings, the first of which reframes the other two.
+
+1. **The workflows were never the thing blocking a ship.** Publishing requires exactly one
+   act: Theshin merges a ship branch. `ship-preview.yml` buys a preview URL and
+   `health-check.yml` buys a live-render signal — both valuable, neither on the critical
+   path to a ship going live. The three-day gap was not the gate: day 1 shipped the hub,
+   day 2 and the first half of day 3 were ship 002 failing the checker twice on a
+   hand-rolled glob engine. That was a **build-quality** problem, and the borrow-don't-build
+   amendment is what fixed it. Diagnose the actual bottleneck before reporting a blocker.
+
+2. **The PAT rejection is real, and now measured rather than asserted.** Probed on a
+   throwaway branch with nothing queued behind it:
+   `! [remote rejected] (refusing to allow a Personal Access Token to create or update
+   workflow .github/workflows/_probe.yml without \`workflow\` scope)`. The refusal comes
+   from GitHub, not the sandbox proxy — no alternate push path avoids it. Re-verified the
+   same day: `*.workers.dev` still 403 from the sandbox; `api.github.com/repos/...` and
+   `.../pulls` still 403 **with** the PAT; and the `add_repo` mechanism the 403 body
+   advertises **does not exist** in this session's tool set. A run therefore cannot open a
+   PR by any means. Never claim otherwise.
+
+3. **Route around it instead of reporting it every morning.** The files now live at
+   `tools/workflows/` — pushable, reviewable, and ready to `cp` into `.github/workflows/`
+   the moment the permission exists. The dashboard carries a one-tap installer button per
+   file (GitHub's editor, content prefilled in the URL) and a merge button for whatever is
+   staged. Where a capability is genuinely out of reach, the loop's job is to shrink the
+   human step to seconds and put it where he will see it — not to restate the blocker.
+
+**Interim live-render signal, no workflow required.** `tools/foundry-dashboard.html` now
+probes the live site **from Theshin's browser**, which can reach `workers.dev` even though
+the sandbox cannot: an `<img>` load of `/up.svg` (image loads are not CORS-restricted, so
+`onload`/`onerror` is a true reachability signal). It proves the deployment is serving and
+**nothing more** — no HTTP status, no per-ship path, no beacon check, and no signal inside
+a scheduled run. Label it as reachability, never as health. `health-check.yml` remains the
+real fix.
+
+**Standing rule:** a run reports a blocker at most once with a measurement attached, then
+either routes around it or reduces it to a one-tap action. A blocker restated verbatim on
+consecutive days without either is a reporting failure, not a status update.
+
+---
+
 ### Amendment — 2026-08-02 (the write path; verified, do not re-derive)
 
 The 2026-08-02 run produced a full brief, a build and two checker verdicts and **could not push a single byte**. Diagnosis, verified by test rather than assumed:
