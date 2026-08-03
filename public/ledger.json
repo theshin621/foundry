@@ -16,7 +16,10 @@
       },
       "signal": {},
       "status": "live",
-      "kill_criterion": "n/a \u2014 infrastructure ship; lives while the loop lives"
+      "kill_criterion": "n/a \u2014 infrastructure ship; lives while the loop lives",
+      "plain": {
+        "money": "Not monetised \u2014 the hub is the shop window and distribution surface for every other ship."
+      }
     },
     {
       "n": 2,
@@ -35,7 +38,10 @@
       },
       "signal": {},
       "status": "live",
-      "kill_criterion": "<300 unique visits to /002-gha-trigger/ in the 30 days after publish -> graveyard.md (per-path pageviews, the only unit the cookieless beacon measures)"
+      "kill_criterion": "<300 unique visits to /002-gha-trigger/ in the 30 days after publish -> graveyard.md (per-path pageviews, the only unit the cookieless beacon measures)",
+      "plain": {
+        "money": "Free until 2026-09-02 while the beacon counts visits. \u2265300 unique visits graduates it to Sunday triage for a paid layer (e.g. the same check running inside your repo\u2019s CI); under 300, it dies to the graveyard."
+      }
     }
   ]
 }

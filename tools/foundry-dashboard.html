@@ -44,6 +44,20 @@
   .card b{color:var(--text);font-weight:600}
   .brief{font:400 12px/1.6 var(--sans);color:var(--text2);white-space:pre-wrap;max-height:280px;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:8px}
   .empty{color:var(--muted);padding:12px 0}
+  .cand{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:8px}
+  .cand.picked{border-left:3px solid var(--pos)}
+  .cand.rejected{border-left:3px solid var(--muted);opacity:.82}
+  .cand-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .cand-h .name{font-family:var(--mono);font-size:13px;color:var(--text);font-weight:600}
+  .cand-h .lane{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 5px}
+  .cand-h .date{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto}
+  .cand-h .st{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:3px}
+  .cand-h .st.picked{background:rgba(63,185,80,.15);color:var(--pos)}
+  .cand-h .st.rejected{background:var(--surface);color:var(--muted)}
+  .cand-r{display:grid;grid-template-columns:70px 1fr;gap:4px 10px;font-size:12px;line-height:1.5}
+  .cand-r .lbl{color:var(--muted);font-family:var(--mono);font-size:10.5px;padding-top:1px}
+  .cand-r .val{color:var(--text2)}
+  .cand-r .val.money{color:var(--text)}
   footer{color:var(--muted);font-size:11px;margin-top:8px}
   .src{font-family:var(--mono);font-size:11px;color:var(--muted)}
 </style>
@@ -93,14 +107,14 @@
         <table id="ships-tbl">
           <thead><tr><th class="num">#</th><th>ship</th><th>what it is</th><th>verdict</th><th>status</th><th class="num">d7 visits</th></tr></thead>
           <tbody id="ships-body">
+            <tr><td class="num">002</td><td class="mono"><a href="https://foundry.theshin-naidu.workers.dev/002-gha-trigger/">gha-trigger</a></td><td class="one">paste a GitHub Actions workflow and an event, get WILL RUN / WON'T RUN plus the exact filter that decided it</td><td><span class="pill pos" title="PASS after one fix cycle — 3 independent checkers, none given a prior verdict, all on a different model from the maker. 211,118 + 56,766 + ~69,500 differential pairs vs Go/RE2, zero divergences; 46/46 and 64/64 oracles; ~870 XSS payloads, zero injections. Two LOW residuals carried. Live-URL unverified (egress).">PASS</span></td><td class="mono">live</td><td class="num">–</td></tr>
             <tr><td class="num">001</td><td class="mono"><a href="https://github.com/theshin621/foundry/tree/main/public">hub</a></td><td class="one">the foundry's own hub — public ledger, factory library, deploy pipeline proven end-to-end</td><td><span class="pill pos" title="PASS after one fix-cycle — initial PARTIAL fully cured and re-verified; live-URL unverified (egress)">PASS</span></td><td class="mono">live</td><td class="num">–</td></tr>
-            <tr><td class="num">002</td><td class="mono">gha-trigger</td><td class="one">will my GitHub Actions workflow run? simulates the event filters and names the one that decided it</td><td><span class="pill neg" title="FAIL after one fix cycle — XSS dead under ~440 payloads from two independent adversaries; 56/56 vs GitHub cheat sheet; 0 inverted verdicts in ~67M comparisons. Fails on a glob-engine ReDoS a static budget cannot bound, plus a starGotcha regression the budget introduced. Live-URL unverified (egress).">FAIL</span></td><td class="mono">failed — unmerged</td><td class="num">–</td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="panel">
-        <h2>Scouted — candidates & graveyard</h2>
+        <h2>Scouted — what each idea is, and how it would make money</h2>
         <div id="scouted-body" class="empty">No scouted candidates in the ledger yet — Day 001 was the pre-designated factory build. The first full scout lands tomorrow 04:00; every candidate (picked or not) accumulates here, and kills land in the graveyard with reasons.</div>
         <div id="grave-body"></div>
       </div>
@@ -193,19 +207,45 @@
         ? 'https://github.com/theshin621/foundry/tree/'+encodeURI(s._branch)+'/public/'+String(s.n).padStart(3,'0')+'-'+s.slug
         : 'https://github.com/theshin621/foundry/tree/main/public'+(s.n===1?'':'/'+String(s.n).padStart(3,'0')+'-'+s.slug);
       var tag=s._branch?' <span class="pill warn" title="lives on unmerged branch '+esc(s._branch)+' — not publicly deployed">branch</span>':'';
-      return '<tr><td class="num">'+String(s.n).padStart(3,'0')+'</td><td class="mono"><a href="'+url+'">'+esc(s.slug)+'</a>'+tag+'</td><td class="one">'+esc(s.one_liner)+'</td><td><span class="pill '+vClass(v)+'" title="'+esc(v)+'">'+esc(short)+'</span></td><td class="mono">'+esc(s.status||'')+'</td><td class="num">'+esc(d7)+'</td></tr>';
+      var money=(s.plain&&s.plain.money)?'<div class="one" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">how it earns · </span>'+esc(s.plain.money)+'</div>':'';
+      return '<tr><td class="num">'+String(s.n).padStart(3,'0')+'</td><td class="mono"><a href="'+url+'">'+esc(s.slug)+'</a>'+tag+'</td><td class="one">'+esc(s.one_liner)+money+'</td><td><span class="pill '+vClass(v)+'" title="'+esc(v)+'">'+esc(short)+'</span></td><td class="mono">'+esc(s.status||'')+'</td><td class="num">'+esc(d7)+'</td></tr>';
     }).join('');
   }
   function renderSeen(d){
     var seen=(d&&d.seen)||[];
     document.getElementById('t-scouted').textContent=seen.length;
-    if(seen.length){
-      document.getElementById('scouted-body').className='';
-      document.getElementById('scouted-body').innerHTML='<table><thead><tr><th>date</th><th>candidate</th><th>note</th></tr></thead><tbody>'+seen.slice(-8).reverse().map(function(c){
-        if(typeof c==='string')return '<tr><td></td><td class="mono">'+esc(c)+'</td><td></td></tr>';
-        return '<tr><td class="mono">'+esc(c.date||'')+'</td><td class="mono">'+esc(c.slug||c.name||'')+'</td><td class="one">'+esc(c.one_liner||c.note||'')+'</td></tr>';
-      }).join('')+'</tbody></table>';
-    }
+    if(!seen.length)return;
+    // A candidate is "picked" if its outcome mentions picked/built/live; otherwise it was
+    // rejected/parked/blocked/queued. Newest first.
+    function outcomeOf(c){return String(c.outcome||c.note||'').toLowerCase();}
+    function isPicked(c){var o=outcomeOf(c);return /pick|built|live|staged|rebuild picked/.test(o)&&!/runner-up|first pick for/.test(o);}
+    var el=document.getElementById('scouted-body');
+    el.className='';
+    el.innerHTML=seen.slice().reverse().map(function(c){
+      if(typeof c==='string')
+        return '<div class="cand rejected"><div class="cand-h"><span class="name">'+esc(c)+'</span><span class="st rejected">dropped</span></div></div>';
+      var picked=isPicked(c), p=c.plain||{};
+      // status word for the chip: prefer the first clause of `outcome`
+      var stWord=(String(c.outcome||'').split(/[—\-(]/)[0]||'').trim()||(picked?'picked':'seen');
+      if(stWord.length>22)stWord=stWord.slice(0,22);
+      var rows='';
+      function row(lbl,val,cls){ if(!val)return; rows+='<div class="lbl">'+lbl+'</div><div class="val'+(cls||'')+'">'+esc(val)+'</div>'; }
+      if(p.what||p.solves||p.money){
+        row('what', p.what);
+        row('problem', p.solves);
+        row('money', p.money, ' money');
+      } else {
+        // older rows with only a note: show it rather than nothing
+        row('note', c.note||c.one_liner);
+      }
+      return '<div class="cand '+(picked?'picked':'rejected')+'">'+
+        '<div class="cand-h"><span class="name">'+esc(c.slug||c.name||'?')+'</span>'+
+        (c.lane?'<span class="lane">'+esc(c.lane)+'</span>':'')+
+        '<span class="st '+(picked?'picked':'rejected')+'">'+esc(stWord)+'</span>'+
+        (c.date?'<span class="date">'+esc(c.date)+'</span>':'')+'</div>'+
+        (rows?'<div class="cand-r">'+rows+'</div>':'')+
+      '</div>';
+    }).join('');
   }
   function renderGrave(md){
     var rows=md.split('\n').filter(function(l){return l.indexOf('|')===0&&l.indexOf('---')<0&&l.indexOf('| date')<0});
