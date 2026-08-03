@@ -1,19 +1,40 @@
 {
  "seen": [
   {
+   "date": "2026-08-03",
+   "lane": "ORIGINAL",
+   "slug": "npm-dualuse-preflight",
+   "outcome": "rejected - inferential premise (schema unpublished)",
+   "note": "Why-now 2026-07-28: npm publish-time malware scanning + dual-use metadata - new package.json 'contentPolicy' field + a text-only DISCLOSURE file in the package root, 2FA-enforced publishing, and both are PERSISTENT (cannot be removed in later versions). Enforcement progressive; existing dual-use maintainers emailed. https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/ Occupant hunt: EMPTY across 2 formulations. Day-build gate passes on mechanics (static page, no credential). REJECTED because the contentPolicy SCHEMA IS NOT PUBLISHED - a validator would invent the rules and assert them as fact, i.e. a green checkmark on a guessed rule. REVISIT TRIGGER: npm publishes the contentPolicy schema (docs.npmjs.com or the npm CLI schema)."
+  },
+  {
+   "date": "2026-08-03",
+   "lane": "ORIGINAL",
+   "slug": "gha-hold-predictor",
+   "outcome": "rejected - undocumented by design; kept as a DEMAND SIGNAL",
+   "note": "Why-now 2026-07-28: GitHub Actions now HOLDS workflow runs identified as potentially malicious until a write-access collaborator approves; public github.com repos only, not GHES. https://github.blog/changelog/2026-07-28-github-actions-holds-potentially-malicious-workflows-for-approval/ Occupant hunt: empty (6 days old). REJECTED: GitHub deliberately does not publish the heuristics - publishing them hands attackers the evasion list - so a 'will my workflow be held?' tool is guesswork wearing a verdict's clothing. Value retained: it ENLARGES the population asking 'why didn't my workflow run', which strengthens gha-trigger. NO REVISIT unless GitHub documents the criteria."
+  },
+  {
+   "date": "2026-08-03",
+   "lane": "CLONE",
+   "slug": "llms-txt-generator",
+   "outcome": "rejected - occupied AND fails the day-build gate",
+   "note": "Corroborated by marketplace data, not claims: 6+ live Shopify App Store listings competing on exactly this (Arc: llms.txt; llms.txt AI Sitemap Generator; LLMs.txt Generator; Comergent AEO; HTML/XML Sitemap & Robots.txt; Ahoi Apps llms.txt), several with public review counts (12/12/10). REJECTED (a) occupancy - crowded, free tiers already exist, no structural edge left; (b) day-build gate - the revenue is in the Shopify app and a Shopify app needs MARKETPLACE APPROVAL."
+  },
+  {
    "date": "2026-08-02",
    "lane": "EVERGREEN",
    "slug": "gha-trigger",
-   "outcome": "built as ship 002 - checker FAIL x2, unmerged. REBUILD MONDAY (architectural, not a patch).",
+   "outcome": "REBUILD PICKED 2026-08-03 (Monday). Ship 002 rebuilt on a linear-time matcher.",
    "note": "XSS fixed and confirmed dead; 56/56 vs GitHub cheat sheet, 0 inverted verdicts. Fails on a glob-engine ReDoS that a static complexity budget cannot bound. REVISIT AS A REBUILD, not a new candidate: replace globToRegex/gmatch with a linear-time non-backtracking matcher (two-pointer + backtrack memo, or DP), verify against the existing 56-case published oracle and the ~67M-pair differential harness.",
-   "rebuild_constraint": "Replace globToRegex/gmatch with a LINEAR-TIME non-backtracking matcher (two-pointer with backtrack memo, or DP over pattern x path). BORROW: port nektos/act pkg/workflowpattern (MIT, correct GitHub semantics, scores 49/49) rather than hand-roll \u2014 hand-rolling is what produced the XSS then the ReDoS. VERIFY against lib/checks/gha-filter-oracle.json (46 published pairs) + lib/checks/redos-probes.json (must resolve <50ms each, no UI freeze) + lib/checks/xss-payloads.json. Add the LIVE analytics beacon (ship 002 predates it). Kill-criterion in per-path visits, not tool-runs."
+   "rebuild_constraint": "Replace globToRegex/gmatch with a LINEAR-TIME non-backtracking matcher (two-pointer with backtrack memo, or DP over pattern x path). BORROW: port nektos/act pkg/workflowpattern (MIT, correct GitHub semantics, scores 49/49) rather than hand-roll \u2014 hand-rolling is what produced the XSS then the ReDoS. VERIFY against lib/checks/gha-filter-oracle.json (46 published pairs) + lib/checks/redos-probes.json (must resolve <50ms each, no UI freeze) + lib/checks/xss-payloads.json. Add the LIVE analytics beacon (ship 002 predates it). Kill-criterion in per-path visits, not tool-runs. [2026-08-03 CORRECTION, from reading the port source rather than trusting the plan: act is linear-time because Go's regexp is RE2, NOT because of its pattern translation. PatternToRegex emits ordinary regex text. A VERBATIM JS PORT WOULD REINTRODUCE THE ReDoS, because JS RegExp backtracks. Port act's SEMANTICS line-for-line; execute them on a Thompson NFA / Pike-VM state-set simulation, never on JS RegExp.]"
   },
   {
    "date": "2026-08-02",
    "lane": "ORIGINAL",
    "slug": "cimdkit",
-   "outcome": "runner-up \u2014 first pick for Monday",
-   "note": "MCP final spec 2026-07-28 deprecated DCR for CIMD; no free validator/generator found across 4 query formulations"
+   "outcome": "PREMISE CORRECTED 2026-08-03 - does not hold, do not build on it",
+   "note": "PRIOR NOTE WAS WRONG. Re-verified against the source https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/ : that post is a RELEASE CANDIDATE announcement targeting a 2026-07-28 final, and it does NOT mention CIMD and does NOT deprecate Dynamic Client Registration - it describes HARDENING DCR (declare OpenID Connect application_type, bind credentials to authorization servers). Building cimdkit on the recorded premise would have shipped factually wrong landing copy. REVISIT TRIGGER: a published (non-RC) spec that actually deprecates DCR in favour of CIMD."
   },
   {
    "date": "2026-08-02",
