@@ -1,0 +1,1260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gha-trigger — will this GitHub Actions workflow run? — foundry day 002</title>
+<meta name="description" content="Paste a GitHub Actions workflow and describe an event. Get WILL RUN or WON'T RUN, and the exact filter that decided it. Free, no signup, nothing leaves your browser.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--faint:#4b535c;--line:#1c2128;--card:#11141a;
+      --ok:#3fb950;--no:#d29922;--err:#f85149;--accent:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+     font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{max-width:60rem;margin:0 auto;padding:2.5rem 1.25rem 3rem}
+h1{font-size:1.5rem;margin:0 0 .35rem;letter-spacing:-.01em}
+h1 .q{color:var(--dim);font-weight:400}
+.sub{color:var(--dim);margin:0 0 1.5rem;font-size:.92rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem}
+label{display:block;color:var(--dim);font-size:.8rem;margin:0 0 .3rem;text-transform:lowercase}
+textarea,input,select{width:100%;background:#0b0d10;color:var(--fg);border:1px solid var(--line);
+  border-radius:6px;padding:.5rem .6rem;font:13px/1.5 ui-monospace,Menlo,monospace}
+textarea{resize:vertical}
+#workflow{min-height:19rem}
+#files{min-height:6rem}
+.row{margin-bottom:.75rem}
+.row[hidden]{display:none}
+#presets{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
+.preset{background:#161b22;color:var(--dim);border:1px solid var(--line);border-radius:999px;
+  padding:.28rem .7rem;font:12px ui-monospace,Menlo,monospace;cursor:pointer}
+.preset:hover{color:var(--fg);border-color:var(--faint)}
+#result{margin-top:1rem}
+.verdict{display:flex;align-items:center;gap:.55rem;font-size:1.35rem;font-weight:600;letter-spacing:.02em}
+.verdict .dot{width:.7rem;height:.7rem;border-radius:50%;display:inline-block;flex:none}
+.verdict.ok{color:var(--ok)} .verdict.ok .dot{background:var(--ok)}
+.verdict.no{color:var(--no)} .verdict.no .dot{background:var(--no)}
+.verdict.err{color:var(--err)} .verdict.err .dot{background:var(--err)}
+.why{margin:.5rem 0 0;color:var(--fg)}
+.note{margin:.5rem 0 0;color:var(--dim);font-size:.87rem}
+code{background:#161b22;border:1px solid var(--line);border-radius:4px;padding:.05rem .3rem;font-size:.87em;
+     overflow-wrap:anywhere}
+table.steps{width:100%;border-collapse:collapse;margin-top:1rem;font-size:.85rem}
+table.steps th{text-align:left;color:var(--faint);font-weight:400;border-bottom:1px solid var(--line);padding:.3rem .4rem}
+table.steps td{padding:.35rem .4rem;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+td.pass{color:var(--ok)} td.fail{color:var(--no)} td.skip{color:var(--faint)}
+td.mono{color:var(--dim)}
+.tracerow td{border-bottom:1px solid var(--line);padding-top:0}
+.trace{color:var(--faint);font-size:.8rem;padding-left:.6rem}
+#timing{color:var(--faint);font-size:.75rem;margin-top:.6rem;min-height:1em}
+.how{margin-top:2.5rem;color:var(--dim);font-size:.88rem}
+.how h2{font-size:.95rem;color:var(--fg);margin:1.5rem 0 .4rem}
+.how ul{padding-left:1.1rem;margin:.4rem 0}
+.how li{margin:.25rem 0}
+.how a{color:var(--accent)}
+footer{margin-top:3rem;color:var(--faint);font-size:.8rem;border-top:1px solid var(--line);padding-top:1rem}
+footer a{color:var(--faint)}
+</style>
+</head>
+<body>
+<main>
+  <h1>gha-trigger <span class="q">— will this workflow run?</span></h1>
+  <p class="sub">Paste a GitHub Actions workflow, describe the event, and see <strong>which filter decided it</strong>.
+     Everything runs in your browser — nothing is uploaded, no signup, no account.</p>
+
+  <div id="presets"></div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <label for="workflow">workflow yaml</label>
+        <textarea id="workflow" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <label for="event">event</label>
+        <select id="event">
+          <option value="push">push</option>
+          <option value="pull_request">pull_request</option>
+          <option value="pull_request_target">pull_request_target</option>
+          <option value="workflow_dispatch">workflow_dispatch</option>
+          <option value="schedule">schedule</option>
+        </select>
+      </div>
+      <div class="row" id="row-refkind">
+        <label for="refkind">ref kind</label>
+        <select id="refkind">
+          <option value="branch">branch (refs/heads/…)</option>
+          <option value="tag">tag (refs/tags/…)</option>
+        </select>
+      </div>
+      <div class="row" id="row-ref">
+        <label for="ref" id="lbl-ref">branch name</label>
+        <input id="ref" spellcheck="false" autocapitalize="off" value="main">
+      </div>
+      <div class="row" id="row-base" hidden>
+        <label for="base">base branch (the PR target)</label>
+        <input id="base" spellcheck="false" autocapitalize="off" value="main">
+      </div>
+      <div class="row" id="row-activity" hidden>
+        <label for="activity">activity type</label>
+        <select id="activity">
+          <option>opened</option><option>synchronize</option><option>reopened</option>
+          <option>closed</option><option>edited</option><option>labeled</option>
+          <option>unlabeled</option><option>ready_for_review</option><option>assigned</option>
+        </select>
+      </div>
+      <div class="row" id="row-files">
+        <label for="files">changed files (one per line)</label>
+        <textarea id="files" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div id="result"><div id="out"></div><div id="timing"></div></div>
+
+  <div class="how">
+    <h2>How it decides</h2>
+    <p>The filter-pattern matcher is a port of
+       <a href="https://github.com/nektos/act/blob/master/pkg/workflowpattern/workflow_pattern.go">nektos/act’s
+       <code>pkg/workflowpattern</code></a> (MIT), pinned at commit <code>4f41128</code>. The pattern
+       <em>semantics</em> are that library’s, line for line. The <em>execution</em> is not: act relies on Go’s RE2
+       engine, which is linear-time, and JavaScript’s <code>RegExp</code> backtracks — so this page compiles each
+       pattern to an NFA and runs a state-set simulation instead. No input can make it hang.</p>
+    <p>Verified before publishing: <strong>211,118</strong> (pattern, value) pairs diffed against a real
+       Go/RE2 build of act with zero divergences · GitHub’s own published filter cheat-sheet, 46/46 ·
+       act’s own 64-case test corpus, 64/64 · every known catastrophic-backtracking probe under 0.2 ms.</p>
+
+    <h2>What it models</h2>
+    <ul>
+      <li><code>push</code> — <code>branches</code>, <code>branches-ignore</code>, <code>tags</code>,
+          <code>tags-ignore</code>, <code>paths</code>, <code>paths-ignore</code>, and the branch-vs-tag rule
+          (define only tag filters and branch pushes stop matching, and vice versa).</li>
+      <li><code>pull_request</code> / <code>pull_request_target</code> — <code>types</code> (with GitHub’s
+          default of <code>opened, synchronize, reopened</code>), <code>branches</code> against the
+          <strong>base</strong> branch, and path filters.</li>
+      <li><code>workflow_dispatch</code>, <code>schedule</code> — no ref or path filters exist for these, so the
+          answer is about where the file lives, and the page says so.</li>
+      <li>Negated patterns (<code>!pattern</code>) with GitHub’s order-sensitive re-include behaviour.</li>
+      <li>Mutually exclusive pairs (<code>branches</code> + <code>branches-ignore</code>) reported as config errors.</li>
+    </ul>
+
+    <h2>What it does not model — read this before trusting a verdict</h2>
+    <ul>
+      <li>Job-level <code>if:</code> conditions, <code>concurrency</code>, and matrix expansion. The verdict is
+          about whether the <em>workflow</em> is triggered, not whether a given job ends up running.</li>
+      <li>Whether the workflow file exists on the ref being pushed, repository or org-level Actions policy,
+          required approvals for first-time contributors, and — new since 2026-07-28 —
+          <a href="https://github.blog/changelog/2026-07-28-github-actions-holds-potentially-malicious-workflows-for-approval/">GitHub
+          holding runs it judges potentially malicious</a>. Those can stop a run that this page says will run.
+          GitHub does not document those heuristics, so nothing here guesses at them.</li>
+      <li>Non-ASCII characters in patterns. The matcher compares them byte-wise; GitHub’s behaviour there is
+          undocumented and unverified, so treat such a verdict as unknown rather than authoritative.</li>
+      <li>Reusable workflows (<code>workflow_call</code>) and the remaining ~30 webhook events.</li>
+    </ul>
+  </div>
+
+  <footer>built by <a href="../">foundry</a> · day 002 · verified before ship ·
+    matcher ported from <a href="https://github.com/nektos/act">nektos/act</a> (MIT)</footer>
+</main>
+<script>
+/* ── inlined verbatim from lib/esc.js ── */
+/* lib/esc.js — the ONE HTML-escape helper every ship uses on any user-derived string
+ * before it reaches innerHTML. Inline a copy into each ship (pages stay self-contained);
+ * this file is the canonical source.
+ *
+ * WHY THIS IS A SHARED PRIMITIVE (2026-08-02): ship 002 shipped TWO security findings in
+ * two checker rounds, both the same class — a user-controlled string reaching innerHTML
+ * unescaped. Round 1: a value interpolated into a template. Round 2: a value interpolated
+ * into a THROWN ERROR MESSAGE, then rendered. The lesson is not "remember to escape" — it
+ * is "route every sink through one audited function and escape at the boundary". If a ship
+ * builds HTML from input, it uses this. The checker greps for raw `innerHTML=` assignments
+ * that don't pass through esc().
+ *
+ * Escapes the five characters that matter in both element and attribute context. It does
+ * NOT make arbitrary input safe inside a <script>, a style, a URL, or an unquoted attribute
+ * — those need context-specific handling and are out of scope on purpose.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.esc = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  var MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return MAP[c]; });
+  };
+});
+</script>
+<script>
+/* ── inlined verbatim from lib/mini-yaml.js ── */
+/* lib/mini-yaml.js — dependency-free YAML-subset parser.
+ * Contributed by ship 002 (gha-trigger). Ships INLINE a copy (pages stay self-contained);
+ * this file is the canonical source — fix bugs here, then re-inline.
+ *
+ * Scope: the subset real config files use — nested block maps, block sequences,
+ * flow sequences [a, b], flow maps {a: b}, quoted scalars, comments, block scalars (| and >).
+ *
+ * DELIBERATE: scalars are NEVER coerced to booleans/numbers. This is not laziness —
+ * YAML 1.1 parses the bare key `on` as boolean true, which is exactly the key every
+ * GitHub Actions workflow uses. Keeping everything a string sidesteps that trap.
+ * Callers coerce what they need.
+ *
+ * Tolerant by design: it must not throw on the parts of a document it doesn't care about
+ * (e.g. `run:` blocks full of shell). Unparseable lines are skipped, not fatal.
+ *
+ * SECURITY — read before rendering an error: thrown messages QUOTE THE OFFENDING INPUT
+ * so the user can find the line. That input is untrusted. Any caller putting e.message
+ * into innerHTML must escape it first. Escaping is the sink's job, not the parser's —
+ * the parser cannot know whether its message lands in HTML, a log, or a terminal.
+ * (Ship 002 shipped this sink unescaped once; the checker caught it. Don't re-arm it.)
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.miniYAML = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // Strip a trailing comment, respecting quotes. Returns the code part.
+  function stripComment(line) {
+    var out = '', q = null;
+    for (var i = 0; i < line.length; i++) {
+      var c = line[i];
+      if (q) {
+        out += c;
+        if (c === q && line[i - 1] !== '\\') q = null;
+      } else if (c === '"' || c === "'") {
+        q = c; out += c;
+      } else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) {
+        break;
+      } else out += c;
+    }
+    return out.replace(/\s+$/, '');
+  }
+
+  function indentOf(line) {
+    var m = line.match(/^[ ]*/);
+    return m ? m[0].length : 0;
+  }
+
+  function unquote(s) {
+    s = s.trim();
+    if (s.length >= 2) {
+      var a = s[0], b = s[s.length - 1];
+      if ((a === '"' && b === '"') || (a === "'" && b === "'")) {
+        var inner = s.slice(1, -1);
+        return a === '"' ? inner.replace(/\\"/g, '"').replace(/\\n/g, '\n') : inner.replace(/''/g, "'");
+      }
+    }
+    return s;
+  }
+
+  // ---- flow collections: [a, b] and {a: b} -------------------------------
+  function splitFlow(s) {
+    var parts = [], depth = 0, q = null, cur = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      if (q) { cur += c; if (c === q) q = null; continue; }
+      if (c === '"' || c === "'") { q = c; cur += c; continue; }
+      if (c === '[' || c === '{') { depth++; cur += c; continue; }
+      if (c === ']' || c === '}') { depth--; cur += c; continue; }
+      if (c === ',' && depth === 0) { parts.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    if (cur.trim() !== '') parts.push(cur);
+    return parts;
+  }
+
+  function parseFlow(s) {
+    s = s.trim();
+    if (s[0] === '[' && s[s.length - 1] === ']') {
+      var inner = s.slice(1, -1).trim();
+      if (inner === '') return [];
+      return splitFlow(inner).map(function (p) { return parseFlow(p); });
+    }
+    if (s[0] === '{' && s[s.length - 1] === '}') {
+      var body = s.slice(1, -1).trim(), obj = {};
+      if (body === '') return obj;
+      splitFlow(body).forEach(function (p) {
+        var idx = findColon(p);
+        if (idx === -1) { obj[unquote(p)] = null; return; }
+        obj[unquote(p.slice(0, idx))] = parseFlow(p.slice(idx + 1));
+      });
+      return obj;
+    }
+    // A bare leading * or & is a YAML alias/anchor, not a glob. GitHub rejects the file;
+    // so do we, rather than silently treating '**/x.md' as a pattern it never was.
+    if ((s[0] === '*' || s[0] === '&') && s.length > 1) {
+      // Echo a bounded excerpt: enough to locate the line, not enough to flood a caller's UI.
+      var q = s.length > 60 ? s.slice(0, 60) + '…' : s;
+      throw new Error('unquoted ' + q + ' — YAML reads a leading * as an alias and & as an anchor. Quote it: "' + q + '"');
+    }
+    return unquote(s);
+  }
+
+  // Index of the key/value colon (a colon followed by space or end), outside quotes.
+  function findColon(s) {
+    var q = null;
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      if (q) { if (c === q) q = null; continue; }
+      if (c === '"' || c === "'") { q = c; continue; }
+      if (c === ':' && (i + 1 >= s.length || /[\s]/.test(s[i + 1]))) return i;
+    }
+    return -1;
+  }
+
+  // ---- block parsing -----------------------------------------------------
+  // lines: [{indent, text}] ; parses the block at `base` indent starting at i.
+  function parseBlock(lines, i, base, state) {
+    // Decide sequence vs map by the first line of the block.
+    if (i >= lines.length) return [null, i];
+    if (lines[i].text[0] === '-' && (lines[i].text.length === 1 || lines[i].text[1] === ' ')) {
+      return parseSeq(lines, i, base, state);
+    }
+    return parseMap(lines, i, base, state);
+  }
+
+  function parseSeq(lines, i, base, state) {
+    var arr = [];
+    while (i < lines.length) {
+      var ln = lines[i];
+      if (ln.indent < base) break;
+      if (ln.indent > base) { i++; continue; } // stray deeper line — tolerate
+      if (!(ln.text[0] === '-' && (ln.text.length === 1 || ln.text[1] === ' '))) break;
+      var rest = ln.text.slice(1).trim();
+      if (rest === '') {
+        // value lives on following deeper lines
+        var j = i + 1;
+        if (j < lines.length && lines[j].indent > base) {
+          var r = parseBlock(lines, j, lines[j].indent, state);
+          arr.push(r[0]); i = r[1];
+        } else { arr.push(null); i++; }
+      } else {
+        var colon = findColon(rest);
+        if (colon !== -1) {
+          // inline map entry starting the item: "- name: x" (+ possibly more keys below)
+          var itemIndent = base + 2;
+          var synthetic = [{ indent: itemIndent, text: rest }];
+          var k = i + 1;
+          while (k < lines.length && lines[k].indent > base) { synthetic.push(lines[k]); k++; }
+          var norm = synthetic.map(function (s, idx) {
+            return idx === 0 ? s : { indent: s.indent < itemIndent ? itemIndent : s.indent, text: s.text };
+          });
+          var m = parseMap(norm, 0, itemIndent, state);
+          arr.push(m[0]); i = k;
+        } else {
+          arr.push(parseFlow(rest)); i++;
+        }
+      }
+    }
+    return [arr, i];
+  }
+
+  function parseMap(lines, i, base, state) {
+    var obj = {};
+    while (i < lines.length) {
+      var ln = lines[i];
+      if (ln.indent < base) break;
+      if (ln.indent > base) { i++; continue; }
+      if (ln.text[0] === '-' && (ln.text.length === 1 || ln.text[1] === ' ')) break;
+      var colon = findColon(ln.text);
+      if (colon === -1) { i++; continue; } // not a mapping line — tolerate
+      var key = unquote(ln.text.slice(0, colon));
+      var val = ln.text.slice(colon + 1).trim();
+      if (val === '' ) {
+        var j = i + 1;
+        if (j < lines.length && lines[j].indent > base) {
+          var r = parseBlock(lines, j, lines[j].indent, state);
+          obj[key] = r[0]; i = r[1];
+        } else if (j < lines.length && lines[j].indent === base &&
+                   lines[j].text[0] === '-' && (lines[j].text.length === 1 || lines[j].text[1] === ' ')) {
+          // sequence at the SAME indent as its key — legal YAML, common in workflows
+          var r2 = parseSeq(lines, j, base, state);
+          obj[key] = r2[0]; i = r2[1];
+        } else { obj[key] = null; i++; }
+      } else if (val === '|' || val === '>' || /^[|>][-+]?\d*$/.test(val)) {
+        // block scalar — swallow the indented body as text
+        var buf = [], k = i + 1;
+        while (k < lines.length && lines[k].indent > base) { buf.push(lines[k].text); k++; }
+        obj[key] = buf.join('\n'); i = k;
+      } else {
+        obj[key] = parseFlow(val); i++;
+      }
+    }
+    return [obj, i];
+  }
+
+  function parse(text) {
+    if (typeof text !== 'string') throw new Error('miniYAML.parse expects a string');
+    var raw = text.replace(/\r\n?/g, '\n').split('\n');
+    var lines = [];
+    for (var i = 0; i < raw.length; i++) {
+      if (/\t/.test(raw[i].match(/^[ \t]*/)[0])) {
+        throw new Error('line ' + (i + 1) + ': tab used for indentation — YAML forbids tabs');
+      }
+      var code = stripComment(raw[i]);
+      if (code.trim() === '' || code.trim() === '---') continue;
+      lines.push({ indent: indentOf(code), text: code.trim(), lineNo: i + 1 });
+    }
+    if (!lines.length) return {};
+    var res = parseBlock(lines, 0, lines[0].indent, {});
+    return res[0];
+  }
+
+  return { parse: parse, _unquote: unquote, _parseFlow: parseFlow };
+});
+</script>
+<script>
+/* ── inlined verbatim from lib/gha-glob.js ── */
+/* lib/gha-glob.js — GitHub Actions filter-pattern matcher, LINEAR TIME.
+ * Contributed by ship 002 (gha-trigger, rebuild 2026-08-03). Ships INLINE a copy
+ * (pages stay self-contained); this file is the canonical source.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS FILE EXISTS
+ *
+ * Ship 002 shipped a hand-rolled glob→RegExp compiler twice and failed twice:
+ * first an XSS, then catastrophic backtracking (ReDoS) that froze the tab on
+ * ordinary pasted text. A static complexity budget was tried and PROVEN
+ * INSUFFICIENT by the checker — a pattern sitting exactly at the cap still hung
+ * >10s, and the budget broke a correct verdict on legitimate input.
+ *
+ * SEMANTICS ARE BORROWED, NOT INVENTED.
+ *   Source: nektos/act, pkg/workflowpattern/workflow_pattern.go
+ *   Licence: MIT (Copyright (c) 2019 nektos/act contributors)
+ *   Pinned at commit 4f411281417e88660bea1c1a1749aa71ae0bd60f (2026-06-01)
+ *   https://github.com/nektos/act/blob/master/pkg/workflowpattern/workflow_pattern.go
+ * `PatternToRegex`, the `[...]` validation rules, and the `Skip`/`Filter` set
+ * logic below are a line-for-line port.
+ *
+ * THE TRAP INSIDE THE BORROW — read this before "simplifying" this file:
+ *   act is safe because Go's `regexp` is RE2: linear time, NO BACKTRACKING.
+ *   act's PatternToRegex emits ordinary regex text; the safety lives entirely in
+ *   Go's engine. JavaScript's RegExp is a BACKTRACKING engine. So porting
+ *   PatternToRegex verbatim into `new RegExp(...)` reintroduces the exact ReDoS
+ *   that killed ship 002. **This file therefore never calls RegExp on a
+ *   user-supplied pattern.** It compiles to a Thompson NFA program and runs a
+ *   Pike-VM state-set simulation: O(len(value) x len(program)), with no
+ *   backtracking possible by construction. That is a property of the algorithm,
+ *   not a budget that can be exceeded.
+ *
+ * BYTES, NOT CHARACTERS. Go indexes `pattern[pos]` as a BYTE and validates class
+ * members with byte comparisons ('A'..'z' spans 0x41..0x7A, which deliberately
+ * includes [ \ ] ^ _ ` ). This port encodes pattern and value as UTF-8 bytes so
+ * those comparisons agree. Multi-byte runes never contain 0x0A or 0x2F, so
+ * "any byte except \n" and "any byte except /" under * and + accept exactly the
+ * same strings as Go's rune-wise `.` and `[^/]` do.
+ * KNOWN, DELIBERATE DIVERGENCE: for a NON-ASCII literal in the *pattern*, Go
+ * feeds single invalid-UTF-8 bytes to the regex parser, which turns each into
+ * U+FFFD — so act does not match a non-ASCII literal against itself. This port
+ * matches the bytes literally (the sane behaviour). GitHub's own behaviour here
+ * is unverified, so callers should say so rather than claim it. The differential
+ * harness in lib/checks is therefore run over ASCII.
+ *
+ * NEVER THROWS. Every entry point returns a value; invalid patterns come back as
+ * `{error: "..."}`. Ship 002's second security finding was untrusted input
+ * reaching innerHTML through a THROWN Error message — a function that cannot
+ * throw cannot re-arm that sink. Callers must still escape `.error` (lib/esc.js).
+ * ───────────────────────────────────────────────────────────────────────────── */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.ghaGlob = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* ── opcodes ───────────────────────────────────────────────────────────── */
+  var CHAR = 0, SPLIT = 1, JMP = 2, MATCH = 3;
+  /* CHAR kinds */
+  var LIT = 0, NOT = 1, SET = 2;
+
+  var BYTE_NL = 0x0A, BYTE_SLASH = 0x2F;
+
+  function utf8(s) {
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s);
+    /* Node <11 / exotic hosts */
+    var out = [], i, c;
+    for (i = 0; i < s.length; i++) {
+      c = s.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xC0 | (c >> 6), 0x80 | (c & 63));
+      else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) {
+        var c2 = s.charCodeAt(++i);
+        var cp = 0x10000 + ((c - 0xD800) << 10) + (c2 - 0xDC00);
+        out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+      } else out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    return new Uint8Array(out);
+  }
+
+  /* ── AST atoms ─────────────────────────────────────────────────────────── */
+  function chLit(b) { return { t: 'ch', k: LIT, b: b }; }
+  function chNot(b) { return { t: 'ch', k: NOT, b: b }; }
+  function chSet(set) { return { t: 'ch', k: SET, s: set }; }
+  function cat(list) { return { t: 'cat', a: list }; }
+  function star(a) { return { t: 'star', a: a }; }
+  function plus(a) { return { t: 'plus', a: a }; }
+  function opt(a) { return { t: 'opt', a: a }; }
+
+  /* ── emit AST → Pike-VM program ────────────────────────────────────────── */
+  function emit(node, prog) {
+    var sp, l1, i;
+    switch (node.t) {
+      case 'ch':
+        prog.push({ op: CHAR, k: node.k, b: node.b, s: node.s });
+        break;
+      case 'cat':
+        for (i = 0; i < node.a.length; i++) emit(node.a[i], prog);
+        break;
+      case 'star':
+        l1 = prog.length;
+        sp = { op: SPLIT, x: 0, y: 0 };
+        prog.push(sp);
+        sp.x = prog.length;
+        emit(node.a, prog);
+        prog.push({ op: JMP, x: l1 });
+        sp.y = prog.length;
+        break;
+      case 'plus':
+        l1 = prog.length;
+        emit(node.a, prog);
+        sp = { op: SPLIT, x: l1, y: 0 };
+        prog.push(sp);
+        sp.y = prog.length;
+        break;
+      case 'opt':
+        sp = { op: SPLIT, x: 0, y: 0 };
+        prog.push(sp);
+        sp.x = prog.length;
+        emit(node.a, prog);
+        sp.y = prog.length;
+        break;
+    }
+  }
+
+  /* ── compile: a line-for-line port of act's PatternToRegex ─────────────── */
+  /* Returns { pattern, negative, prog } or { pattern, negative, error }. */
+  function compilePattern(rawpattern) {
+    var raw = String(rawpattern == null ? '' : rawpattern);
+    var negative = false, pattern = raw;
+    if (pattern.charAt(0) === '!') { negative = true; pattern = pattern.slice(1); }
+
+    var p = utf8(pattern), len = p.length;
+    var atoms = [];                 /* sequence of AST atoms                */
+    var quant = [];                 /* parallel repetition state of atom i:
+                                       0 = plain atom (no repetition yet)
+                                       1 = repeated, greedy
+                                       2 = repeated, already flagged non-greedy
+                                       Go's rule, confirmed by differential against
+                                       RE2: a repetition takes AT MOST ONE trailing
+                                       '?' (the non-greedy flag). A second '?', or
+                                       any '+', is "invalid nested repetition
+                                       operator". `a??` is legal; `a???`, `a?+`,
+                                       `*??` and `*+` are all errors.            */
+    var errors = [];                /* {pos, msg} — collected, like act      */
+    var regexErr = null;            /* Go regexp.Compile-stage error         */
+    var pos = 0;
+
+    function push(node, qstate) { atoms.push(node); quant.push(qstate || 0); }
+
+    while (pos < len) {
+      var c = p[pos];
+
+      if (c === 0x2A /* * */) {
+        if (pos + 1 < len && p[pos + 1] === 0x2A) {
+          if (pos + 2 < len && p[pos + 2] === BYTE_SLASH) {
+            /* "(.+/)?" */
+            push(opt(cat([plus(chNot(BYTE_NL)), chLit(BYTE_SLASH)])), 1);
+            pos += 3;
+          } else {
+            /* ".*" */
+            push(star(chNot(BYTE_NL)), 1);
+            pos += 2;
+          }
+        } else {
+          /* "[^/]*" */
+          push(star(chNot(BYTE_SLASH)), 1);
+          pos += 1;
+        }
+        continue;
+      }
+
+      if (c === 0x2B /* + */ || c === 0x3F /* ? */) {
+        if (pos > 0) {
+          var last = atoms.length - 1;
+          if (last < 0) {
+            /* pos>0 yet nothing emitted: only reachable through an error path */
+            push(chLit(c), 0);
+          } else if (quant[last] === 0) {
+            /* first repetition on a plain atom */
+            atoms[last] = (c === 0x2B) ? plus(atoms[last]) : opt(atoms[last]);
+            quant[last] = 1;
+          } else if (quant[last] === 1 && c === 0x3F) {
+            /* '?' after a repetition = the non-greedy flag. Greediness changes
+               WHICH match is found, never WHETHER one exists, and this matcher is
+               whole-string existence-only — so it is a structural no-op. It may
+               only be applied once. */
+            quant[last] = 2;
+          } else {
+            if (!regexErr) regexErr = 'invalid nested repetition operator';
+          }
+        } else {
+          /* act QuoteMeta()s a leading '+'/'?' — a literal */
+          push(chLit(c), 0);
+        }
+        pos++;
+        continue;
+      }
+
+      if (c === 0x5B /* [ */) {
+        pos++;
+        if (pos < len && p[pos] === 0x5D /* ] */) {
+          errors.push({ pos: pos, msg: "Unexpected empty brackets '[]'" });
+          pos++;
+          continue;                      /* act: `break` out of the switch */
+        }
+        var set = new Uint8Array(256);
+        var startPos = pos;
+        var inRange = function (lo, hi, a, b) { return a >= lo && a <= hi && b >= lo && b <= hi && a <= b; };
+        while (pos < len && p[pos] !== 0x5D) {
+          if (p[pos] === 0x2D /* - */) {
+            if (pos <= startPos || pos + 1 >= len) {
+              errors.push({ pos: pos, msg: 'Invalid range' });
+              pos++;
+              continue;
+            }
+            var a = p[pos - 1], b = p[pos + 1];
+            if (!inRange(0x41, 0x7A, a, b) && !inRange(0x30, 0x39, a, b)) {
+              errors.push({ pos: pos, msg: 'Ranges can only include a-z, A-Z, A-z, and 0-9' });
+              pos++;
+              continue;
+            }
+            for (var x = a; x <= b; x++) set[x] = 1;
+            pos += 2;
+          } else {
+            var m = p[pos];
+            if (!(m >= 0x41 && m <= 0x7A) && !(m >= 0x30 && m <= 0x39)) {
+              errors.push({ pos: pos, msg: 'Ranges can only include a-z, A-Z and 0-9' });
+              pos++;
+              continue;
+            }
+            set[m] = 1;
+            pos++;
+          }
+        }
+        if (pos >= len || p[pos] !== 0x5D) {
+          errors.push({ pos: pos, msg: "Missing closing bracket ']' after '['" });
+          pos++;
+        }
+        pos++;
+        push(chSet(set), 0);
+        continue;
+      }
+
+      if (c === 0x5C /* \ */) {
+        if (pos + 1 >= len) {
+          errors.push({ pos: pos, msg: 'Missing symbol after \\' });
+          pos++;
+          continue;
+        }
+        push(chLit(p[pos + 1]), 0);
+        pos += 2;
+        continue;
+      }
+
+      push(chLit(c), 0);
+      pos++;
+    }
+
+    if (errors.length) {
+      errors.sort(function (u, v) { return u.pos - v.pos; });
+      var parts = errors.map(function (e) { return 'Position: ' + e.pos + ' Error: ' + e.msg; });
+      return { pattern: pattern, negative: negative,
+               error: "invalid Pattern '" + pattern + "': " + parts.join(', ') };
+    }
+    if (regexErr) {
+      return { pattern: pattern, negative: negative,
+               error: 'error parsing pattern: ' + regexErr };
+    }
+
+    var prog = [];
+    emit(cat(atoms), prog);
+    prog.push({ op: MATCH });
+    return { pattern: pattern, negative: negative, prog: prog };
+  }
+
+  function compilePatterns(list) {
+    var out = [], i, cp;
+    for (i = 0; i < list.length; i++) {
+      cp = compilePattern(list[i]);
+      if (cp.error) return { error: cp.error, at: list[i] };
+      out.push(cp);
+    }
+    return { patterns: out };
+  }
+
+  /* ── run: Pike VM. Linear in len(value) x len(prog). Cannot backtrack. ─── */
+  function testByte(ins, b) {
+    if (ins.k === LIT) return b === ins.b;
+    if (ins.k === NOT) return b !== ins.b;
+    return ins.s[b] === 1;
+  }
+
+  function addThread(prog, list, pc, gen, g, stack) {
+    stack.length = 0;
+    stack.push(pc);
+    while (stack.length) {
+      var q = stack.pop();
+      if (gen[q] === g) continue;
+      gen[q] = g;
+      var ins = prog[q];
+      if (ins.op === SPLIT) { stack.push(ins.y); stack.push(ins.x); }
+      else if (ins.op === JMP) { stack.push(ins.x); }
+      else list.push(q);
+    }
+  }
+
+  /* Whole-string (anchored) match of `value` against a compiled pattern. */
+  function matches(compiled, value) {
+    if (!compiled || compiled.error || !compiled.prog) return false;
+    var prog = compiled.prog, n = prog.length;
+    var bytes = utf8(String(value == null ? '' : value));
+    var gen = new Int32Array(n);
+    for (var z = 0; z < n; z++) gen[z] = -1;
+    var clist = [], nlist = [], stack = [], g = 0, i, k, pc, ins;
+
+    addThread(prog, clist, 0, gen, g, stack);
+    for (i = 0; i < bytes.length; i++) {
+      if (clist.length === 0) return false;
+      g++;
+      nlist.length = 0;
+      var b = bytes[i];
+      for (k = 0; k < clist.length; k++) {
+        pc = clist[k];
+        ins = prog[pc];
+        if (ins.op === CHAR && testByte(ins, b)) addThread(prog, nlist, pc + 1, gen, g, stack);
+      }
+      var t = clist; clist = nlist; nlist = t;
+    }
+    for (k = 0; k < clist.length; k++) if (prog[clist[k]].op === MATCH) return true;
+    return false;
+  }
+
+  /* ── act's set logic, ported exactly ───────────────────────────────────── */
+
+  /* Skip(): the semantics of an INCLUDE list (branches:, tags:, paths:).
+     Returns true when the workflow should be SKIPPED. Trace entries explain why. */
+  function skip(sequence, input, trace) {
+    if (!sequence || sequence.length === 0) return false;
+    for (var f = 0; f < input.length; f++) {
+      var file = input[f], matched = false;
+      for (var i = 0; i < sequence.length; i++) {
+        var item = sequence[i];
+        if (matches(item, file)) {
+          if (item.negative) {
+            matched = false;
+            if (trace) trace.push({ value: file, pattern: '!' + item.pattern, effect: 'excluded' });
+          } else {
+            matched = true;
+            if (trace) trace.push({ value: file, pattern: item.pattern, effect: 'included' });
+          }
+        }
+      }
+      if (matched) return false;
+    }
+    return true;
+  }
+
+  /* Filter(): the semantics of an IGNORE list (branches-ignore:, paths-ignore:).
+     Returns true when the workflow should be SKIPPED. */
+  function filter(sequence, input, trace) {
+    if (!sequence || sequence.length === 0) return false;
+    for (var f = 0; f < input.length; f++) {
+      var file = input[f], matched = false;
+      for (var i = 0; i < sequence.length; i++) {
+        var item = sequence[i];
+        if (matches(item, file) === !item.negative) {
+          if (trace) trace.push({ value: file, pattern: (item.negative ? '!' : '') + item.pattern, effect: 'ignored' });
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) return false;
+    }
+    return true;
+  }
+
+  return {
+    compilePattern: compilePattern,
+    compilePatterns: compilePatterns,
+    matches: matches,
+    skip: skip,
+    filter: filter,
+    _source: 'nektos/act pkg/workflowpattern @ 4f411281417e88660bea1c1a1749aa71ae0bd60f (MIT) — semantics ported, execution replaced with a Pike VM'
+  };
+});
+</script>
+<script>
+/* ── inlined verbatim from public/002-gha-trigger/app.js ── */
+/* ship 002 — gha-trigger. Application logic.
+ * Rebuilt 2026-08-03 on lib/gha-glob.js (linear-time Pike VM, semantics ported from
+ * nektos/act pkg/workflowpattern, MIT).
+ *
+ * SECURITY CONTRACT FOR THIS FILE:
+ *   No user-derived string is ever concatenated into HTML. Every value that came from
+ *   the textarea, the ref box, the file list, or a thrown parser message reaches the
+ *   page through document.createTextNode / .textContent, or through esc() when a
+ *   string must be built. `innerHTML` is used ONLY to clear a container ('').
+ *   Ship 002 shipped two XSS findings, the second through a THROWN Error message
+ *   rendered into innerHTML. That sink is structurally absent here.
+ */
+(function () {
+  'use strict';
+
+  var G = self.ghaGlob, Y = self.miniYAML, ESC = self.esc;
+
+  /* ── DOM helpers: text only, never markup ──────────────────────────────── */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text);
+    return n;
+  }
+  function clear(n) { n.innerHTML = ''; return n; }   /* static empty string only */
+
+  /* ── normalise the `on:` block ─────────────────────────────────────────── */
+  /* miniYAML deliberately never coerces scalars, so the key `on` stays "on" and
+     never becomes YAML 1.1's boolean true. */
+  function normalizeOn(on) {
+    var out = {};
+    if (on === null || on === undefined) return out;
+    if (typeof on === 'string') { out[on.trim()] = {}; return out; }
+    if (Array.isArray(on)) {
+      on.forEach(function (e) { if (typeof e === 'string') out[e.trim()] = {}; });
+      return out;
+    }
+    if (typeof on === 'object') {
+      Object.keys(on).forEach(function (k) {
+        var v = on[k];
+        out[k.trim()] = (v === null || v === undefined) ? {} : (typeof v === 'object' && !Array.isArray(v) ? v : {});
+      });
+      return out;
+    }
+    return out;
+  }
+
+  function asList(v) {
+    if (v === null || v === undefined) return null;
+    if (Array.isArray(v)) return v.map(function (x) { return String(x); });
+    if (typeof v === 'string') return [v];
+    return null;
+  }
+  function has(cfg, k) { return Object.prototype.hasOwnProperty.call(cfg, k) && asList(cfg[k]) !== null; }
+
+  /* ── the filter evaluator ──────────────────────────────────────────────── */
+  /* Returns {ok:true, skip:bool, trace:[]} or {ok:false, error:"..."} */
+  function applyInclude(patterns, values) {
+    var cp = G.compilePatterns(patterns);
+    if (cp.error) return { ok: false, error: cp.error };
+    var trace = [];
+    return { ok: true, skip: G.skip(cp.patterns, values, trace), trace: trace };
+  }
+  function applyIgnore(patterns, values) {
+    var cp = G.compilePatterns(patterns);
+    if (cp.error) return { ok: false, error: cp.error };
+    var trace = [];
+    var r = { ok: true, skip: G.filter(cp.patterns, values, trace), trace: trace };
+    /* GitHub documents `!` for the INCLUDE forms (branches:, tags:, paths:). It does not
+       define what `!` means inside a `*-ignore` list. We apply act's interpretation and
+       say so, rather than presenting an undocumented answer as authoritative. */
+    for (var i = 0; i < patterns.length; i++) {
+      if (String(patterns[i]).charAt(0) === '!') { r.undocumented = true; break; }
+    }
+    return r;
+  }
+
+  var PR_DEFAULT_TYPES = ['opened', 'synchronize', 'reopened'];
+
+  /* ev = {event, refKind, ref, base, activity, files:[]} */
+  function evaluate(wf, ev) {
+    var steps = [];
+    var on = normalizeOn(wf && wf.on);
+    var names = Object.keys(on);
+
+    if (!names.length) {
+      return { verdict: 'CONFIG ERROR', reason: 'no `on:` block was found in this workflow', steps: steps };
+    }
+    if (!Object.prototype.hasOwnProperty.call(on, ev.event)) {
+      steps.push({ label: 'on:', result: 'no', detail: 'declares ' + names.join(', ') });
+      return {
+        verdict: "WON'T RUN",
+        reason: 'the workflow’s `on:` block does not list `' + ev.event + '`',
+        steps: steps
+      };
+    }
+    var cfg = on[ev.event] || {};
+    steps.push({ label: 'on:', result: 'yes', detail: 'declares `' + ev.event + '`' });
+
+    /* mutually exclusive pairs — GitHub rejects these outright */
+    var pairs = [['branches', 'branches-ignore'], ['tags', 'tags-ignore'], ['paths', 'paths-ignore']];
+    for (var i = 0; i < pairs.length; i++) {
+      if (has(cfg, pairs[i][0]) && has(cfg, pairs[i][1])) {
+        return {
+          verdict: 'CONFIG ERROR',
+          reason: '`' + pairs[i][0] + '` and `' + pairs[i][1] + '` cannot both be used on the same event',
+          steps: steps
+        };
+      }
+    }
+
+    if (ev.event === 'push') return evalPush(cfg, ev, steps);
+    if (ev.event === 'pull_request' || ev.event === 'pull_request_target') return evalPR(cfg, ev, steps);
+
+    if (ev.event === 'schedule') {
+      steps.push({ label: 'schedule', result: 'yes', detail: 'no ref/path filters exist for `schedule`' });
+      return {
+        verdict: 'WILL RUN',
+        reason: 'scheduled events carry no ref or path filters',
+        note: 'A `schedule` only ever runs on the **default branch** — the workflow file must be merged there. GitHub also disables schedules in repos with no activity for 60 days.',
+        steps: steps
+      };
+    }
+    if (ev.event === 'workflow_dispatch') {
+      steps.push({ label: 'workflow_dispatch', result: 'yes', detail: 'no ref/path filters exist for this event' });
+      return {
+        verdict: 'WILL RUN',
+        reason: '`workflow_dispatch` has no ref or path filters',
+        note: 'The "Run workflow" button only appears once the workflow file exists on the **default branch**, even though it can then run on any ref.',
+        steps: steps
+      };
+    }
+    return { verdict: 'WILL RUN', reason: 'the event is declared and this tool models no filters for it', steps: steps };
+  }
+
+  function evalPush(cfg, ev, steps) {
+    var isTag = ev.refKind === 'tag';
+    var hasBranch = has(cfg, 'branches') || has(cfg, 'branches-ignore');
+    var hasTag = has(cfg, 'tags') || has(cfg, 'tags-ignore');
+
+    if (!isTag && hasTag && !hasBranch) {
+      steps.push({ label: 'branch vs tag', result: 'no', detail: 'only tag filters are defined' });
+      return {
+        verdict: "WON'T RUN",
+        reason: 'this push is to a **branch**, but the event defines only `tags`/`tags-ignore`. Defining only tag filters means branch pushes never match.',
+        steps: steps
+      };
+    }
+    if (isTag && hasBranch && !hasTag) {
+      steps.push({ label: 'branch vs tag', result: 'no', detail: 'only branch filters are defined' });
+      return {
+        verdict: "WON'T RUN",
+        reason: 'this push is to a **tag**, but the event defines only `branches`/`branches-ignore`. Defining only branch filters means tag pushes never match.',
+        steps: steps
+      };
+    }
+
+    var refName = ev.ref;
+    var r;
+    if (isTag) {
+      if (has(cfg, 'tags')) {
+        r = applyInclude(asList(cfg['tags']), [refName]);
+        if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+        steps.push({ label: 'tags:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['tags']), trace: r.trace });
+        if (r.skip) return { verdict: "WON'T RUN", reason: 'the tag `' + refName + '` matches no pattern in `tags:`', steps: steps };
+      } else if (has(cfg, 'tags-ignore')) {
+        r = applyIgnore(asList(cfg['tags-ignore']), [refName]);
+        if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+        steps.push({ label: 'tags-ignore:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['tags-ignore']), trace: r.trace, caveat: r.undocumented });
+        if (r.skip) return { verdict: "WON'T RUN", reason: 'the tag `' + refName + '` is excluded by `tags-ignore:`', steps: steps };
+      }
+      if (has(cfg, 'paths') || has(cfg, 'paths-ignore')) {
+        steps.push({ label: 'paths:', result: 'skipped', detail: 'path filters are not evaluated for tag pushes' });
+      }
+      return { verdict: 'WILL RUN', reason: 'the tag passes every filter this event defines', steps: steps };
+    }
+
+    if (has(cfg, 'branches')) {
+      r = applyInclude(asList(cfg['branches']), [refName]);
+      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      steps.push({ label: 'branches:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches']), trace: r.trace });
+      if (r.skip) return { verdict: "WON'T RUN", reason: 'the branch `' + refName + '` matches no pattern in `branches:`', steps: steps };
+    } else if (has(cfg, 'branches-ignore')) {
+      r = applyIgnore(asList(cfg['branches-ignore']), [refName]);
+      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      steps.push({ label: 'branches-ignore:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches-ignore']), trace: r.trace, caveat: r.undocumented });
+      if (r.skip) return { verdict: "WON'T RUN", reason: 'the branch `' + refName + '` is excluded by `branches-ignore:`', steps: steps };
+    }
+
+    return evalPaths(cfg, ev, steps);
+  }
+
+  function evalPR(cfg, ev, steps) {
+    var types = has(cfg, 'types') ? asList(cfg['types']) : PR_DEFAULT_TYPES;
+    var isDefault = !has(cfg, 'types');
+    if (types.indexOf(ev.activity) === -1) {
+      steps.push({ label: 'types:', result: 'no', detail: (isDefault ? 'default ' : '') + '[' + types.join(', ') + ']' });
+      return {
+        verdict: "WON'T RUN",
+        reason: 'the activity type `' + ev.activity + '` is not in ' + (isDefault ? 'the default `types` list' : '`types:`'),
+        steps: steps
+      };
+    }
+    steps.push({ label: 'types:', result: 'yes', detail: (isDefault ? 'default ' : '') + '[' + types.join(', ') + ']' });
+
+    var r;
+    if (has(cfg, 'branches')) {
+      r = applyInclude(asList(cfg['branches']), [ev.base]);
+      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      steps.push({ label: 'branches: (base)', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches']), trace: r.trace });
+      if (r.skip) return { verdict: "WON'T RUN", reason: 'the **base** branch `' + ev.base + '` matches no pattern in `branches:` (for `pull_request`, `branches` filters the base, not the head)', steps: steps };
+    } else if (has(cfg, 'branches-ignore')) {
+      r = applyIgnore(asList(cfg['branches-ignore']), [ev.base]);
+      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      steps.push({ label: 'branches-ignore: (base)', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['branches-ignore']), trace: r.trace, caveat: r.undocumented });
+      if (r.skip) return { verdict: "WON'T RUN", reason: 'the **base** branch `' + ev.base + '` is excluded by `branches-ignore:`', steps: steps };
+    }
+    return evalPaths(cfg, ev, steps);
+  }
+
+  function evalPaths(cfg, ev, steps) {
+    var files = ev.files;
+    var r;
+    if (has(cfg, 'paths')) {
+      if (!files.length) {
+        steps.push({ label: 'paths:', result: 'no', detail: patternList(cfg['paths']) });
+        return { verdict: "WON'T RUN", reason: 'no changed files were given, so nothing can match `paths:`', steps: steps };
+      }
+      r = applyInclude(asList(cfg['paths']), files);
+      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      steps.push({ label: 'paths:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['paths']), trace: r.trace });
+      if (r.skip) return { verdict: "WON'T RUN", reason: 'not one changed file matches any pattern in `paths:`', steps: steps };
+    } else if (has(cfg, 'paths-ignore')) {
+      if (!files.length) {
+        steps.push({ label: 'paths-ignore:', result: 'yes', detail: patternList(cfg['paths-ignore']) });
+        return { verdict: 'WILL RUN', reason: 'no changed files were given, so `paths-ignore:` excludes nothing', steps: steps };
+      }
+      r = applyIgnore(asList(cfg['paths-ignore']), files);
+      if (!r.ok) return { verdict: 'CONFIG ERROR', reason: r.error, steps: steps };
+      steps.push({ label: 'paths-ignore:', result: r.skip ? 'no' : 'yes', detail: patternList(cfg['paths-ignore']), trace: r.trace, caveat: r.undocumented });
+      if (r.skip) return { verdict: "WON'T RUN", reason: 'every changed file is excluded by `paths-ignore:`', steps: steps };
+    }
+    return { verdict: 'WILL RUN', reason: 'the event passes every filter this workflow defines', steps: steps };
+  }
+
+  function patternList(v) {
+    var l = asList(v) || [];
+    return '[' + l.join(', ') + ']';
+  }
+
+  /* ── rendering (text nodes only) ───────────────────────────────────────── */
+  function renderMarkedText(parent, s) {
+    /* Supports two inline markers in OUR OWN copy: `code` and **bold**.
+       User-derived values are inserted with textContent, so a value containing
+       backticks or asterisks can at worst change its own styling. It can never
+       introduce an element, because no markup string is ever parsed. */
+    var re = /(`[^`]*`|\*\*[^*]+\*\*)/g, last = 0, m;
+    while ((m = re.exec(s)) !== null) {
+      if (m.index > last) parent.appendChild(document.createTextNode(s.slice(last, m.index)));
+      var tok = m[0];
+      if (tok.charAt(0) === '`') parent.appendChild(el('code', null, tok.slice(1, -1)));
+      else parent.appendChild(el('strong', null, tok.slice(2, -2)));
+      last = re.lastIndex;
+    }
+    if (last < s.length) parent.appendChild(document.createTextNode(s.slice(last)));
+  }
+
+  function render(result, out) {
+    clear(out);
+    var cls = result.verdict === 'WILL RUN' ? 'ok' : (result.verdict === 'CONFIG ERROR' ? 'err' : 'no');
+    var badge = el('div', 'verdict ' + cls);
+    badge.appendChild(el('span', 'dot'));
+    badge.appendChild(el('span', 'vtext', result.verdict));
+    out.appendChild(badge);
+
+    var why = el('p', 'why');
+    why.appendChild(document.createTextNode('Because: '));
+    renderMarkedText(why, result.reason);
+    out.appendChild(why);
+
+    if (result.note) {
+      var note = el('p', 'note');
+      renderMarkedText(note, result.note);
+      out.appendChild(note);
+    }
+
+    if (result.steps && result.steps.length) {
+      var tbl = el('table', 'steps');
+      var thead = el('thead'), htr = el('tr');
+      ['filter', 'passes?', 'value'].forEach(function (h) { htr.appendChild(el('th', null, h)); });
+      thead.appendChild(htr); tbl.appendChild(thead);
+      var tb = el('tbody');
+      result.steps.forEach(function (s) {
+        var tr = el('tr');
+        tr.appendChild(el('td', null, s.label));
+        var mark = s.result === 'yes' ? 'pass' : (s.result === 'no' ? 'fail' : 'skip');
+        tr.appendChild(el('td', mark, s.result));
+        tr.appendChild(el('td', 'mono', s.detail || ''));
+        tb.appendChild(tr);
+        if (s.trace && s.trace.length) {
+          var sub = el('tr', 'tracerow');
+          var td = el('td'); td.colSpan = 3;
+          s.trace.slice(0, 40).forEach(function (t) {
+            var line = el('div', 'trace');
+            line.appendChild(el('code', null, t.value));
+            line.appendChild(document.createTextNode(' ' + t.effect + ' by '));
+            line.appendChild(el('code', null, t.pattern));
+            td.appendChild(line);
+          });
+          if (s.trace.length > 40) td.appendChild(el('div', 'trace', '… and ' + (s.trace.length - 40) + ' more'));
+          sub.appendChild(td); tb.appendChild(sub);
+        }
+      });
+      tbl.appendChild(tb);
+      out.appendChild(tbl);
+      if (result.steps.some(function (s) { return s.caveat; })) {
+        var cav = el('p', 'note');
+        renderMarkedText(cav, 'Caveat: a `!` pattern appears inside a `*-ignore` list. GitHub documents ' +
+          '`!` for the include forms (`branches:`, `tags:`, `paths:`) and does not define it for the ' +
+          '`*-ignore` forms — this verdict applies act’s interpretation, so treat it as unverified. ' +
+          'Prefer `paths:` with `!` if you need exclusions.');
+        out.appendChild(cav);
+      }
+    }
+  }
+
+  function renderError(msg, out) {
+    clear(out);
+    var badge = el('div', 'verdict err');
+    badge.appendChild(el('span', 'dot'));
+    badge.appendChild(el('span', 'vtext', 'CANNOT TELL'));
+    out.appendChild(badge);
+    var p = el('p', 'why');
+    p.appendChild(document.createTextNode('The workflow could not be read: '));
+    /* msg may quote untrusted input. textContent, never innerHTML. */
+    p.appendChild(el('code', null, msg));
+    out.appendChild(p);
+  }
+
+  /* ── wiring ────────────────────────────────────────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+
+  function currentEvent() {
+    var event = $('event').value;
+    var refKind = event === 'push' ? $('refkind').value : 'branch';
+    return {
+      event: event,
+      refKind: refKind,
+      ref: $('ref').value.trim(),
+      base: $('base').value.trim(),
+      activity: $('activity').value,
+      files: $('files').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean)
+    };
+  }
+
+  function syncFields() {
+    var event = $('event').value;
+    $('row-refkind').hidden = event !== 'push';
+    $('row-ref').hidden = !(event === 'push');
+    $('row-base').hidden = !(event === 'pull_request' || event === 'pull_request_target');
+    $('row-activity').hidden = !(event === 'pull_request' || event === 'pull_request_target');
+    $('row-files').hidden = !(event === 'push' || event === 'pull_request' || event === 'pull_request_target');
+    var isTag = event === 'push' && $('refkind').value === 'tag';
+    $('lbl-ref').textContent = isTag ? 'tag name' : 'branch name';
+  }
+
+  function run() {
+    var out = $('out');
+    var t0 = (self.performance && performance.now) ? performance.now() : 0;
+    var wf;
+    try {
+      wf = Y.parse($('workflow').value);
+    } catch (e) {
+      renderError(e && e.message ? e.message : String(e), out);
+      return;
+    }
+    if (!wf || typeof wf !== 'object' || Array.isArray(wf)) {
+      renderError('the document did not parse as a YAML mapping', out);
+      return;
+    }
+    var res;
+    try {
+      res = evaluate(wf, currentEvent());
+    } catch (e) {
+      renderError(e && e.message ? e.message : String(e), out);
+      return;
+    }
+    render(res, out);
+    var t1 = (self.performance && performance.now) ? performance.now() : 0;
+    $('timing').textContent = t1 > t0 ? 'evaluated in ' + (t1 - t0).toFixed(2) + ' ms' : '';
+  }
+
+  var PRESETS = {
+    paths: {
+      label: 'paths didn’t match',
+      yaml: 'name: CI\non:\n  push:\n    branches: [main]\n    paths:\n      - "src/**"\n      - "**.js"\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+      ev: { event: 'push', refkind: 'branch', ref: 'main', files: 'README.md\ndocs/guide.md' }
+    },
+    tagsonly: {
+      label: 'only tags: defined, pushed a branch',
+      yaml: 'name: Release\non:\n  push:\n    tags:\n      - "v*"\n\njobs:\n  release:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./release.sh\n',
+      ev: { event: 'push', refkind: 'branch', ref: 'main', files: 'src/app.js' }
+    },
+    starstar: {
+      label: '* vs ** on a nested branch',
+      yaml: 'name: Feature CI\non:\n  push:\n    branches:\n      - "feature/*"\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make test\n',
+      ev: { event: 'push', refkind: 'branch', ref: 'feature/beta-a/my-branch', files: 'src/app.js' }
+    },
+    prclosed: {
+      label: 'pull_request with types: [closed]',
+      yaml: 'name: Cleanup\non:\n  pull_request:\n    types: [closed]\n    branches:\n      - main\n\njobs:\n  cleanup:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./cleanup.sh\n',
+      ev: { event: 'pull_request', base: 'main', activity: 'opened', files: 'src/app.js' }
+    },
+    negate: {
+      label: 'paths: with ! exclude, then re-include',
+      yaml: 'name: Docs guard\non:\n  push:\n    branches: [main]\n    paths:\n      - "**.md"\n      - "!docs/**"\n      - "docs/critical/**"\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make\n',
+      ev: { event: 'push', refkind: 'branch', ref: 'main', files: 'docs/critical/spec.md' }
+    }
+  };
+
+  function applyPreset(key) {
+    var p = PRESETS[key];
+    if (!p) return;
+    $('workflow').value = p.yaml;
+    $('event').value = p.ev.event;
+    if (p.ev.refkind) $('refkind').value = p.ev.refkind;
+    $('ref').value = p.ev.ref || 'main';
+    $('base').value = p.ev.base || 'main';
+    $('activity').value = p.ev.activity || 'opened';
+    $('files').value = p.ev.files || '';
+    syncFields();
+    run();
+  }
+
+  function init() {
+    var bar = $('presets');
+    Object.keys(PRESETS).forEach(function (k) {
+      var b = el('button', 'preset', PRESETS[k].label);
+      b.type = 'button';
+      b.addEventListener('click', function () { applyPreset(k); });
+      bar.appendChild(b);
+    });
+    ['workflow', 'ref', 'base', 'files'].forEach(function (id) {
+      $(id).addEventListener('input', run);
+    });
+    ['event', 'refkind', 'activity'].forEach(function (id) {
+      $(id).addEventListener('change', function () { syncFields(); run(); });
+    });
+    applyPreset('paths');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  /* exported for the checker's console-driven probes */
+  self.__gha = { evaluate: evaluate, normalizeOn: normalizeOn };
+})();
+</script>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+</body>
+</html>

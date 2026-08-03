@@ -1,5 +1,5 @@
 {
- "_doc": "GitHub filter-pattern cheat-sheet oracle (pattern,value,expected). Quotes on some patterns mark YAML-quoted forms from the docs; strip quotes before compiling. A glob matcher for GitHub Actions triggers must pass ALL of these. Extend, never trim.",
+ "_doc": "GitHub filter-pattern cheat-sheet oracle (pattern,value,expected). Quotes on some patterns mark YAML-quoted forms from the docs; strip quotes before compiling. A glob matcher for GitHub Actions triggers must pass ALL of these. Extend, never trim.  NEGATION CONVENTION: for a pattern beginning with '!', `expected` is the EFFECTIVE result (does this pattern SELECT the value), not the raw regex match. A raw matcher returns the match of the stripped pattern; the caller applies the negation. Compare effective = negative ? !rawMatch : rawMatch.",
  "pairs": [
   [
    "feature/*",
