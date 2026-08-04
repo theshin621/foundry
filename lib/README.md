@@ -27,3 +27,12 @@ in production with three independent checker verdicts against its exact bytes, a
 it at a new dependency would invalidate that evidence for no user-visible gain. Migrating it is
 a job for a run that can afford its own checker round.
 
+## A rule added the hard way (2026-08-04)
+
+**Never write a person's name into code, a comment, or a commit message.** Ship 003 put an
+attribution note in a `lib/` comment; `lib/` is inlined into every ship page, so it shipped to
+a served file, and because git history is additive, fixing the tip did not remove it — a
+checker fetched it back over HTTP from an ancestor commit and proved the exposure was live.
+The branch had to be squashed and force-pushed. Attribute decisions to a date and a reason;
+the ledger is where the loop's memory belongs, and the ledger is not inlined into a page.
+
