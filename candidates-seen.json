@@ -1,6 +1,19 @@
 {
  "seen": [
   {
+   "date": "2026-08-04",
+   "lane": "EVERGREEN",
+   "slug": "codeowners",
+   "outcome": "BUILT + CHECKED, NOT A PASS -> REBUILD (architectural? no - one file deep). Branch ship/003-codeowners pushed, unmerged, ledger status failed.",
+   "note": "Which CODEOWNERS rule actually wins per changed file, who gets requested, which lines GitHub silently skips. Occupant hunt 2026-08-04 named and empty of web tools: hmarr/codeowners, mszostok/codeowners-validator, orsinium-labs/owners, topfreegames/codeowners-verifier, nmusolino/codeowners, multimediallc/codeowners-plus - all CLI/library/Action shaped. Semantics BORROWED from hmarr/codeowners (MIT) @11d3ff26 and verified against ~310k differential pairs with zero divergences, 171/171 reference corpus, 13/13 GitHub-documented cases, ~130 XSS positions clean, cookieless. Two checker defects, one fix cycle spent, targeted re-check PARTIAL.",
+   "rebuild_constraint": "REBUILD, and it is cheap - the ship is correct and secure, one printed number is optimistic. (1) Give runes() in lib/codeowners.js a budget parameter; it is called from BOTH parseRule() and buildPatternAst() and is entirely unmetered. (2) Add a tick() check inside addThread()'s while loop in lib/nfa.js. Together these are the last two unmetered stages; the re-checker measured 1,101-1,291 ms in 13 of 14 real-Chromium trials against a page advertising ~750 ms. REPRO: CODEOWNERS = 'x'*300000 + ' @o1\\n' + '/'.join(['**']*150000) + ' @o2', file list = '/'*4096. (3) Reconcile the two internal numbers: lib/nfa.js's comment says ~252 ms for 1,000 files x 200 rules while the page says 'about a quarter of 750 ms' (=187.5 ms); the re-checker measured 160-198 ms in-browser, so the PAGE is right and the comment should be corrected, not the copy. (4) Then re-verify with lib/checks/codeowners-oracle.json (171 pairs + 13 documented + line-skipping + regression_notes) and the Go differential recipe recorded in it. NOTE: the reference implementation PANICS on the pattern '/' - any driver needs a per-pair recover().",
+   "plain": {
+    "what": "A free web page: paste your CODEOWNERS file and the files a pull request touches, and it says exactly who GitHub will ask to review each one - and which of your rules it is quietly ignoring.",
+    "solves": "CODEOWNERS picks reviewers on every PR, but the LAST matching rule wins rather than the most specific one, so teams believe a rule is protecting a directory when a broader rule below it has been overriding it for months. Malformed lines are skipped in silence.",
+    "money": "Not published. Built and heavily verified, but the independent re-check returned PARTIAL on a timing claim the page prints, so it did not earn a stage. Returns tomorrow as a cheap rebuild."
+   }
+  },
+  {
    "date": "2026-08-03",
    "lane": "ORIGINAL",
    "slug": "npm-dualuse-preflight",
@@ -53,8 +66,8 @@
    "date": "2026-08-02",
    "lane": "ORIGINAL",
    "slug": "cimdkit",
-   "outcome": "PREMISE CORRECTED 2026-08-03 - does not hold, do not build on it",
-   "note": "PRIOR NOTE WAS WRONG. Re-verified against the source https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/ : that post is a RELEASE CANDIDATE announcement targeting a 2026-07-28 final, and it does NOT mention CIMD and does NOT deprecate Dynamic Client Registration - it describes HARDENING DCR (declare OpenID Connect application_type, bind credentials to authorization servers). Building cimdkit on the recorded premise would have shipped factually wrong landing copy. REVISIT TRIGGER: a published (non-RC) spec that actually deprecates DCR in favour of CIMD.",
+   "outcome": "REVISIT TRIGGER MET 2026-08-04 - not yet buildable",
+   "note": "PRIOR NOTE WAS WRONG. Re-verified against the source https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/ : that post is a RELEASE CANDIDATE announcement targeting a 2026-07-28 final, and it does NOT mention CIMD and does NOT deprecate Dynamic Client Registration - it describes HARDENING DCR (declare OpenID Connect application_type, bind credentials to authorization servers). Building cimdkit on the recorded premise would have shipped factually wrong landing copy. REVISIT TRIGGER: a published (non-RC) spec that actually deprecates DCR in favour of CIMD. [2026-08-04: the FINAL, non-RC specification post https://blog.modelcontextprotocol.io/posts/2026-07-28/ describes exactly the shift the revisit trigger named - Dynamic Client Registration -> Client ID Metadata Documents - alongside removal of the initialize/initialized handshake and Mcp-Session-Id, mandatory MCP-Protocol-Version / Mcp-Method / Mcp-Name headers, ttlMs+cacheScope on list responses, and 12-month deprecation of HTTP+SSE, Roots, Sampling and Logging. BUT the trigger is met on the ANNOUNCEMENT POST, and this candidate was already burned once by trusting a summary. Before any build, re-verify against the SPECIFICATION TEXT itself, not a blog post.]",
    "plain": {
     "what": "Was to be a toolkit for a new MCP identity standard (CIMD).",
     "solves": "Nothing, it turned out \u2014 re-reading the spec announcement showed it never actually deprecated the old standard. The recorded premise was wrong.",
@@ -78,7 +91,7 @@
    "lane": "ORIGINAL",
    "slug": "mcp-conformance-index",
    "outcome": "parked \u2014 derivative",
-   "note": "mcp-spec-check already scanned the registry 2026-07-12 vs the RC; only the publishing layer is missing",
+   "note": "mcp-spec-check already scanned the registry 2026-07-12 vs the RC; only the publishing layer is missing [2026-08-04: adjacent slot re-hunted and it is occupied - Roee-Tsur/mcp-spec-check ships an npx black-box readiness probe with a published scan of all 7,850 registry servers, and mcpmigrate.dev covers the guide layer. A 'paste instead of probe' edge is thin because npx runs locally and can reach a localhost server a hosted page cannot.]",
    "plain": {
     "what": "A public league table of MCP servers ranked by how faithfully they implement the spec.",
     "solves": "Developers choosing a server can\u2019t tell which ones actually follow the standard.",
@@ -112,18 +125,6 @@
   {
    "date": "2026-08-02",
    "lane": "EVERGREEN",
-   "slug": "nginx-location-sim",
-   "outcome": "queued \u2014 strong second",
-   "note": "htaccess equivalent used 7.5M times/10yr; seowebchecker tests one pattern, not which block wins",
-   "plain": {
-    "what": "Paste your nginx config and a URL; it shows which location block wins and why.",
-    "solves": "nginx routing is famously confusing \u2014 one wrong block and the site serves the wrong thing. People debug by redeploying and hoping.",
-    "money": "Free first, visits measured per-path; a winner\u2019s paid layer would be config checks running in CI. Strong second pick \u2014 likely a near-term build."
-   }
-  },
-  {
-   "date": "2026-08-02",
-   "lane": "EVERGREEN",
    "slug": "excel-csv-preflight",
    "outcome": "queued",
    "note": "~6 CSV structure linters, none simulate Excel's destructive import",
@@ -150,6 +151,7 @@
   "llm-status-aggregator",
   "schema-jsonld-generator",
   "redirect-mapper",
-  "bank-statement-to-csv"
+  "bank-statement-to-csv",
+  "nginx-location-sim (2026-08-04: nginx.viraptor.info already takes a full config + URL and explains how it evaluated it - free, no signup. The 2026-08-02 hunt that \"found none\" was under-run.)"
  ]
 }
