@@ -8,3 +8,22 @@ Every build checks here FIRST and contributes one reusable piece back. Ship #001
 3. Include `lib/beacon.html` contents only once it holds a real token (it is a placeholder until Cloudflare Web Analytics is enabled).
 4. Checker runs BEFORE merge: serve `public/` locally (`python3 -m http.server`) and verify there — sandbox egress cannot reach workers.dev, so local render + push-hash + (when the desktop is reachable) Chrome on the live URL is the verification path.
 5. Merge to `main` = production deploy (Cloudflare Workers Build, `wrangler.jsonc` → `./public`).
+
+## What's in lib/ now
+
+| file | contributed by | what it is |
+|---|---|---|
+| `template.html` | ship 001 | ship-page skeleton (beacon + footer) |
+| `beacon.html` | ship 001 | the live cookieless Cloudflare Web Analytics snippet |
+| `esc.js` | ship 002 | the ONE HTML-escape helper; every HTML-from-input sink routes through it |
+| `mini-yaml.js` | ship 002 | bounded YAML subset parser |
+| `gha-glob.js` | ship 002 | GitHub Actions filter-pattern matcher (act semantics, Pike VM) |
+| `nfa.js` | ship 003 | **the linear-time matcher core, extracted** — Thompson NFA + Pike VM over bytes, with a work budget. Build a pattern language on top of it and it cannot backtrack. |
+| `codeowners.js` | ship 003 | CODEOWNERS parser + matcher (hmarr/codeowners semantics, executed on `nfa.js`) |
+| `inline.js` | ship 003 | assembles a self-contained ship page from a source file plus lib/ modules, so the inlined copy can be **proven** identical to lib/ instead of drifting silently |
+
+`gha-glob.js` still carries its own copy of the VM rather than importing `nfa.js`: it is live
+in production with three independent checker verdicts against its exact bytes, and re-pointing
+it at a new dependency would invalidate that evidence for no user-visible gain. Migrating it is
+a job for a run that can afford its own checker round.
+

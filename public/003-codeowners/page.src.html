@@ -1,0 +1,426 @@
+<!doctype html>
+<!-- SOURCE FILE. index.html is generated from this by lib/inline.js, which splices the
+     canonical lib/ modules in verbatim. Regenerate + verify:
+        node lib/inline.js public/003-codeowners/page.src.html /tmp/o && diff /tmp/o public/003-codeowners/index.html
+     A non-empty diff means the shipped page has drifted from lib/. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CODEOWNERS — who actually gets requested? · foundry day 003</title>
+<meta name="description" content="Paste a CODEOWNERS file and the paths a pull request touches. See which rule wins for each file, who gets requested for review, and which lines GitHub silently skips. Free, no signup, runs entirely in your browser.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--faint:#4b535c;--line:#1c2128;--card:#11141a;
+      --ok:#3fb950;--no:#d29922;--err:#f85149;--accent:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+     font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{max-width:60rem;margin:0 auto;padding:2.5rem 1.25rem 3rem}
+h1{font-size:1.5rem;margin:0 0 .35rem;letter-spacing:-.01em}
+h1 .q{color:var(--dim);font-weight:400}
+.sub{color:var(--dim);margin:0 0 1.25rem;font-size:.92rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem}
+label{display:block;color:var(--dim);font-size:.8rem;margin:0 0 .3rem;text-transform:lowercase}
+textarea{width:100%;background:#0b0d10;color:var(--fg);border:1px solid var(--line);
+  border-radius:6px;padding:.5rem .6rem;font:13px/1.5 ui-monospace,Menlo,monospace;resize:vertical}
+#owners{min-height:19rem}
+#paths{min-height:19rem}
+#presets{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
+.preset{background:#161b22;color:var(--dim);border:1px solid var(--line);border-radius:999px;
+  padding:.28rem .7rem;font:12px ui-monospace,Menlo,monospace;cursor:pointer}
+.preset:hover{color:var(--fg);border-color:var(--faint)}
+#result{margin-top:1.25rem}
+.summary{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;align-items:baseline;margin:0 0 .75rem}
+.summary b{font-size:1.2rem;font-weight:600}
+.summary .owned{color:var(--ok)} .summary .unowned{color:var(--no)}
+.summary .lab{color:var(--faint);font-size:.82rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.5rem}
+th{text-align:left;color:var(--faint);font-weight:400;border-bottom:1px solid var(--line);padding:.35rem .4rem}
+td{padding:.4rem .4rem;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+td.path{color:var(--fg)}
+td.rule{color:var(--dim)}
+td.own{color:var(--ok)}
+td.own.none{color:var(--no)}
+.ln{color:var(--faint);font-size:.85em;margin-right:.35rem}
+code{background:#161b22;border:1px solid var(--line);border-radius:4px;padding:.05rem .3rem;font-size:.87em;
+     overflow-wrap:anywhere}
+details{margin-top:.3rem}
+details summary{color:var(--faint);font-size:.82rem;cursor:pointer;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary:before{content:"▸ ";}
+details[open] summary:before{content:"▾ ";}
+details ul{margin:.3rem 0 0;padding-left:1.1rem;color:var(--dim);font-size:.82rem}
+h2{font-size:.95rem;margin:1.75rem 0 .5rem;color:var(--fg);font-weight:600}
+h2 .n{color:var(--faint);font-weight:400}
+ul.plain{margin:.4rem 0 0;padding-left:1.1rem;color:var(--dim);font-size:.86rem}
+ul.plain li{margin:.25rem 0}
+ul.plain li.bad{color:var(--err)}
+ul.plain li.warn{color:var(--no)}
+.empty{color:var(--faint);font-size:.86rem}
+.banner{border:1px solid var(--err);border-radius:8px;padding:.75rem 1rem;color:var(--err);
+  background:rgba(248,81,73,.06);margin:1rem 0;font-size:.88rem}
+.notes{margin-top:2.25rem;border-top:1px solid var(--line);padding-top:1rem;color:var(--dim);font-size:.84rem}
+.notes p{margin:.55rem 0}
+.notes a{color:var(--accent)}
+footer{margin-top:2.5rem;color:var(--faint);font-size:.8rem}
+footer a{color:var(--faint)}
+</style>
+</head>
+<body>
+<main>
+  <h1>CODEOWNERS <span class="q">— who actually gets requested?</span></h1>
+  <p class="sub">Paste your CODEOWNERS file and the paths a pull request touches. For every file you
+  get the rule that <em>won</em>, the owners GitHub would request, and the rules that matched but lost —
+  plus the lines GitHub silently skips. Free, no signup, and it never leaves your browser.</p>
+
+  <div id="presets"></div>
+
+  <div class="grid">
+    <div class="card">
+      <label for="owners">CODEOWNERS</label>
+      <textarea id="owners" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+    </div>
+    <div class="card">
+      <label for="paths">changed files — one path per line, relative to the repo root</label>
+      <textarea id="paths" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <div class="notes">
+    <p><b>How the decision is made.</b> GitHub's rule is one line long and catches almost everyone:
+    <em>“Order is important; the last matching pattern takes the most precedence.”</em> Not the most
+    specific pattern — the last one. A rule with no owners still wins; it just leaves the file
+    unowned, which is how you carve an exception out of a broader rule.</p>
+    <p><b>What this cannot know.</b> GitHub also requires each owner to <em>exist</em> and to have
+    write access — “if you specify a user or team that doesn't exist or has insufficient access, a
+    code owner will not be assigned.” This page has no access to your org, so it checks the
+    <em>format</em> of an owner and never its existence. A row here can name an owner GitHub would
+    not actually request.</p>
+    <p><b>Where the matching comes from.</b> The pattern semantics are ported line-for-line from
+    <a href="https://github.com/hmarr/codeowners">hmarr/codeowners</a> (MIT, © 2020 Harry Marr),
+    pinned at commit <code>11d3ff2659b769bcb43ddef81a6ab19d1205d9c2</code>, and checked against its
+    own test corpus and against a differential harness that re-answers the same pattern/path pairs
+    with the real Go implementation. Two divergences are known and deliberate: a malformed line is
+    <em>skipped</em> here (GitHub's documented behaviour) rather than aborting the whole file, and
+    the pattern <code>/</code> — which crashes the reference implementation — is reported as
+    matching nothing.</p>
+    <p><b>Why it can't hang.</b> Patterns are compiled to a non-backtracking automaton, not to a
+    JavaScript <code>RegExp</code>, so no input can trigger catastrophic backtracking. And because
+    linear time still is not <em>bounded</em> time, every stage that costs anything — reading the
+    file, compiling each pattern, matching — is metered against a wall clock: past roughly
+    <b>750&nbsp;ms</b> this page tells you it cannot evaluate rather than freezing or answering from
+    a half-finished pass — and that includes <em>drawing</em> the answer, which is a stage that
+    costs time like any other. The table therefore draws at most 1,000 files, 20 owners per rule
+    and 10 losing rules per file, and says so when it reaches any of those; the counts above it
+    are computed over everything you pasted.</p>
+    <p>Sibling tool: <a href="../002-gha-trigger/">why didn't my GitHub Actions workflow run?</a></p>
+  </div>
+
+  <footer>built by <a href="../">foundry</a> · day 003 · verified before ship</footer>
+</main>
+
+<!-- inline:lib/esc.js -->
+<!-- inline:lib/nfa.js -->
+<!-- inline:lib/codeowners.js -->
+<script>
+(function () {
+  'use strict';
+  var esc = window.esc, co = window.codeowners, nfa = window.nfa;
+
+  /* ── limits. Every one is stated in its own refusal message, off-by-one exact. ── */
+  var MAX_CHARS = 1048576;      /* 1 MiB per box. GitHub's own CODEOWNERS cap is 3 MB;
+                                   this is lower on purpose — the page must stay responsive. */
+  var MAX_RULE_LINES = 20000;
+  var MAX_PATHS = 5000;
+  var MAX_LINE = 4096;
+  var MAX_PATTERN = 4096;       /* one path pattern. Same bound as a path, for the same reason:
+                                   a CODEOWNERS pattern IS a path pattern. Longer inputs are not
+                                   patterns, they are allocation bombs. */
+
+  /* ── OUTPUT bounds. Added 2026-08-04 (fix cycle 3) after a checker proved the input bounds
+     were the wrong half of the problem. Everything above bounds what is READ; nothing bounded
+     what is WRITTEN, and the results table is derived from input with no length cap of its own:
+     a rule may name unlimited owners, and every rule that matches a file is listed under it. A
+     single rule with 40,000 owners against 5,000 paths froze the tab for 13.7 s and then threw
+     `RangeError: Invalid string length`, leaving the PREVIOUS answer on screen with no error —
+     the worst failure available to this page, because it silently showed a wrong result.
+     So the render is bounded and metered like every other stage. The counts in the summary are
+     still computed over EVERYTHING; only the drawing is capped, and it says so when it caps. */
+  var MAX_OWNERS_SHOWN = 20;    /* per rule, then "+N more"                                    */
+  var MAX_LOST_SHOWN = 10;      /* losing rules drawn per file, then "+N more"                 */
+  var MAX_ROWS_SHOWN = 1000;    /* table rows drawn, then an honest "showing the first N" note */
+
+  var elOwners = document.getElementById('owners');
+  var elPaths = document.getElementById('paths');
+  var elResult = document.getElementById('result');
+
+  /* GitHub's own documented example, trimmed to the lines that teach the precedence rule. */
+  var PRESETS = [
+    { name: "GitHub's doc example", owners:
+"# Default owners for everything in the repo, unless a later match takes precedence.\n" +
+"*       @global-owner1 @global-owner2\n" +
+"\n" +
+"# Order is important: the LAST matching pattern wins.\n" +
+"*.js    @js-owner\n" +
+"*.go    docs@example.com\n" +
+"*.txt   @octo-org/octocats\n" +
+"\n" +
+"/build/logs/ @doctocat\n" +
+"docs/*  docs@example.com\n" +
+"apps/   @octocat\n" +
+"/docs/  @doctocat\n" +
+"**/logs @octocat\n",
+      paths: "app/index.js\nserver/main.go\nREADME.md\nnotes.txt\nbuild/logs/run.txt\ndocs/getting-started.md\ndocs/build-app/troubleshooting.md\nsrc/apps/web/index.js\ndeeply/nested/logs/today.log" },
+
+    { name: "the last-match-wins trap", owners:
+"# Looks like the security team owns every auth file. It does not.\n" +
+"src/auth/**   @security-team\n" +
+"\n" +
+"# ...because this broader rule is LATER, so it wins everywhere it matches.\n" +
+"src/**        @platform-team\n",
+      paths: "src/auth/login.ts\nsrc/auth/tokens/refresh.ts\nsrc/ui/button.tsx" },
+
+    { name: "rules GitHub throws away", owners:
+"*                 @everyone\n" +
+"!vendor/**        @nobody\n" +
+"src/[abc]*.ts     @range-owner\n" +
+"docs/**           plain-string-not-an-owner\n" +
+"config/***        @three-stars\n" +
+"\\#weird           @escaped-hash\n" +
+"infra/**          @infra\n",
+      paths: "vendor/lib.js\nsrc/api.ts\ndocs/readme.md\nconfig/prod.yml\ninfra/main.tf" },
+
+    { name: "carving out an exception", owners:
+"/apps/          @octocat\n" +
+"/apps/github\n",
+      paths: "apps/web/index.js\napps/github/action.yml" }
+  ];
+
+  function renderPresets() {
+    var box = document.getElementById('presets');
+    box.textContent = '';
+    PRESETS.forEach(function (p) {
+      var b = document.createElement('button');
+      b.className = 'preset';
+      b.type = 'button';
+      b.textContent = p.name;
+      b.addEventListener('click', function () {
+        elOwners.value = p.owners; elPaths.value = p.paths; runGuarded();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  /* ── documented footguns. Each one cites the rule it comes from. ───────────── */
+  function footgunsFor(rawLine) {
+    var out = [];
+    var t = String(rawLine);
+    /* Everything from the first '#' is a comment — including an escaped one. */
+    var hash = t.indexOf('#');
+    var body = hash === -1 ? t : t.slice(0, hash);
+    if (/\\#/.test(t)) out.push('`\\#` does not escape a comment in CODEOWNERS — GitHub starts the comment at the `#` regardless.');
+    if (/[[\]]/.test(body)) out.push('`[ ]` is not a character range in CODEOWNERS — the brackets are matched as literal characters.');
+    return out;
+  }
+
+  function ownersHtml(rule) {
+    if (!rule) return '';
+    if (!rule.owners.length) return '<span class="own none">(none — ownership removed)</span>';
+    return ownerList(rule.owners);
+  }
+
+  /* Draw at most MAX_OWNERS_SHOWN of an owner list. A CODEOWNERS rule may name any number of
+     owners and this list is re-drawn once per file the rule applies to, so it is the sharpest
+     unbounded-output edge on the page. */
+  function ownerList(owners) {
+    var shown = owners.length > MAX_OWNERS_SHOWN ? owners.slice(0, MAX_OWNERS_SHOWN) : owners;
+    var out = shown.map(function (o) { return esc(o.text); }).join(' ');
+    if (owners.length > MAX_OWNERS_SHOWN)
+      out += ' <span class="empty">+' + (owners.length - MAX_OWNERS_SHOWN) + ' more owners on this rule</span>';
+    return out;
+  }
+
+  function ruleLabel(rule) {
+    return '<span class="ln">L' + rule.line + '</span><code>' + esc(rule.rawPattern) + '</code>';
+  }
+
+  function refuse(msg) {
+    elResult.innerHTML = '<div class="banner">' + esc(msg) + '</div>';
+  }
+
+  /* The honest refusal. It is reachable from parsing as well as matching, because both
+     cost time and both are metered. */
+  function refuseSlow() {
+    return refuse('Cannot evaluate: this CODEOWNERS and file list need more than the ' +
+      nfa.DEFAULT_DEADLINE_MS + ' ms of work this page allows itself. Rather than freeze the tab ' +
+      'or answer from a half-finished pass, it stops. Try fewer paths, fewer rules, or shorter patterns.');
+  }
+
+  function run() {
+    var ownersText = elOwners.value;
+    var pathsText = elPaths.value;
+
+    if (ownersText.length > MAX_CHARS)
+      return refuse('CODEOWNERS is ' + ownersText.length + ' characters; this page evaluates up to ' + MAX_CHARS + '.');
+    if (pathsText.length > MAX_CHARS)
+      return refuse('The file list is ' + pathsText.length + ' characters; this page evaluates up to ' + MAX_CHARS + '.');
+
+    /* ONE budget for the WHOLE evaluation, created BEFORE parsing — see lib/nfa.js.
+       The first checker round found parsing and compiling were unmetered, so a single
+       ~1 MiB pattern blocked the main thread for seconds before any budgeted work began. */
+    var budget = nfa.makeBudget();
+
+    var parsed = co.parseFile(ownersText, budget, MAX_PATTERN);
+    if (parsed.budgetExceeded) return refuseSlow();
+    if (parsed.patternTooLong)
+      return refuse('The pattern on line ' + parsed.patternTooLong.line + ' is ' +
+        parsed.patternTooLong.length + ' characters; this page evaluates patterns up to ' +
+        MAX_PATTERN + ' — the same cap as a path, because a CODEOWNERS pattern is a path pattern.');
+    if (parsed.lineCount > MAX_RULE_LINES)
+      return refuse('CODEOWNERS has ' + parsed.lineCount + ' lines; this page evaluates up to ' + MAX_RULE_LINES + '.');
+
+    var rawPaths = pathsText.split(/\r\n|\r|\n/);
+    var paths = [], i, p;
+    for (i = 0; i < rawPaths.length; i++) {
+      p = rawPaths[i].replace(/^\s+|\s+$/g, '');
+      if (!p.length) continue;
+      if (p.length > MAX_LINE)
+        return refuse('Path on line ' + (i + 1) + ' is ' + p.length + ' characters; this page evaluates paths up to ' + MAX_LINE + '.');
+      if (p.charAt(0) === '/') p = p.slice(1);   /* repo paths are root-relative */
+      paths.push(p);
+    }
+    if (paths.length > MAX_PATHS)
+      return refuse('You listed ' + paths.length + ' paths; this page evaluates up to ' + MAX_PATHS + '.');
+
+    var rows = [], owned = 0, unowned = 0, exceeded = false;
+    var everMatched = {}, everWon = {};
+    for (i = 0; i < paths.length; i++) {
+      var r = co.resolve(parsed, paths[i], budget);
+      if (r.budgetExceeded) { exceeded = true; break; }
+      var all = r.winner ? [r.winner].concat(r.alsoMatched) : [];
+      for (var k = 0; k < all.length; k++) everMatched[all[k].line] = true;
+      if (r.winner) { everWon[r.winner.line] = true; if (r.winner.owners.length) owned++; else unowned++; }
+      else unowned++;
+      rows.push({ path: paths[i], winner: r.winner, lost: r.alsoMatched });
+    }
+
+    if (exceeded) return refuseSlow();
+
+    var html = '';
+
+    /* ── summary ── */
+    html += '<div class="summary">' +
+      '<span><b>' + rows.length + '</b> <span class="lab">files</span></span>' +
+      '<span><b class="owned">' + owned + '</b> <span class="lab">get an owner</span></span>' +
+      '<span><b class="unowned">' + unowned + '</b> <span class="lab">unowned</span></span>' +
+      '<span><b>' + parsed.rules.length + '</b> <span class="lab">rules read</span></span>' +
+      (parsed.skipped.length ? '<span><b class="unowned">' + parsed.skipped.length + '</b> <span class="lab">lines skipped by GitHub</span></span>' : '') +
+      '</div>';
+
+    /* ── per-file table ── */
+    if (!rows.length) {
+      html += '<p class="empty">No paths listed — add the files your pull request touches.</p>';
+    } else {
+      var drawn = rows.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : rows.length;
+      if (rows.length > MAX_ROWS_SHOWN)
+        html += '<p class="empty">Every one of your ' + rows.length + ' files was evaluated and is counted above; ' +
+                'the table draws the first ' + MAX_ROWS_SHOWN + '.</p>';
+      /* An array + join, not string concatenation: an unbounded `+=` is what hit V8's maximum
+         string length and threw, and a throw here left the previous answer on screen. */
+      var buf = ['<table><thead><tr><th>file</th><th>winning rule</th><th>requested for review</th></tr></thead><tbody>'];
+      for (var ri = 0; ri < drawn; ri++) {
+        /* The render is metered on the same budget as the matching — it is a stage that costs
+           time, and the page promises every such stage is metered. */
+        if (nfa.tick(budget) || budget.exceeded) return refuseSlow();
+        var row = rows[ri];
+        buf.push('<tr><td class="path"><code>', esc(row.path), '</code>');
+        if (row.lost.length) {
+          var lshown = row.lost.length > MAX_LOST_SHOWN ? MAX_LOST_SHOWN : row.lost.length;
+          buf.push('<details><summary>', String(row.lost.length), ' rule',
+                   (row.lost.length > 1 ? 's' : ''), ' also matched, and lost</summary><ul>');
+          for (var li = 0; li < lshown; li++) {
+            var l = row.lost[li];
+            buf.push('<li>', ruleLabel(l), ' &rarr; ',
+                     (l.owners.length ? ownerList(l.owners) : '(no owners)'), '</li>');
+          }
+          if (row.lost.length > lshown)
+            buf.push('<li class="empty">+', String(row.lost.length - lshown), ' more, all of which also lost</li>');
+          buf.push('</ul></details>');
+        }
+        buf.push('</td><td class="rule">',
+                 (row.winner ? ruleLabel(row.winner) : '<span class="empty">no rule matches</span>'),
+                 '</td><td class="own', (row.winner && row.winner.owners.length ? '' : ' none'), '">',
+                 (row.winner ? ownersHtml(row.winner) : '<span class="own none">(none)</span>'),
+                 '</td></tr>');
+      }
+      buf.push('</tbody></table>');
+      html += buf.join('');
+    }
+
+    /* ── problems ── */
+    var problems = [];
+    parsed.skipped.forEach(function (s) {
+      problems.push({ cls: 'bad', html: '<span class="ln">L' + s.line + '</span><code>' + esc(s.text.replace(/^\s+|\s+$/g, '')) + '</code> — GitHub skips this line: ' + esc(s.error) });
+    });
+    parsed.rules.forEach(function (r) {
+      footgunsFor(r.text).forEach(function (f) {
+        problems.push({ cls: 'warn', html: ruleLabel(r) + ' — ' + f.replace(/`([^`]*)`/g, function (_m, c) { return '<code>' + esc(c) + '</code>'; }) });
+      });
+    });
+    if (problems.length) {
+      html += '<h2>Lines GitHub will not use as you expect <span class="n">(' + problems.length + ')</span></h2><ul class="plain">';
+      var pshown = problems.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : problems.length;
+      for (var pi = 0; pi < pshown; pi++) html += '<li class="' + problems[pi].cls + '">' + problems[pi].html + '</li>';
+      if (problems.length > pshown) html += '<li class="empty">+' + (problems.length - pshown) + ' more, counted above but not drawn</li>';
+      html += '</ul>';
+    }
+
+    /* ── dead rules, relative to the file list given ── */
+    var dead = [], shadowed = [];
+    parsed.rules.forEach(function (r) {
+      if (!everMatched[r.line]) dead.push(r);
+      else if (!everWon[r.line]) shadowed.push(r);
+    });
+    if (rows.length && (dead.length || shadowed.length)) {
+      html += '<h2>Rules that did nothing for these files <span class="n">(' + (dead.length + shadowed.length) + ')</span></h2><ul class="plain">';
+      var dshown = dead.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : dead.length;
+      for (var di = 0; di < dshown; di++) html += '<li>' + ruleLabel(dead[di]) + ' — matched none of the listed files.</li>';
+      if (dead.length > dshown) html += '<li class="empty">+' + (dead.length - dshown) + ' more, counted above but not drawn</li>';
+      var sshown = shadowed.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : shadowed.length;
+      for (var si = 0; si < sshown; si++) html += '<li class="warn">' + ruleLabel(shadowed[si]) + ' — matched, but a later rule won every time.</li>';
+      if (shadowed.length > sshown) html += '<li class="empty">+' + (shadowed.length - sshown) + ' more, counted above but not drawn</li>';
+      html += '</ul><p class="empty">Judged only against the files you listed — a rule idle here may still fire on another pull request.</p>';
+    }
+
+    elResult.innerHTML = html;
+  }
+
+  /* Belt and braces: nothing in run() should throw, but if anything ever does, the one thing
+     that must NOT happen is the previous answer staying on screen as though it were current.
+     That is exactly what a RangeError did here before the render was bounded. */
+  function runGuarded() {
+    try { run(); }
+    catch (e) {
+      refuse('Cannot evaluate: this input broke the page while drawing the answer. ' +
+             'Nothing above is current — the previous result has been cleared rather than left ' +
+             'standing as though it were current.');
+    }
+  }
+
+  var timer = null;
+  function schedule() { if (timer) clearTimeout(timer); timer = setTimeout(runGuarded, 120); }
+  elOwners.addEventListener('input', schedule);
+  elPaths.addEventListener('input', schedule);
+
+  renderPresets();
+  elOwners.value = PRESETS[0].owners;
+  elPaths.value = PRESETS[0].paths;
+  runGuarded();
+})();
+</script>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+</body>
+</html>
