@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-generated="2026-08-05T08:28:29Z">
+<html lang="en" data-generated="2026-08-05T08:30:35Z">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -71,9 +71,9 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-05 08:28 UTC (10:28 SAST)</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-05 08:30 UTC (10:30 SAST)</span>
     <span class="pill mut mono" id="age" title="how old this copy's baked data is — computed in your browser at open, no network needed">age —</span>
-    <span class="pill mut" id="health" title="live-site probe from a GitHub Actions runner (the sandbox itself cannot reach workers.dev)">health —</span>
+    <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-05 08:26 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-05 08:26 UTC</span>
     <span class="grow"></span>
     <a class="btn" id="live-btn" href="https://foundry.theshin-naidu.workers.dev" style="background:#238636;margin-right:8px">Open live site</a>
     <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-05.md">Open latest brief</a>
@@ -345,8 +345,14 @@
         h.textContent='LIVE SITE SERVING · '+(Date.now()-t0)+'ms'; h.className='pill pos';
         h.title='probed from your browser just now (GET '+LIVE+'/up.svg). Reachability only — install health-check.yml for per-path HTTP status and a beacon check.';
       }else{
-        h.textContent='LIVE SITE UNREACHABLE'; h.className='pill neg';
-        h.title='your browser could not load '+LIVE+'/up.svg ('+why+'). Either the deployment is down, or up.svg has not reached main yet.';
+        var baked=h.getAttribute('data-baked');
+        if(baked){
+          h.textContent=baked; h.className='pill '+(h.getAttribute('data-baked-class')||'mut');
+          h.title='live probe blocked in this view ('+why+') — showing the last GitHub Actions check, baked at stamp time.';
+        }else{
+          h.textContent='LIVE SITE UNREACHABLE'; h.className='pill neg';
+          h.title='your browser could not load '+LIVE+'/up.svg ('+why+'). Either the deployment is down, or up.svg has not reached main yet.';
+        }
       }
     }
     im.onload=function(){settle(true)};
