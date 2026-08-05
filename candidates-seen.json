@@ -1,16 +1,40 @@
 {
  "seen": [
   {
-   "date": "2026-08-04",
+   "date": "2026-08-05",
+   "lane": "CLONE",
+   "slug": "cron-expression-generator",
+   "outcome": "rejected - saturated, and nothing left to clone",
+   "note": "Eight live free tools on the first page of one search: crongenerator.dev, appsmith, fasttool, foundthetool, devtoollab, rjl.io, UptimeRobot CrontabRobot, elmah.io. The CLONE lane needs corroborated CURRENT revenue elsewhere PLUS a structural edge (free vs paid, no signup, whole-site vs one-item, API/MCP-first, or handling the case the incumbent gets wrong). Here the incumbents are already free, already no-signup and already numerous, so there is neither revenue to clone nor an edge to hold. NO REVISIT unless a paid incumbent with corroborated revenue appears AND a structural gap opens.",
+   "plain": {
+    "what": "Builds and explains cron schedule strings.",
+    "solves": "Cron syntax is easy to get wrong.",
+    "money": "None - rejected. At least eight free tools already do it well."
+   }
+  },
+  {
+   "date": "2026-08-05",
+   "lane": "ORIGINAL",
+   "slug": "mcp-spec-migration-check",
+   "outcome": "rejected - OCCUPIED by a named, dated, direct occupant AND fails the day-build gate on mechanics",
+   "note": "Why-now 2026-07-28 (8 days): the MCP 2026-07-28 specification shipped - stateless transport, multi-round-trip, routable headers, authorization hardening. Breaking, dated, and unlike the npm contentPolicy candidate the rules ARE published (modelcontextprotocol.io/specification/2026-07-28/changelog), so a checker would not be inventing them. REJECTED (a) occupancy: Roee-Tsur/mcp-spec-check - 'npx mcp-spec-check <url> - black-box readiness probe for the 2026-07-28 MCP spec release. Zero dependencies. Includes a scan of all 7,850 registry servers.' It ships the corpus as well as the tool. (b) DAY-BUILD GATE, the harder objection: the useful form probes a REMOTE server URL, and a static page on Workers assets cannot make a cross-origin request to an arbitrary user-supplied host. The statically buildable form - paste your config, get a lint - is both the weak half of the product and the occupied half. NO REVISIT TRIGGER: the mechanics objection does not expire.",
+   "plain": {
+    "what": "Would have told an MCP server author whether their server still works under the new July 2026 protocol spec.",
+    "solves": "The spec changed in a breaking way on 2026-07-28 and thousands of servers need migrating.",
+    "money": "None - rejected. Someone already shipped exactly this as a CLI with a scan of all 7,850 registered servers, and the useful version needs to reach out to your server, which a static page cannot do."
+   }
+  },
+  {
+   "date": "2026-08-05",
    "lane": "EVERGREEN",
    "slug": "codeowners",
-   "outcome": "BUILT + SIX CHECKER VERDICTS OVER THREE FIX CYCLES, NOT A PASS -> REBUILD with a DESIGN constraint, not a patch list. Branch ship/003-codeowners pushed, unmerged, ledger status failed.",
-   "note": "Which CODEOWNERS rule actually wins per changed file, who gets requested, which lines GitHub silently skips. Occupant hunt 2026-08-04 named and empty of web tools: hmarr/codeowners, mszostok/codeowners-validator, orsinium-labs/owners, topfreegames/codeowners-verifier, nmusolino/codeowners, multimediallc/codeowners-plus - all CLI/library/Action shaped. Semantics BORROWED from hmarr/codeowners (MIT) @11d3ff26 and verified against ~310k differential pairs with zero divergences, 171/171 reference corpus, 13/13 GitHub-documented cases, ~130 XSS positions clean, cookieless. Two checker defects, one fix cycle spent, targeted re-check PARTIAL.",
-   "rebuild_constraint": "The matcher is DONE and heavily proven (~500,000 differential pairs vs Go/RE2 with zero divergences, 171/171 reference corpus, 13/13 GitHub-documented, 2,500 generated files end-to-end with zero winner or skip-set mismatches). Do NOT rebuild it. What failed is the page around it, and all four remaining defects are one root cause: aggregate input is bounded, the DIMENSIONS that drive work are not, and the browser cannot be metered once JavaScript hands over. (1) VALIDATE EVERY DIMENSION AT THE DOOR before any split/trim/parse/compile, counting without materialising: total chars, LINE COUNT of both boxes (scan for newlines with an early bail - do not split first), per-line length, PER-OWNER-TOKEN length (this is the 23,701 ms hole: `** @` + 100,000 'a'), per-pattern length. Zero work before validation. (2) BOUND THE OUTPUT BY CONSTRUCTION and measure PAINT (dispatch to double-rAF), not a JS canary - 810 ms dispatch-to-paint was measured at exactly the maximum the page advertised as safe. (3) REPLICATE THE REFERENCE'S LIMITS, not only its semantics: Go's bufio.Scanner drops any line >= 65,536 bytes AND silently abandons every rule after it; this port kept going and showed a wrong owner. Replicate it (it is a footgun worth surfacing) or refuse the line - never quietly diverge. (4) Only then re-derive the timing number from measurement at the page's own stated maximum. (5) Start from lib/checks/codeowners-oracle.json - oracles, the Go differential recipe, and six rounds of regression notes. HARD RULE LEARNED: never put a person's name in code, a comment or a commit message. lib/ is inlined into every ship page, so a lib/ comment ships; and git history is additive, so fixing the tip does not remove it - a checker fetched it back over HTTP from an ancestor commit. The branch had to be squashed and force-pushed.",
+   "outcome": "REBUILT 2026-08-05 from the recorded design constraint. TWO independent checkers, one fix cycle, targeted re-check FAILED. Not staged. Branch ship/003-codeowners pushed, unmerged, ledger status failed. Re-enters as a REBUILD with a TWO-LINE constraint - the cheapest pick available.",
+   "note": "The rebuild did what the constraint asked and it worked: lib/door.js validates every dimension at the door with zero allocation (rejects the 23,701 ms input in 0.007 ms), output is bounded by construction (largest measured #result.innerHTML 994,680 of a 1,000,000 bound, well-formed, disclosure always present), paint is measured across two animation frames and printed under every answer, and the prose is a range over 24 repeated trials instead of a single reading. Round 1 found five defects; one fix cycle cured four of them under adversarial re-test. Round 2 failed it on TWO NEW defects the fix itself introduced or exposed. Inherited proven and NOT to be re-derived: 171/171 reference pairs, 13/13 GitHub-documented, 6/6 line-skipping, all against the LIVE page in both rounds; ~55-66 XSS positions, 0 injections, 0 dialogs; build byte-reproducible; 0 cookies/storage, 2 requests; mobile 375px clean.",
+   "rebuild_constraint": "TWO changes, both design, neither a patch. (1) THE DOOR NEEDS TWO LINE CAPS, NOT ONE. Non-blank lines bound DOWNSTREAM WORK; TOTAL SEGMENTS bound the PREPROCESSING between the door and the budget. Counting only non-blank lines fixed the trailing-newline off-by-one and simultaneously let ~1,000,000 blank segments through into an unmetered split() + per-line trim, measured by the re-checker at 1,309-1,342 ms reported and 16-34 s wall clock on a fully door-legal input. Binding rule: the door must bound EVERY quantity that ANY loop between the door and the budget will iterate over, and no raw split may be taken over a quantity the door has not bounded. Add maxSegments alongside maxLines in lib/door.js and assert both at the page. (2) REPLACE THE RE-ENTRANCY BOOLEAN WITH A GENERATION COUNTER. `running` is a lock with no release path on the re-entrant case: an input arriving while a prior run's post-paint measurement is pending is dropped, and the page can strand permanently on 'working...' while data-state reads idle - reproduced deterministically and stable for 10+ s with no self-correction. A monotonic generation, where a stale generation's completion is discarded and the newest input always schedules a run, cannot deadlock and cannot drop the latest answer. (3) Then re-derive the printed timing range from measurement again, because (1) changes the worst case. (4) Start from lib/checks/door-limits.json + lib/checks/codeowners-oracle.json - both already carry the probes and the regression notes.",
    "plain": {
     "what": "A free web page: paste your CODEOWNERS file and the files a pull request touches, and it says exactly who GitHub will ask to review each one - and which of your rules it is quietly ignoring.",
     "solves": "CODEOWNERS picks reviewers on every PR, but the LAST matching rule wins rather than the most specific one, so teams believe a rule is protecting a directory when a broader rule below it has been overriding it for months. Malformed lines are skipped in silence.",
-    "money": "Not published. The matching engine is correct and heavily proven and the page is secure and private, but its printed promise about never freezing is still not true, so it did not earn a stage. Returns as a rebuild with a design constraint rather than another patch."
+    "money": "Still not published. The matching is correct and heavily proven and the page is secure, private and correctly bounded in its output - but a fix aimed at one limit reopened an unmetered loop behind another, and an independent re-check caught it. Two precise design changes away from staging."
    }
   },
   {
@@ -20,9 +44,9 @@
    "outcome": "rejected - inferential premise (schema unpublished)",
    "note": "Why-now 2026-07-28: npm publish-time malware scanning + dual-use metadata - new package.json 'contentPolicy' field + a text-only DISCLOSURE file in the package root, 2FA-enforced publishing, and both are PERSISTENT (cannot be removed in later versions). Enforcement progressive; existing dual-use maintainers emailed. https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/ Occupant hunt: EMPTY across 2 formulations. Day-build gate passes on mechanics (static page, no credential). REJECTED because the contentPolicy SCHEMA IS NOT PUBLISHED - a validator would invent the rules and assert them as fact, i.e. a green checkmark on a guessed rule. REVISIT TRIGGER: npm publishes the contentPolicy schema (docs.npmjs.com or the npm CLI schema).",
    "plain": {
-    "what": "A checker for npm\u2019s brand-new security paperwork: paste your package.json and it tells you whether your publish will be blocked.",
-    "solves": "Since 2026-07-28 npm scans every publish for malware and requires \u2018dual-use\u2019 declarations \u2014 get them wrong and your release stalls.",
-    "money": "Free checker \u2192 paid per-release validation in CI. NOT BUILT: npm hasn\u2019t published the actual rules, so any verdict today would be a guess dressed as fact. Re-enters the moment the schema ships."
+    "what": "A checker for npm’s brand-new security paperwork: paste your package.json and it tells you whether your publish will be blocked.",
+    "solves": "Since 2026-07-28 npm scans every publish for malware and requires ‘dual-use’ declarations — get them wrong and your release stalls.",
+    "money": "Free checker → paid per-release validation in CI. NOT BUILT: npm hasn’t published the actual rules, so any verdict today would be a guess dressed as fact. Re-enters the moment the schema ships."
    }
   },
   {
@@ -32,9 +56,9 @@
    "outcome": "rejected - undocumented by design; kept as a DEMAND SIGNAL",
    "note": "Why-now 2026-07-28: GitHub Actions now HOLDS workflow runs identified as potentially malicious until a write-access collaborator approves; public github.com repos only, not GHES. https://github.blog/changelog/2026-07-28-github-actions-holds-potentially-malicious-workflows-for-approval/ Occupant hunt: empty (6 days old). REJECTED: GitHub deliberately does not publish the heuristics - publishing them hands attackers the evasion list - so a 'will my workflow be held?' tool is guesswork wearing a verdict's clothing. Value retained: it ENLARGES the population asking 'why didn't my workflow run', which strengthens gha-trigger. NO REVISIT unless GitHub documents the criteria.",
    "plain": {
-    "what": "Would have predicted whether GitHub will quarantine your workflow as \u2018potentially malicious\u2019.",
+    "what": "Would have predicted whether GitHub will quarantine your workflow as ‘potentially malicious’.",
     "solves": "GitHub now holds suspicious-looking automation until a human approves it; developers want to know before they push.",
-    "money": "None \u2014 rejected. GitHub keeps the detection rules secret on purpose, so every prediction would be guesswork. Its existence still pushes more confused people toward gha-trigger."
+    "money": "None — rejected. GitHub keeps the detection rules secret on purpose, so every prediction would be guesswork. Its existence still pushes more confused people toward gha-trigger."
    }
   },
   {
@@ -44,7 +68,7 @@
    "outcome": "rejected - occupied AND fails the day-build gate",
    "note": "Corroborated by marketplace data, not claims: 6+ live Shopify App Store listings competing on exactly this (Arc: llms.txt; llms.txt AI Sitemap Generator; LLMs.txt Generator; Comergent AEO; HTML/XML Sitemap & Robots.txt; Ahoi Apps llms.txt), several with public review counts (12/12/10). REJECTED (a) occupancy - crowded, free tiers already exist, no structural edge left; (b) day-build gate - the revenue is in the Shopify app and a Shopify app needs MARKETPLACE APPROVAL.",
    "plain": {
-    "what": "Generates an llms.txt file \u2014 a sitemap for AI assistants \u2014 so ChatGPT, Claude and Perplexity can find and cite a site\u2019s products.",
+    "what": "Generates an llms.txt file — a sitemap for AI assistants — so ChatGPT, Claude and Perplexity can find and cite a site’s products.",
     "solves": "Merchants want to appear in AI answers the way they appear in Google.",
     "money": "Proven elsewhere: 6+ Shopify apps charge monthly subscriptions for exactly this. NOT BUILT: the paying channel requires Shopify marketplace approval, and the free lane is already crowded."
    }
@@ -55,11 +79,11 @@
    "slug": "gha-trigger",
    "outcome": "REBUILD PICKED 2026-08-03 (Monday). Ship 002 rebuilt on a linear-time matcher.",
    "note": "XSS fixed and confirmed dead; 56/56 vs GitHub cheat sheet, 0 inverted verdicts. Fails on a glob-engine ReDoS that a static complexity budget cannot bound. REVISIT AS A REBUILD, not a new candidate: replace globToRegex/gmatch with a linear-time non-backtracking matcher (two-pointer + backtrack memo, or DP), verify against the existing 56-case published oracle and the ~67M-pair differential harness.",
-   "rebuild_constraint": "Replace globToRegex/gmatch with a LINEAR-TIME non-backtracking matcher (two-pointer with backtrack memo, or DP over pattern x path). BORROW: port nektos/act pkg/workflowpattern (MIT, correct GitHub semantics, scores 49/49) rather than hand-roll \u2014 hand-rolling is what produced the XSS then the ReDoS. VERIFY against lib/checks/gha-filter-oracle.json (46 published pairs) + lib/checks/redos-probes.json (must resolve <50ms each, no UI freeze) + lib/checks/xss-payloads.json. Add the LIVE analytics beacon (ship 002 predates it). Kill-criterion in per-path visits, not tool-runs. [2026-08-03 CORRECTION, from reading the port source rather than trusting the plan: act is linear-time because Go's regexp is RE2, NOT because of its pattern translation. PatternToRegex emits ordinary regex text. A VERBATIM JS PORT WOULD REINTRODUCE THE ReDoS, because JS RegExp backtracks. Port act's SEMANTICS line-for-line; execute them on a Thompson NFA / Pike-VM state-set simulation, never on JS RegExp.]",
+   "rebuild_constraint": "Replace globToRegex/gmatch with a LINEAR-TIME non-backtracking matcher (two-pointer with backtrack memo, or DP over pattern x path). BORROW: port nektos/act pkg/workflowpattern (MIT, correct GitHub semantics, scores 49/49) rather than hand-roll — hand-rolling is what produced the XSS then the ReDoS. VERIFY against lib/checks/gha-filter-oracle.json (46 published pairs) + lib/checks/redos-probes.json (must resolve <50ms each, no UI freeze) + lib/checks/xss-payloads.json. Add the LIVE analytics beacon (ship 002 predates it). Kill-criterion in per-path visits, not tool-runs. [2026-08-03 CORRECTION, from reading the port source rather than trusting the plan: act is linear-time because Go's regexp is RE2, NOT because of its pattern translation. PatternToRegex emits ordinary regex text. A VERBATIM JS PORT WOULD REINTRODUCE THE ReDoS, because JS RegExp backtracks. Port act's SEMANTICS line-for-line; execute them on a Thompson NFA / Pike-VM state-set simulation, never on JS RegExp.]",
    "plain": {
-    "what": "A free web page: paste your GitHub Actions workflow file, say what you pushed, and it answers WILL RUN or WON'T RUN \u2014 pointing at the exact filter line that decided it.",
-    "solves": "\u201cWhy didn\u2019t my CI run?\u201d is one of GitHub\u2019s most-asked questions. The branch/path filter rules are fiddly, and today people debug by pushing over and over.",
-    "money": "Free until 2026-09-02 while the beacon counts visits. \u2265300 unique visits graduates it to Sunday triage for a paid layer (e.g. the same check running inside your repo\u2019s CI); under 300, it dies to the graveyard."
+    "what": "A free web page: paste your GitHub Actions workflow file, say what you pushed, and it answers WILL RUN or WON'T RUN — pointing at the exact filter line that decided it.",
+    "solves": "“Why didn’t my CI run?” is one of GitHub’s most-asked questions. The branch/path filter rules are fiddly, and today people debug by pushing over and over.",
+    "money": "Free until 2026-09-02 while the beacon counts visits. ≥300 unique visits graduates it to Sunday triage for a paid layer (e.g. the same check running inside your repo’s CI); under 300, it dies to the graveyard."
    }
   },
   {
@@ -70,42 +94,42 @@
    "note": "PRIOR NOTE WAS WRONG. Re-verified against the source https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/ : that post is a RELEASE CANDIDATE announcement targeting a 2026-07-28 final, and it does NOT mention CIMD and does NOT deprecate Dynamic Client Registration - it describes HARDENING DCR (declare OpenID Connect application_type, bind credentials to authorization servers). Building cimdkit on the recorded premise would have shipped factually wrong landing copy. REVISIT TRIGGER: a published (non-RC) spec that actually deprecates DCR in favour of CIMD. [2026-08-04: the FINAL, non-RC specification post https://blog.modelcontextprotocol.io/posts/2026-07-28/ describes exactly the shift the revisit trigger named - Dynamic Client Registration -> Client ID Metadata Documents - alongside removal of the initialize/initialized handshake and Mcp-Session-Id, mandatory MCP-Protocol-Version / Mcp-Method / Mcp-Name headers, ttlMs+cacheScope on list responses, and 12-month deprecation of HTTP+SSE, Roots, Sampling and Logging. BUT the trigger is met on the ANNOUNCEMENT POST, and this candidate was already burned once by trusting a summary. Before any build, re-verify against the SPECIFICATION TEXT itself, not a blog post.]",
    "plain": {
     "what": "Was to be a toolkit for a new MCP identity standard (CIMD).",
-    "solves": "Nothing, it turned out \u2014 re-reading the spec announcement showed it never actually deprecated the old standard. The recorded premise was wrong.",
-    "money": "None. Parked until a published spec really makes the change \u2014 building on the recorded premise would have shipped false claims."
+    "solves": "Nothing, it turned out — re-reading the spec announcement showed it never actually deprecated the old standard. The recorded premise was wrong.",
+    "money": "None. Parked until a published spec really makes the change — building on the recorded premise would have shipped false claims."
    }
   },
   {
    "date": "2026-08-02",
    "lane": "ORIGINAL",
    "slug": "provenance-audit",
-   "outcome": "parked \u2014 needs explicit approval",
+   "outcome": "parked — needs explicit approval",
    "note": "EU AI Act Art.50 + California AITA both effective 2026-08-02; asserting compliance is a legal conclusion, HARD RULES gate it",
    "plain": {
     "what": "Scan a website and report whether its AI-generated content carries the disclosures new EU and California laws demand.",
     "solves": "Two AI-labelling laws took effect 2026-08-02; most site owners have no idea whether they comply.",
-    "money": "Compliance audits are chargeable \u2014 but \u2018you comply\u2019 is a legal conclusion, so this stays parked until Theshin explicitly approves the framing."
+    "money": "Compliance audits are chargeable — but ‘you comply’ is a legal conclusion, so this stays parked until Theshin explicitly approves the framing."
    }
   },
   {
    "date": "2026-08-02",
    "lane": "ORIGINAL",
    "slug": "mcp-conformance-index",
-   "outcome": "parked \u2014 derivative",
+   "outcome": "parked — derivative",
    "note": "mcp-spec-check already scanned the registry 2026-07-12 vs the RC; only the publishing layer is missing [2026-08-04: adjacent slot re-hunted and it is occupied - Roee-Tsur/mcp-spec-check ships an npx black-box readiness probe with a published scan of all 7,850 registry servers, and mcpmigrate.dev covers the guide layer. A 'paste instead of probe' edge is thin because npx runs locally and can reach a localhost server a hosted page cannot.]",
    "plain": {
     "what": "A public league table of MCP servers ranked by how faithfully they implement the spec.",
-    "solves": "Developers choosing a server can\u2019t tell which ones actually follow the standard.",
-    "money": "Sponsored listings or paid detail reports, eventually. Parked: it mostly duplicates a scan the loop already ran \u2014 only the publishing layer is new."
+    "solves": "Developers choosing a server can’t tell which ones actually follow the standard.",
+    "money": "Sponsored listings or paid detail reports, eventually. Parked: it mostly duplicates a scan the loop already ran — only the publishing layer is new."
    }
   },
   {
    "date": "2026-08-02",
    "lane": "CLONE",
    "slug": "bulk-alt-text",
-   "outcome": "blocked \u2014 no runtime inference key",
+   "outcome": "blocked — no runtime inference key",
    "note": "alttext.ai corroborated: 20k+ WP installs + Shopify 4.5/135",
    "plain": {
-    "what": "Writes image descriptions (alt text) for a whole site in one pass \u2014 accessibility plus SEO.",
+    "what": "Writes image descriptions (alt text) for a whole site in one pass — accessibility plus SEO.",
     "solves": "Alt text is legally and SEO-required, and nobody wants to hand-write it for 3,000 images.",
     "money": "Proven: alttext.ai charges subscriptions (20k+ WordPress installs). BLOCKED here: it needs an AI key at runtime, and this loop deliberately runs without one."
    }
@@ -114,10 +138,10 @@
    "date": "2026-08-02",
    "lane": "CLONE",
    "slug": "policy-spam-filter",
-   "outcome": "blocked \u2014 no runtime inference key",
+   "outcome": "blocked — no runtime inference key",
    "note": "Akismet corroborated: 6M+ WP installs, $9.95/mo for 500 checks",
    "plain": {
-    "what": "A comment-spam filter sites plug in \u2014 an Akismet alternative.",
+    "what": "A comment-spam filter sites plug in — an Akismet alternative.",
     "solves": "Every blog and forum drowns in spam comments.",
     "money": "Proven: Akismet charges $9.95/mo for 500 checks. BLOCKED for the same reason: needs runtime AI inference, and there is no key by design."
    }
@@ -129,9 +153,9 @@
    "outcome": "queued",
    "note": "~6 CSV structure linters, none simulate Excel's destructive import",
    "plain": {
-    "what": "Shows exactly what Excel will silently corrupt in your CSV before you open it \u2014 dates, leading zeros, long ID numbers.",
+    "what": "Shows exactly what Excel will silently corrupt in your CSV before you open it — dates, leading zeros, long ID numbers.",
     "solves": "Excel mangles CSVs on open (it famously renamed human genes to dates); people discover the damage after saving.",
-    "money": "Free first; the paid layer is batch/API validation for data teams \u2014 if it earns its visits."
+    "money": "Free first; the paid layer is batch/API validation for data teams — if it earns its visits."
    }
   }
  ],
