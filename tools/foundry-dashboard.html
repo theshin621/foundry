@@ -69,20 +69,20 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-03</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · 2026-08-04</span>
     <span class="pill mut" id="health" title="live-site probe from a GitHub Actions runner (the sandbox itself cannot reach workers.dev)">health —</span>
     <span class="grow"></span>
     <a class="btn" id="live-btn" href="https://foundry.theshin-naidu.workers.dev" style="background:#238636;margin-right:8px">Open live site</a>
-    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-03.md">Open latest brief</a>
+    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-04.md">Open latest brief</a>
   </div>
 
   <div class="tiles">
-    <div class="tile"><b id="t-day">002</b><span>day</span></div>
-    <div class="tile"><b id="t-ships">2</b><span>ships</span></div>
+    <div class="tile"><b id="t-day">003</b><span>day</span></div>
+    <div class="tile"><b id="t-ships">3</b><span>ships</span></div>
     <div class="tile"><b id="t-live">2</b><span>live</span></div>
-    <div class="tile"><b id="t-staged">0</b><span>staged / failed</span></div>
+    <div class="tile"><b id="t-staged">1</b><span>staged / failed</span></div>
     <div class="tile"><b id="t-killed">0</b><span>killed</span></div>
-    <div class="tile"><b id="t-pass">2/2</b><span>checker pass</span></div>
+    <div class="tile"><b id="t-pass">2/3</b><span>checker pass</span></div>
     <div class="tile"><b id="t-scouted">11</b><span>candidates seen</span></div>
   </div>
 
@@ -91,9 +91,9 @@
       <div class="panel">
         <h2>Today's run</h2>
         <div class="stages" id="stages">
-          <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">GO</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage done">SHIP</div>
+          <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage">STAGE</div><div class="stage">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-03 (Monday, daily) — <b>SHIP 002 IS LIVE.</b> <span class="mono">/002-gha-trigger/</span> — merged by Theshin, reconciled to <span class="mono">live</span> in-session. First end-to-end run of the loop: scout → brief → build → independent verification → staged → merged → published, all in one fire. <b>PASS after one fix cycle</b>, three independent checkers, none given a prior verdict, all on a <b>different model from the maker</b>. The risky core was <b>borrowed, not hand-rolled</b>: pattern semantics ported from <span class="mono">nektos/act</span> (MIT, <span class="mono">4f41128</span>) — but its <i>execution</i> deliberately discarded, because act is only safe by virtue of Go&rsquo;s RE2 and a verbatim JS port would have reintroduced the very ReDoS that killed the first two attempts. <b>211,118</b> pattern/value pairs by the maker plus <b>56,766</b> and <b>~69,500</b> by two checkers against their own Go/RE2 builds — <b>zero divergences in every set</b>; 46/46 and 64/64 on the published oracles; ~870 XSS payloads, zero injections. The checkers then falsified the page&rsquo;s own headline claim — <b>linear time is not bounded time</b> — with a 7.7s freeze and a tab crash; one fix cycle took those to 150ms and a clean refusal. <b>Two LOW residuals carried, not ground down.</b> Also this run: the workflow blocker was <b>measured</b> rather than restated, and routed around — see Needs Theshin.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-04 (Tuesday, daily) — <b>SHIP 003 <span class="mono">codeowners</span> BUILT, VERIFIED SIX TIMES, AND STOPPED SHORT OF A PASS.</b> Which CODEOWNERS rule actually wins per changed file, who gets requested, and which lines GitHub silently skips. Semantics <b>borrowed</b> from <span class="mono">hmarr/codeowners</span> (MIT, <span class="mono">11d3ff2</span>), execution replaced with a non-backtracking automaton. <b>Six independent checker verdicts across three fix cycles</b>, none given a prior verdict, all on a different model from the maker. Round 1: <span class="mono">?</span> matched one BYTE where the reference consumes one RUNE, and parse/compile were unmetered (3.9 s freeze). Round 2: still 1.3 s. Round 3: a <b>13.7 s</b> freeze ending in a crash that left the <i>previous</i> answer on screen, plus a wrong-owner divergence on bare-CR line endings. Round 4, two fresh adversaries, both <b>FAIL</b>: a <b>23.7 s</b> freeze from a single 100,000-character owner token — the cap counted owners, not their length — and a third divergence where the reference silently drops a &ge;64 KiB line <i>and every rule after it</i> while this port carried on and showed a confidently wrong owner. <b>They are one root cause:</b> aggregate input is bounded, the dimensions that drive work are not, and the browser cannot be metered once JavaScript hands over. So the loop <b>stopped patching</b> — a fourth cycle would be grinding toward a soft PASS — and wrote the <b>design constraint</b> into the ledger for a cheap rebuild instead. What the rebuild inherits: <b>~500,000</b> differential pairs against Go/RE2 with <b>zero divergences</b>, 171/171 and 13/13 on the published oracles, 2,500 generated files end-to-end with zero winner or skip-set mismatches, ~250 XSS positions clean, zero cookies or storage, every input and output limit off-by-one exact. <b>One hard rule was breached and closed:</b> a personal name reached a served file through a <span class="mono">lib/</span> comment; fixing the tip was not enough because git history is additive, so the branch was squashed and force-pushed. Live-render still unverified — <span class="mono">public/health.json</span> does not exist because <span class="mono">.github/workflows/</span> has not been added.</div>
         <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
 · Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
 · 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
@@ -107,6 +107,7 @@
         <table id="ships-tbl">
           <thead><tr><th class="num">#</th><th>ship</th><th>what it is</th><th>verdict</th><th>status</th><th class="num">d7 visits</th></tr></thead>
           <tbody id="ships-body">
+            <tr><td class="num">003</td><td class="mono"><a href="https://github.com/theshin621/foundry/tree/ship/003-codeowners/public/003-codeowners">codeowners</a></td><td class="one">paste a CODEOWNERS file and a PR&rsquo;s changed paths — which rule wins per file, who gets requested, and which lines GitHub silently skips</td><td><span class="pill neg" title="NOT A PASS. 3 independent checkers, none given a prior verdict, all on a different model from the maker. Two defects found; one fix cycle spent; targeted re-check returned PARTIAL. Defect A (? matched one byte, not one rune) fixed and confirmed across 141,583 differential pairs, zero divergences. Defect B (unmetered parse/compile, 3,894ms freeze) only partially fixed: worst block now 1,101-1,291ms against a page advertising ~750ms; root cause is runes() and addThread() still unmetered. Correctness, security and privacy all clean. Live-URL unverified (egress).">NOT A PASS</span></td><td class="mono">failed</td><td class="num">–</td></tr>
             <tr><td class="num">002</td><td class="mono"><a href="https://foundry.theshin-naidu.workers.dev/002-gha-trigger/">gha-trigger</a></td><td class="one">paste a GitHub Actions workflow and an event, get WILL RUN / WON'T RUN plus the exact filter that decided it</td><td><span class="pill pos" title="PASS after one fix cycle — 3 independent checkers, none given a prior verdict, all on a different model from the maker. 211,118 + 56,766 + ~69,500 differential pairs vs Go/RE2, zero divergences; 46/46 and 64/64 oracles; ~870 XSS payloads, zero injections. Two LOW residuals carried. Live-URL unverified (egress).">PASS</span></td><td class="mono">live</td><td class="num">–</td></tr>
             <tr><td class="num">001</td><td class="mono"><a href="https://github.com/theshin621/foundry/tree/main/public">hub</a></td><td class="one">the foundry's own hub — public ledger, factory library, deploy pipeline proven end-to-end</td><td><span class="pill pos" title="PASS after one fix-cycle — initial PARTIAL fully cured and re-verified; live-URL unverified (egress)">PASS</span></td><td class="mono">live</td><td class="num">–</td></tr>
           </tbody>
