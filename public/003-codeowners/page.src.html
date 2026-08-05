@@ -135,22 +135,32 @@ footer a{color:var(--faint)}
     by that meter: at most 1,000 rows, 20 owners per rule, 10 losing rules per file and
     1,000,000 characters of drawn output in total, whichever binds first — the counts in the
     summary are computed over everything you pasted, and the page says so whenever it draws less
-    than it counted.</p>
+    than it counted. Every append is a <em>complete</em> row, and the tags that close the answer
+    come out of a reserve the cap cannot consume — because the first version of this bound filled
+    mid-row, left dangling cells, and had the browser's own error recovery quietly push the result
+    117 characters past the limit it was advertising.</p>
     <p><b>The input limits are not the work limit.</b> The numbers above are the largest inputs
     this page will <em>read</em>. Whether it can <em>finish</em> depends on rules&nbsp;×&nbsp;paths,
-    because every path is tested against every rule. Measured in Chromium on 2026-08-05: 200 rules
-    against 500 files — 100,000 pairs, and larger than most real pull requests — answers in
-    <b>435&nbsp;ms</b>; 500 rules against 500 files refuses. So the honest boundary is roughly
-    <b>100,000 rule–file pairs</b>, not the 20,000 × 5,000 the boxes will accept. Being told
-    plainly that it will not answer is the point; guessing, or freezing, are the two worse options.</p>
+    because every path is tested against every rule, and that is a property of your machine as much
+    as of your input. Measured on 2026-08-05: 200 rules against 500 files — 100,000 pairs, larger
+    than most real pull requests — answered 5/5 times in at most <b>417&nbsp;ms</b> on the machine
+    that built this, while an independent run of the identical input on a slower two-core machine
+    <em>refused</em> it every time. 300 × 500 refused 1 time in 5 here; 500 × 500 refused every
+    time on both. So there is no honest fixed pair-count to quote — around 100,000 pairs is where
+    it starts to matter, and past roughly 250,000 it will not answer at all. Which is why the page
+    prints its own measured time under every answer instead of asking you to trust a number
+    somebody measured once, somewhere else.</p>
     <p><b>The timing number is measured, not claimed.</b> Under every answer this page prints the
     real time from starting work to the browser having painted the result, taken across two
-    animation frames so it includes the paint and not merely the JavaScript. Across a sweep of
-    sixteen inputs including every limit at its cap, the worst measured value was
-    <b>550&nbsp;ms</b> — a 50&nbsp;ms overshoot past the 500&nbsp;ms work meter, which is the cost
-    of drawing the refusal after the meter has already stopped. An earlier version of this page
-    advertised a ceiling measured with a JavaScript timer that stopped before the browser drew
-    anything, and was wrong by 810&nbsp;ms at exactly the input it called safe.</p>
+    animation frames so it includes the paint and not merely the JavaScript. Across 24 trials of
+    the four heaviest inputs available to it, that measurement ranged from 517&nbsp;ms to
+    <b>641&nbsp;ms</b> — always above the 500&nbsp;ms work meter, because drawing the refusal
+    happens after the meter has already stopped, and worst at the input that is cheapest to
+    evaluate and most expensive to have received. An earlier version of this page advertised a
+    ceiling measured with a JavaScript timer that stopped before the browser drew anything and was
+    wrong by 810&nbsp;ms; the version before this one quoted a single 550&nbsp;ms reading that a
+    second measurement immediately beat. The number above is a range over repeated trials for that
+    reason.</p>
     <p><b>One cost this page does not control.</b> That measurement starts when this page starts
     working, which is <em>after</em> the browser has accepted your paste. Pasting a megabyte of
     text into a plain <code>&lt;textarea&gt;</code> is itself work the browser does before any
@@ -201,6 +211,19 @@ footer a{color:var(--faint)}
   var MAX_ROWS_SHOWN   = 1000;   /* table rows drawn                                       */
   var MAX_HTML_CHARS   = 1000000;/* total drawn characters — the backstop that holds even
                                     if every cap above were raised                         */
+  var HTML_RESERVE     = 2048;   /* held back from MAX_HTML_CHARS so that closing tags and
+                                    the "drawing stopped" disclosure ALWAYS fit.
+                                    Fix cycle 2026-08-05: without a reserve the buffer
+                                    filled mid-row, later short pushes in the same row still
+                                    fitted while long ones did not, and the result was
+                                    DANGLING <td> tags. The browser's HTML5 error recovery
+                                    then inserted the missing closers on assignment — which
+                                    is how a string measured at 999,994 characters became a
+                                    #result.innerHTML of 1,000,117, breaking the very bound
+                                    this constant exists to keep. Two rules follow, and both
+                                    are structural rather than a bigger number: append only
+                                    COMPLETE units, and never let a closer depend on the
+                                    cap.                                                   */
 
   /* This page's own work deadline, passed explicitly rather than taken from lib/nfa.js's
      default. Two reasons. (1) The shared default is 750 ms and lib/nfa.js is live inside
@@ -278,7 +301,7 @@ footer a{color:var(--faint)}
       b.type = 'button';
       b.textContent = p.name;
       b.addEventListener('click', function () {
-        elOwners.value = p.owners; elPaths.value = p.paths; begin();
+        elOwners.value = p.owners; elPaths.value = p.paths; onInput();
       });
       box.appendChild(b);
     });
@@ -393,54 +416,62 @@ footer a{color:var(--faint)}
     }
     if (exceeded) return slowBanner();
 
-    /* ── draw, into a bounded buffer ── */
-    var b = door.buffer(MAX_HTML_CHARS);
+    /* ── draw, into a bounded buffer ──
+       Two invariants, both structural:
+       (1) every append is a COMPLETE unit — a whole row, a whole <li> — so a refused
+           append can never leave an unclosed tag behind;
+       (2) closers never go through the cap. They are stacked and emitted from the
+           reserve, so the output is well-formed whether or not the cap was reached.  */
+    var b = door.buffer(MAX_HTML_CHARS - HTML_RESERVE);
+    var openers = [], capped = false, cappedAfter = -1, cappedOf = 0;
+    function put(html) { if (capped) return false; if (b.push(html)) return true; capped = true; return false; }
+    function open(html, closer) { if (!put(html)) return false; openers.push(closer); return true; }
+    function close() { var c = openers.pop(); if (c && !capped) put(c); else if (c) openers.push(c); return true; }
 
-    b.push('<div class="summary">',
-      '<span><b>', rows.length, '</b> <span class="lab">files</span></span>',
-      '<span><b class="owned">', owned, '</b> <span class="lab">get an owner</span></span>',
-      '<span><b class="unowned">', unowned, '</b> <span class="lab">unowned</span></span>',
-      '<span><b>', parsed.rules.length, '</b> <span class="lab">rules read</span></span>',
-      (parsed.skipped.length ? '<span><b class="unowned">' + parsed.skipped.length + '</b> <span class="lab">lines skipped by GitHub</span></span>' : ''),
+    put('<div class="summary">' +
+      '<span><b>' + rows.length + '</b> <span class="lab">files</span></span>' +
+      '<span><b class="owned">' + owned + '</b> <span class="lab">get an owner</span></span>' +
+      '<span><b class="unowned">' + unowned + '</b> <span class="lab">unowned</span></span>' +
+      '<span><b>' + parsed.rules.length + '</b> <span class="lab">rules read</span></span>' +
+      (parsed.skipped.length ? '<span><b class="unowned">' + parsed.skipped.length + '</b> <span class="lab">lines skipped by GitHub</span></span>' : '') +
       '</div>');
 
     if (!rows.length) {
-      b.push('<p class="empty">No paths listed — add the files your pull request touches.</p>');
+      put('<p class="empty">No paths listed — add the files your pull request touches.</p>');
     } else {
       var drawn = rows.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : rows.length;
       if (rows.length > MAX_ROWS_SHOWN)
-        b.push('<p class="empty">Every one of your ', rows.length, ' files was evaluated and is counted above; ',
-               'the table draws the first ', MAX_ROWS_SHOWN, '.</p>');
-      b.push('<table><thead><tr><th>file</th><th>winning rule</th><th>requested for review</th></tr></thead><tbody>');
-      var stoppedAt = -1;
+        put('<p class="empty">Every one of your ' + rows.length + ' files was evaluated and is counted above; ' +
+            'the table draws the first ' + MAX_ROWS_SHOWN + '.</p>');
+      open('<table><thead><tr><th>file</th><th>winning rule</th><th>requested for review</th></tr></thead><tbody>',
+           '</tbody></table>');
       for (var ri = 0; ri < drawn; ri++) {
         if (nfa.tick(budget) || budget.exceeded) return slowBanner();
         var row = rows[ri];
-        if (!b.push('<tr><td class="path"><code>', cell(row.path), '</code>')) { stoppedAt = ri; break; }
+        /* ONE complete row, assembled before it is offered to the buffer. A row that
+           does not fit is not drawn at all — it is never half-drawn. */
+        var rowHtml = '<tr><td class="path"><code>' + cell(row.path) + '</code>';
         if (row.lost.length) {
           var lshown = row.lost.length > MAX_LOST_SHOWN ? MAX_LOST_SHOWN : row.lost.length;
-          b.push('<details><summary>', row.lost.length, ' rule',
-                 (row.lost.length > 1 ? 's' : ''), ' also matched, and lost</summary><ul>');
+          rowHtml += '<details><summary>' + row.lost.length + ' rule' +
+                     (row.lost.length > 1 ? 's' : '') + ' also matched, and lost</summary><ul>';
           for (var li = 0; li < lshown; li++) {
             var l = row.lost[li];
-            if (!b.push('<li>', ruleLabel(l), ' &rarr; ',
-                        (l.owners.length ? ownerList(l.owners) : '(no owners)'), '</li>')) break;
+            rowHtml += '<li>' + ruleLabel(l) + ' &rarr; ' +
+                       (l.owners.length ? ownerList(l.owners) : '(no owners)') + '</li>';
           }
           if (row.lost.length > lshown)
-            b.push('<li class="empty">+', (row.lost.length - lshown), ' more, all of which also lost</li>');
-          b.push('</ul></details>');
+            rowHtml += '<li class="empty">+' + (row.lost.length - lshown) + ' more, all of which also lost</li>';
+          rowHtml += '</ul></details>';
         }
-        b.push('</td><td class="rule">',
-               (row.winner ? ruleLabel(row.winner) : '<span class="empty">no rule matches</span>'),
-               '</td><td class="own', (row.winner && row.winner.owners.length ? '' : ' none'), '">',
-               (row.winner ? ownersHtml(row.winner) : '<span class="own none">(none)</span>'),
-               '</td></tr>');
+        rowHtml += '</td><td class="rule">' +
+                   (row.winner ? ruleLabel(row.winner) : '<span class="empty">no rule matches</span>') +
+                   '</td><td class="own' + (row.winner && row.winner.owners.length ? '' : ' none') + '">' +
+                   (row.winner ? ownersHtml(row.winner) : '<span class="own none">(none)</span>') +
+                   '</td></tr>';
+        if (!put(rowHtml)) { cappedAfter = ri; cappedOf = rows.length; break; }
       }
-      b.push('</tbody></table>');
-      if (b.capped())
-        b.push('<p class="empty">Drawing stopped after ', (stoppedAt < 0 ? drawn : stoppedAt),
-               ' of ', rows.length, ' files: the answer reached this page\'s ', MAX_HTML_CHARS,
-               '-character drawing limit. Every file was still evaluated and is counted above.</p>');
+      close();
     }
 
     /* ── problems ── */
@@ -455,12 +486,12 @@ footer a{color:var(--faint)}
       });
     });
     if (problems.length) {
-      b.push('<h2>Lines GitHub will not use as you expect <span class="n">(', problems.length, ')</span></h2><ul class="plain">');
+      open('<h2>Lines GitHub will not use as you expect <span class="n">(' + problems.length + ')</span></h2><ul class="plain">', '</ul>');
       var pshown = problems.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : problems.length;
       for (var pi = 0; pi < pshown; pi++)
-        if (!b.push('<li class="', problems[pi].cls, '">', problems[pi].html, '</li>')) break;
-      if (problems.length > pshown) b.push('<li class="empty">+', (problems.length - pshown), ' more, counted above but not drawn</li>');
-      b.push('</ul>');
+        if (!put('<li class="' + problems[pi].cls + '">' + problems[pi].html + '</li>')) break;
+      if (problems.length > pshown) put('<li class="empty">+' + (problems.length - pshown) + ' more, counted above but not drawn</li>');
+      close();
     }
 
     /* ── dead rules, relative to the file list given ── */
@@ -470,20 +501,29 @@ footer a{color:var(--faint)}
       else if (!everWon[r.line]) shadowed.push(r);
     });
     if (rows.length && (dead.length || shadowed.length)) {
-      b.push('<h2>Rules that did nothing for these files <span class="n">(', (dead.length + shadowed.length), ')</span></h2><ul class="plain">');
+      open('<h2>Rules that did nothing for these files <span class="n">(' + (dead.length + shadowed.length) + ')</span></h2><ul class="plain">', '</ul>');
       var dshown = dead.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : dead.length;
       for (var di = 0; di < dshown; di++)
-        if (!b.push('<li>', ruleLabel(dead[di]), ' — matched none of the listed files.</li>')) break;
-      if (dead.length > dshown) b.push('<li class="empty">+', (dead.length - dshown), ' more, counted above but not drawn</li>');
+        if (!put('<li>' + ruleLabel(dead[di]) + ' — matched none of the listed files.</li>')) break;
+      if (dead.length > dshown) put('<li class="empty">+' + (dead.length - dshown) + ' more, counted above but not drawn</li>');
       var sshown = shadowed.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : shadowed.length;
       for (var si = 0; si < sshown; si++)
-        if (!b.push('<li class="warn">', ruleLabel(shadowed[si]), ' — matched, but a later rule won every time.</li>')) break;
-      if (shadowed.length > sshown) b.push('<li class="empty">+', (shadowed.length - sshown), ' more, counted above but not drawn</li>');
-      b.push('</ul><p class="empty">Judged only against the files you listed — a rule idle here may still fire on another pull request.</p>');
+        if (!put('<li class="warn">' + ruleLabel(shadowed[si]) + ' — matched, but a later rule won every time.</li>')) break;
+      if (shadowed.length > sshown) put('<li class="empty">+' + (shadowed.length - sshown) + ' more, counted above but not drawn</li>');
+      close();
+      put('<p class="empty">Judged only against the files you listed — a rule idle here may still fire on another pull request.</p>');
     }
 
-    b.push('<p class="empty" id="measured">&nbsp;</p>');
-    return b.toString();
+    /* Closers and the disclosure come out of the RESERVE, never out of the cap, so
+       they cannot be the thing that does not fit. */
+    var tail = '';
+    while (openers.length) tail += openers.pop();
+    if (capped)
+      tail += '<p class="empty">Drawing stopped after ' + (cappedAfter < 0 ? 'the tables above' : cappedAfter + ' of ' + cappedOf + ' files') +
+              ': the answer reached this page\'s ' + MAX_HTML_CHARS +
+              '-character drawing limit. Every file was still evaluated and is counted above.</p>';
+    tail += '<p class="empty" id="measured">&nbsp;</p>';
+    return b.toString() + tail;
   }
 
   /* begin() is the only entry point. It clears FIRST and lets the clear paint before any
@@ -492,7 +532,7 @@ footer a{color:var(--faint)}
   var running = false;
   function begin() {
     if (running) return;
-    running = true;
+    running = true; stale = false;
     elResult.innerHTML = '<p class="empty">working…</p>';
     document.body.setAttribute('data-state', 'working');
     afterPaint(function () {
@@ -516,10 +556,25 @@ footer a{color:var(--faint)}
     });
   }
 
-  var timer = null;
-  function schedule() { if (timer) clearTimeout(timer); timer = setTimeout(begin, 120); }
-  elOwners.addEventListener('input', schedule);
-  elPaths.addEventListener('input', schedule);
+  /* The debounce used to be the whole story, and that left a real window: for the
+     120 ms between a paste landing and begin() running, the boxes already showed the
+     NEW input while the panel below still showed the OLD answer, with nothing marking
+     it stale. A checker photographed that frame at t=337 ms on 2026-08-05 — composited,
+     not merely present in the DOM. Reading the DOM would never have caught it, because
+     the DOM was already right. So the answer is invalidated on the input event itself,
+     synchronously, and only the recomputation is debounced. */
+  var timer = null, stale = false;
+  function onInput() {
+    if (!stale) {
+      stale = true;
+      elResult.innerHTML = '<p class="empty">working…</p>';
+      document.body.setAttribute('data-state', 'working');
+    }
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(begin, 120);
+  }
+  elOwners.addEventListener('input', onInput);
+  elPaths.addEventListener('input', onInput);
 
   renderPresets();
   elOwners.value = PRESETS[0].owners;
