@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-generated="2026-08-05T08:30:35Z">
+<html lang="en" data-generated="2026-08-05T10:00:32Z">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -71,7 +71,7 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-05 08:30 UTC (10:30 SAST)</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-05 10:00 UTC (12:00 SAST)</span>
     <span class="pill mut mono" id="age" title="how old this copy's baked data is — computed in your browser at open, no network needed">age —</span>
     <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-05 08:26 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-05 08:26 UTC</span>
     <span class="grow"></span>
@@ -138,7 +138,7 @@
       <div class="panel">
         <h2>Needs Theshin</h2>
         <div class="card"><b>1 · Workflows installed &#10003; 2026-08-05 10:24 SAST</b><br><span class="mono">ship-preview.yml</span> + <span class="mono">health-check.yml</span> are on main — Theshin pressed both buttons once; that ritual is now retired. If the health pill stays dark after the next push: Settings &rarr; Actions &rarr; General &rarr; <b>Workflow permissions: Read and write</b> (health-check commits <span class="mono">public/health.json</span>), and tick <b>Allow GitHub Actions to create and approve pull requests</b> (ship-preview opens the draft PRs).</div>
-        <div class="card warn"><b>2 · One PAT, three scopes — the "automate these in future" step (per Theshin, 2026-08-05)</b><br>Mint a fine-grained PAT on <span class="mono">foundry</span>: <b>Contents + Pull requests + Workflows, all read/write</b>, and paste it into the foundry session. It becomes the trigger's token — from then on the loop installs and updates its own workflows, and Needs-Theshin never again grows a "click this" item a scoped token could have done. (Also unblocks today's stalled push: the old PAT is being rejected.)</div>
+        <div class="card"><b>2 · PAT rotated &#10003; 2026-08-05 ~10:45 SAST — automation armed</b><br>The three-scope fine-grained PAT (<b>Contents + Pull requests + Workflows</b>, read/write) is live in the trigger's CREDENTIAL block and config.json; the stalled push landed minutes later. The loop now installs and updates its own workflows — Needs-Theshin grows no more "click this" items a scoped token can do itself. When GitHub emails the next expiry warning, paste a fresh token into any foundry session — today's outage was the old token expiring.</div>
         <div class="card"><b>3 · Brand domain</b><br>workers.dev works meanwhile. Candidates: dayforge.dev · shipdock.dev · oneaday.build.</div>
       </div>
 
