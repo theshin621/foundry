@@ -36,3 +36,18 @@ checker fetched it back over HTTP from an ancestor commit and proved the exposur
 The branch had to be squashed and force-pushed. Attribute decisions to a date and a reason;
 the ledger is where the loop's memory belongs, and the ledger is not inlined into a page.
 
+## `door.js` — validate every dimension at the door (ship 003 rebuild, 2026-08-05)
+
+One forward pass over a pasted box that measures **total chars, line count, line length and
+whitespace-delimited field length** without splitting, slicing or allocating, and bails at the
+first violation. Call it **before** any split/trim/parse/compile.
+
+Why it exists: bounding aggregate input proves nothing. `** @` + 100,000 `a` is 100 KB — inside
+every aggregate cap — and cost ship 003 attempt 1 twenty-three seconds, because one absurd owner
+token was re-drawn once per matching row. The rebuild refuses it in 0.007 ms.
+
+Also exports `buffer(maxChars)` (bounds *output* by construction, the other half of the same
+lesson) and `clip(s, max)` (a second belt on any single drawn value).
+
+`lineTerminators` must match whatever the caller later splits on — `'lf'` for `lib/codeowners.js`,
+`'any'` for a list split with `/\r\n|\r|\n/`. Verified equal to both consumers across 931 cases.

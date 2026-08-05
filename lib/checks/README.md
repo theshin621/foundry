@@ -59,3 +59,10 @@ Language-agnostic on purpose: JSON corpora, not JS, so a checker in any language
   so a step counter is not a time bound, and only a wall-clock deadline is honest enough
   for a UI to quote.
 
+## `door-limits.json` (ship 003 rebuild, 2026-08-05)
+
+Input-dimension probes for any ship with a pasted text box: chars, lines, line length, **field
+length** (the one that gets missed), and output size. Plus the stale-answer probe — a page that
+computes synchronously never paints its own `clear()`, so the last painted frame during a long run
+is the previous answer. Reading the DOM does not catch that; screenshot mid-run or assert a state
+attribute flips before compute begins.

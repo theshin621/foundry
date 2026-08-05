@@ -107,15 +107,57 @@ footer a{color:var(--faint)}
     <em>skipped</em> here (GitHub's documented behaviour) rather than aborting the whole file, and
     the pattern <code>/</code> — which crashes the reference implementation — is reported as
     matching nothing.</p>
+    <p><b>What it refuses, and why it refuses it at the door.</b> Every dimension that drives
+    work is measured <em>before</em> anything is split, parsed or compiled: the size of each box
+    (1&nbsp;MiB), the number of lines (20,000 rules, 5,000 paths), the length of a line
+    (4,096&nbsp;characters here, 1,024 for a path) and the length of a single whitespace-delimited
+    field (256&nbsp;characters — a pattern and an owner are both fields). That last one is the
+    limit this page was missing: <code>**&nbsp;@</code> followed by 100,000&nbsp;<code>a</code>
+    is a legal-looking 100&nbsp;KB line that cost 23.7&nbsp;seconds, because one absurd owner was
+    re-drawn once per matching file. Counting is done in a single pass that allocates nothing and
+    stops at the first violation, so refusing that input now costs
+    <b>0.007&nbsp;ms</b>; scanning a full 1&nbsp;MiB box that passes every limit costs
+    <b>9&nbsp;ms</b>.</p>
+    <p><b>Where this deliberately refuses rather than copying the reference.</b> The reference
+    implementation reads its file with Go's <code>bufio.Scanner</code>, which silently drops any
+    line of <b>65,536&nbsp;bytes or more</b> — and then abandons every rule after it, so a single
+    over-long line can change the owner of a file thousands of lines further down with no error
+    anywhere. This page refuses at 4,096&nbsp;characters instead, which is strictly inside that
+    boundary (4,096 characters cannot exceed 16,384&nbsp;bytes in UTF-8), so it can never reach the
+    case where it would quietly disagree. Refusing loudly and diverging silently are not the same
+    thing, and only one of them is safe.</p>
     <p><b>Why it can't hang.</b> Patterns are compiled to a non-backtracking automaton, not to a
-    JavaScript <code>RegExp</code>, so no input can trigger catastrophic backtracking. And because
+    JavaScript <code>RegExp</code>, so no input can trigger catastrophic backtracking. Because
     linear time still is not <em>bounded</em> time, every stage that costs anything — reading the
-    file, compiling each pattern, matching — is metered against a wall clock: past roughly
-    <b>750&nbsp;ms</b> this page tells you it cannot evaluate rather than freezing or answering from
-    a half-finished pass — and that includes <em>drawing</em> the answer, which is a stage that
-    costs time like any other. The table therefore draws at most 1,000 files, 20 owners per rule
-    and 10 losing rules per file, and says so when it reaches any of those; the counts above it
-    are computed over everything you pasted.</p>
+    file, compiling each pattern, matching, and <em>drawing</em> — is metered against one shared
+    wall clock, and past <b>500&nbsp;ms</b> of work this page says it cannot evaluate rather than
+    answering from a half-finished pass. The answer itself is bounded by construction rather than
+    by that meter: at most 1,000 rows, 20 owners per rule, 10 losing rules per file and
+    1,000,000 characters of drawn output in total, whichever binds first — the counts in the
+    summary are computed over everything you pasted, and the page says so whenever it draws less
+    than it counted.</p>
+    <p><b>The input limits are not the work limit.</b> The numbers above are the largest inputs
+    this page will <em>read</em>. Whether it can <em>finish</em> depends on rules&nbsp;×&nbsp;paths,
+    because every path is tested against every rule. Measured in Chromium on 2026-08-05: 200 rules
+    against 500 files — 100,000 pairs, and larger than most real pull requests — answers in
+    <b>435&nbsp;ms</b>; 500 rules against 500 files refuses. So the honest boundary is roughly
+    <b>100,000 rule–file pairs</b>, not the 20,000 × 5,000 the boxes will accept. Being told
+    plainly that it will not answer is the point; guessing, or freezing, are the two worse options.</p>
+    <p><b>The timing number is measured, not claimed.</b> Under every answer this page prints the
+    real time from starting work to the browser having painted the result, taken across two
+    animation frames so it includes the paint and not merely the JavaScript. Across a sweep of
+    sixteen inputs including every limit at its cap, the worst measured value was
+    <b>550&nbsp;ms</b> — a 50&nbsp;ms overshoot past the 500&nbsp;ms work meter, which is the cost
+    of drawing the refusal after the meter has already stopped. An earlier version of this page
+    advertised a ceiling measured with a JavaScript timer that stopped before the browser drew
+    anything, and was wrong by 810&nbsp;ms at exactly the input it called safe.</p>
+    <p><b>One cost this page does not control.</b> That measurement starts when this page starts
+    working, which is <em>after</em> the browser has accepted your paste. Pasting a megabyte of
+    text into a plain <code>&lt;textarea&gt;</code> is itself work the browser does before any
+    script runs: a 1&nbsp;MiB file of ordinary CODEOWNERS lines costs it about half a second, and
+    1&nbsp;MiB consisting only of newlines — a million empty lines to lay out — cost roughly
+    <b>17&nbsp;seconds</b> in the same test, none of it ours and none of it avoidable from here.
+    Said plainly rather than quietly excluded from a number.</p>
     <p>Sibling tool: <a href="../002-gha-trigger/">why didn't my GitHub Actions workflow run?</a></p>
   </div>
 
@@ -148,6 +190,193 @@ footer a{color:var(--faint)}
   return function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return MAP[c]; });
   };
+});
+</script>
+<script>/* inlined verbatim from lib/door.js — regenerate with lib/inline.js */
+/* lib/door.js — validate every dimension of a pasted text box AT THE DOOR,
+ * counting without materialising. Contributed by ship 003 (codeowners rebuild,
+ * 2026-08-05).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS FILE EXISTS
+ *
+ * Ship 003's first attempt bounded its inputs and still froze. Six checker
+ * verdicts over three fix cycles converged on ONE root cause, and it is general
+ * enough that every paste-a-text-box ship will meet it:
+ *
+ *     AGGREGATE input was bounded. The DIMENSIONS that drive work were not.
+ *
+ * A 1 MiB cap says nothing about how many lines that MiB contains, how long the
+ * longest one is, or how long a single whitespace-delimited FIELD inside a line
+ * is. Each of those is a separate multiplier on downstream cost, and the field
+ * dimension is the one that got missed: `** @` followed by 100,000 'a' is 100 KB
+ * — comfortably inside every aggregate cap — and it cost 23,701 ms, because one
+ * absurd owner token was re-drawn once per matching file.
+ *
+ * The second half of the lesson is subtler and is why this file exists at all
+ * rather than five inline `if`s: the ACT OF MEASURING must not itself be the
+ * cost. The obvious implementation —
+ *
+ *     text.split('\n').forEach(l => { if (l.length > MAX) ... })
+ *
+ * — allocates the entire line array before it can reject anything, so a hostile
+ * paste has already won by the time the guard runs. Everything below is a single
+ * forward pass over char codes with NO split, NO slice, NO regex and NO array of
+ * lines, and it BAILS at the first violation. Cost is O(chars up to the first
+ * violation), bounded by the aggregate cap the caller has already applied, with
+ * an allocation count of zero.
+ *
+ * ── ORDER MATTERS ────────────────────────────────────────────────────────────
+ * Call this BEFORE any split / trim / parse / compile. Zero work before
+ * validation. A guard that runs after the parse is not a guard, it is a report.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.door = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var NL = 10, CR = 13, SP = 32, TAB = 9;
+
+  function isSpace(c) { return c === SP || c === TAB || c === CR; }
+
+  /* scan(text, limits) — one pass, no allocation, early bail.
+   *
+   * limits: {
+   *   maxChars       total length of the box
+   *   maxLines       lines, counting a trailing newline's empty last line the way
+   *                  a human counts them (i.e. "a\n" is one line, not two)
+   *   maxLineLength  longest single line, in CHARS
+   *   maxFieldLength optional — longest whitespace-delimited field within a line
+   *   commentChar    optional — stop field scanning at the first occurrence of
+   *                  this char on a line (fields after it are a comment)
+   * }
+   *
+   * returns {ok:true, lines, nonBlank}
+   *      or {ok:false, kind:'chars'|'lines'|'line'|'field', line, length, limit}
+   *         where `line` is 1-based and `length` is the measured size that broke
+   *         the limit — so the caller's refusal message can be exact rather than
+   *         vague. Off-by-one exactness is a checkable property: a value equal to
+   *         the limit must pass and limit+1 must fail.
+   */
+  function scan(text, limits) {
+    var s = String(text == null ? '' : text);
+    var maxChars = limits.maxChars, maxLines = limits.maxLines;
+    var maxLine = limits.maxLineLength, maxField = limits.maxFieldLength;
+    var commentCode = limits.commentChar ? limits.commentChar.charCodeAt(0) : -1;
+
+    if (s.length > maxChars)
+      return { ok: false, kind: 'chars', line: 0, length: s.length, limit: maxChars };
+
+    var n = s.length;
+    var line = 1, lineStart = 0, nonBlank = 0;
+    var sawNonSpace = false, inComment = false;
+    var fieldStart = -1;
+    var i, c, term, lineEnd, lineLen, fieldLen;
+    /* Which byte sequences end a line MUST match whatever the caller later splits
+       on, or the door counts a different number of lines than the caller produces
+       and the guard is decorative rather than binding. Measured 2026-08-05 across
+       both consumers in this repo: lib/codeowners.js splits on "\n" only (a lone
+       "\r" stays inside the line), while a path list split with
+       /\r\n|\r|\n/ treats all three as terminators. So the caller declares it.
+         'lf'  -> "\n" and "\r\n"          (lone "\r" is ordinary text)
+         'any' -> "\n", "\r\n" and "\r"                                        */
+    var loneCrEnds = limits.lineTerminators === 'any';
+
+    /* One pass. Position `n` is a final virtual terminator, so the last line is
+       validated on exactly the same path as every other line — the trailing-line
+       special case is where off-by-one bugs live. A terminator at the very end
+       DOES open a final empty line, because that is what String.prototype.split
+       produces and matching it exactly is the whole point. */
+    for (i = 0; i <= n; i++) {
+      c = i < n ? s.charCodeAt(i) : NL;
+      term = (i === n) ? 1
+           : (c === NL ? 1
+           : (c === CR ? (s.charCodeAt(i + 1) === NL ? 2 : (loneCrEnds ? 1 : 0)) : 0));
+
+      if (!term) {
+        if (commentCode !== -1 && c === commentCode) inComment = true;
+        if (!isSpace(c)) sawNonSpace = true;
+
+        if (maxField && !inComment) {
+          if (isSpace(c)) {
+            if (fieldStart !== -1) {
+              fieldLen = i - fieldStart;
+              if (fieldLen > maxField)
+                return { ok: false, kind: 'field', line: line, length: fieldLen, limit: maxField };
+              fieldStart = -1;
+            }
+          } else if (fieldStart === -1) {
+            fieldStart = i;
+          } else if (i - fieldStart >= maxField) {
+            /* Bail INSIDE the field rather than waiting for its end: a single
+               1 MiB field would otherwise be scanned in full before rejection.
+               i - fieldStart === maxField means maxField+1 chars seen so far. */
+            return { ok: false, kind: 'field', line: line, length: maxField + 1, limit: maxField };
+          }
+        }
+        continue;
+      }
+
+      /* --- close the line at `i` (exclusive of the terminator) --- */
+      lineEnd = i;
+      lineLen = lineEnd - lineStart;
+      if (lineLen > maxLine)
+        return { ok: false, kind: 'line', line: line, length: lineLen, limit: maxLine };
+
+      if (maxField && !inComment && fieldStart !== -1) {
+        fieldLen = lineEnd - fieldStart;
+        if (fieldLen > maxField)
+          return { ok: false, kind: 'field', line: line, length: fieldLen, limit: maxField };
+      }
+
+      if (sawNonSpace) nonBlank++;
+      if (i === n) break;
+
+      line++;
+      if (line > maxLines)
+        return { ok: false, kind: 'lines', line: line, length: line, limit: maxLines };
+
+      i += term - 1;                 /* skip the second char of a CRLF */
+      lineStart = i + 1;
+      sawNonSpace = false; inComment = false; fieldStart = -1;
+    }
+
+    return { ok: true, lines: line, nonBlank: nonBlank };
+  }
+
+  /* A bounded output buffer. The other half of the same lesson: bounding what is
+     READ does nothing about what is WRITTEN, and a results view derived from
+     input has no length cap of its own. Everything appended goes through here,
+     so the emitted size is a CONSTANT regardless of input — bounded by
+     construction, not by a budget that has to be consulted correctly. */
+  function buffer(maxChars) {
+    var parts = [], used = 0, capped = false;
+    return {
+      push: function () {
+        var i, a;
+        for (i = 0; i < arguments.length; i++) {
+          a = String(arguments[i]);
+          if (used + a.length > maxChars) { capped = true; return false; }
+          parts.push(a); used += a.length;
+        }
+        return true;
+      },
+      capped: function () { return capped; },
+      used: function () { return used; },
+      toString: function () { return parts.join(''); }
+    };
+  }
+
+  /* Truncate a single value for display, with a visible marker. Used for values
+     that are already field-capped at the door — this is the second belt, so that
+     a future caller who forgets a door limit still cannot emit an unbounded cell. */
+  function clip(s, max) {
+    var t = String(s == null ? '' : s);
+    return t.length <= max ? t : t.slice(0, max) + '…';
+  }
+
+  return { scan: scan, buffer: buffer, clip: clip };
 });
 </script>
 <script>/* inlined verbatim from lib/nfa.js — regenerate with lib/inline.js */
@@ -985,36 +1214,63 @@ footer a{color:var(--faint)}
 <script>
 (function () {
   'use strict';
-  var esc = window.esc, co = window.codeowners, nfa = window.nfa;
+  var esc = window.esc, co = window.codeowners, nfa = window.nfa, door = window.door;
 
-  /* ── limits. Every one is stated in its own refusal message, off-by-one exact. ── */
-  var MAX_CHARS = 1048576;      /* 1 MiB per box. GitHub's own CODEOWNERS cap is 3 MB;
-                                   this is lower on purpose — the page must stay responsive. */
+  /* ── LIMITS. Every dimension that multiplies work has its own number, and every
+     number appears verbatim in the refusal that cites it, off-by-one exact.
+
+     The rebuild (2026-08-05) exists because the previous version bounded the
+     AGGREGATE and left the DIMENSIONS open. MAX_FIELD is the one that was missing:
+     `** @` + 100,000 'a' is 100 KB — inside every aggregate cap — and cost 23,701 ms,
+     because one absurd owner token was re-drawn once per matching file. ────────── */
+  var MAX_CHARS      = 1048576;  /* per box. GitHub's own CODEOWNERS cap is 3 MB; lower on
+                                    purpose, because this page must stay responsive.       */
   var MAX_RULE_LINES = 20000;
-  var MAX_PATHS = 5000;
-  var MAX_LINE = 4096;
-  var MAX_PATTERN = 4096;       /* one path pattern. Same bound as a path, for the same reason:
-                                   a CODEOWNERS pattern IS a path pattern. Longer inputs are not
-                                   patterns, they are allocation bombs. */
+  var MAX_PATHS      = 5000;
+  var MAX_RULE_LINE  = 4096;     /* one CODEOWNERS line                                    */
+  var MAX_PATH_LINE  = 1024;     /* one path. Paths may contain spaces, so a path line has
+                                    no field structure to validate — only a length.        */
+  var MAX_FIELD      = 256;      /* one whitespace-delimited field on a CODEOWNERS line.
+                                    A pattern is a field and an owner is a field; the same
+                                    number governs both because they are the same thing —
+                                    text between spaces that something downstream will
+                                    compile, store, or draw once per matching file.        */
 
-  /* ── OUTPUT bounds. Added 2026-08-04 (fix cycle 3) after a checker proved the input bounds
-     were the wrong half of the problem. Everything above bounds what is READ; nothing bounded
-     what is WRITTEN, and the results table is derived from input with no length cap of its own:
-     a rule may name unlimited owners, and every rule that matches a file is listed under it. A
-     single rule with 40,000 owners against 5,000 paths froze the tab for 13.7 s and then threw
-     `RangeError: Invalid string length`, leaving the PREVIOUS answer on screen with no error —
-     the worst failure available to this page, because it silently showed a wrong result.
-     So the render is bounded and metered like every other stage. The counts in the summary are
-     still computed over EVERYTHING; only the drawing is capped, and it says so when it caps. */
-  var MAX_OWNERS_SHOWN = 20;    /* per rule, then "+N more"                                    */
-  var MAX_LOST_SHOWN = 10;      /* losing rules drawn per file, then "+N more"                 */
-  var MAX_ROWS_SHOWN = 1000;    /* table rows drawn, then an honest "showing the first N" note */
+  /* ── OUTPUT bounds, by CONSTRUCTION. Bounding what is READ says nothing about what is
+     WRITTEN, and this view is derived from input with no length cap of its own. Every
+     append goes through a door.buffer, so total drawn output is a constant. ─────────── */
+  var MAX_OWNERS_SHOWN = 20;     /* per rule, then "+N more"                               */
+  var MAX_LOST_SHOWN   = 10;     /* losing rules drawn per file, then "+N more"            */
+  var MAX_ROWS_SHOWN   = 1000;   /* table rows drawn                                       */
+  var MAX_HTML_CHARS   = 1000000;/* total drawn characters — the backstop that holds even
+                                    if every cap above were raised                         */
+
+  /* This page's own work deadline, passed explicitly rather than taken from lib/nfa.js's
+     default. Two reasons. (1) The shared default is 750 ms and lib/nfa.js is live inside
+     ship 002 with three checker verdicts against its exact bytes — this page must not move
+     a number that another shipped page depends on. (2) The meter bounds WORK, and drawing
+     the refusal happens after the meter stops, so dispatch-to-paint is always larger than
+     the deadline. Measured 2026-08-05 in Chromium: a 750 ms budget produced a 1,078 ms
+     dispatch-to-paint on the worst input probed. 500 ms is chosen so the number this page
+     PRINTS is one it can actually keep.                                                   */
+  var PAGE_DEADLINE_MS = 500;
 
   var elOwners = document.getElementById('owners');
-  var elPaths = document.getElementById('paths');
+  var elPaths  = document.getElementById('paths');
   var elResult = document.getElementById('result');
 
-  /* GitHub's own documented example, trimmed to the lines that teach the precedence rule. */
+  function now() {
+    return (typeof performance === 'object' && performance.now) ? performance.now() : Date.now();
+  }
+  /* Two frames: the first callback runs before the frame that contains the paint has been
+     committed, the second runs after it. One rAF measures dispatch, not paint — which is
+     how a previous version of this page came to advertise a number that was 810 ms short
+     of what a user actually waited for. */
+  function afterPaint(fn) {
+    if (typeof requestAnimationFrame !== 'function') return setTimeout(fn, 0);
+    requestAnimationFrame(function () { requestAnimationFrame(fn); });
+  }
+
   var PRESETS = [
     { name: "GitHub's doc example", owners:
 "# Default owners for everything in the repo, unless a later match takes precedence.\n" +
@@ -1065,7 +1321,7 @@ footer a{color:var(--faint)}
       b.type = 'button';
       b.textContent = p.name;
       b.addEventListener('click', function () {
-        elOwners.value = p.owners; elPaths.value = p.paths; runGuarded();
+        elOwners.value = p.owners; elPaths.value = p.paths; begin();
       });
       box.appendChild(b);
     });
@@ -1075,7 +1331,6 @@ footer a{color:var(--faint)}
   function footgunsFor(rawLine) {
     var out = [];
     var t = String(rawLine);
-    /* Everything from the first '#' is a comment — including an escaped one. */
     var hash = t.indexOf('#');
     var body = hash === -1 ? t : t.slice(0, hash);
     if (/\\#/.test(t)) out.push('`\\#` does not escape a comment in CODEOWNERS — GitHub starts the comment at the `#` regardless.');
@@ -1083,74 +1338,90 @@ footer a{color:var(--faint)}
     return out;
   }
 
+  /* Every value drawn is already field-capped at the door. clip() is the second belt: a
+     future caller who forgets a door limit still cannot emit an unbounded cell. */
+  function cell(s) { return esc(door.clip(s, MAX_FIELD)); }
+
+  function ownerList(owners) {
+    var shown = owners.length > MAX_OWNERS_SHOWN ? owners.slice(0, MAX_OWNERS_SHOWN) : owners;
+    var out = shown.map(function (o) { return cell(o.text); }).join(' ');
+    if (owners.length > MAX_OWNERS_SHOWN)
+      out += ' <span class="empty">+' + (owners.length - MAX_OWNERS_SHOWN) + ' more owners on this rule</span>';
+    return out;
+  }
   function ownersHtml(rule) {
     if (!rule) return '';
     if (!rule.owners.length) return '<span class="own none">(none — ownership removed)</span>';
     return ownerList(rule.owners);
   }
-
-  /* Draw at most MAX_OWNERS_SHOWN of an owner list. A CODEOWNERS rule may name any number of
-     owners and this list is re-drawn once per file the rule applies to, so it is the sharpest
-     unbounded-output edge on the page. */
-  function ownerList(owners) {
-    var shown = owners.length > MAX_OWNERS_SHOWN ? owners.slice(0, MAX_OWNERS_SHOWN) : owners;
-    var out = shown.map(function (o) { return esc(o.text); }).join(' ');
-    if (owners.length > MAX_OWNERS_SHOWN)
-      out += ' <span class="empty">+' + (owners.length - MAX_OWNERS_SHOWN) + ' more owners on this rule</span>';
-    return out;
-  }
-
   function ruleLabel(rule) {
-    return '<span class="ln">L' + rule.line + '</span><code>' + esc(rule.rawPattern) + '</code>';
+    return '<span class="ln">L' + rule.line + '</span><code>' + cell(rule.rawPattern) + '</code>';
   }
 
-  function refuse(msg) {
-    elResult.innerHTML = '<div class="banner">' + esc(msg) + '</div>';
-  }
+  function banner(msg) { return '<div class="banner">' + esc(msg) + '</div>'; }
 
-  /* The honest refusal. It is reachable from parsing as well as matching, because both
-     cost time and both are metered. */
-  function refuseSlow() {
-    return refuse('Cannot evaluate: this CODEOWNERS and file list need more than the ' +
-      nfa.DEFAULT_DEADLINE_MS + ' ms of work this page allows itself. Rather than freeze the tab ' +
+  function slowBanner() {
+    return banner('Cannot evaluate: this CODEOWNERS and file list need more than the ' +
+      PAGE_DEADLINE_MS + ' ms of work this page allows itself. Rather than freeze the tab ' +
       'or answer from a half-finished pass, it stops. Try fewer paths, fewer rules, or shorter patterns.');
   }
 
-  function run() {
+  /* Turn a door verdict into a refusal that names the dimension, the line and both numbers. */
+  function doorBanner(box, v, limits) {
+    if (v.kind === 'chars')
+      return banner(box + ' is ' + v.length + ' characters; this page evaluates up to ' + v.limit + '.');
+    if (v.kind === 'lines')
+      return banner(box + ' has more than ' + v.limit + ' lines; this page evaluates up to ' + v.limit + '.');
+    if (v.kind === 'line')
+      return banner('Line ' + v.line + ' of ' + box + ' is ' + v.length + ' characters; this page evaluates lines up to ' +
+        v.limit + '.' + (limits.refWhy ? ' ' + limits.refWhy : ''));
+    return banner('Line ' + v.line + ' of ' + box + ' contains a single unbroken field of at least ' + v.length +
+      ' characters; this page evaluates fields up to ' + v.limit +
+      '. A pattern and an owner are both fields, and a field this long is not one — it is an allocation bomb.');
+  }
+
+  var REF_WHY = 'The reference implementation drops any line of 65,536 bytes or more and then ' +
+    'silently abandons every rule after it; this page refuses well inside that boundary rather ' +
+    'than risk quietly disagreeing with it.';
+
+  /* compute() returns HTML. It never touches the DOM, so it cannot leave a half-drawn
+     answer on screen, and every early return is a complete replacement. */
+  function compute() {
     var ownersText = elOwners.value;
-    var pathsText = elPaths.value;
+    var pathsText  = elPaths.value;
 
-    if (ownersText.length > MAX_CHARS)
-      return refuse('CODEOWNERS is ' + ownersText.length + ' characters; this page evaluates up to ' + MAX_CHARS + '.');
-    if (pathsText.length > MAX_CHARS)
-      return refuse('The file list is ' + pathsText.length + ' characters; this page evaluates up to ' + MAX_CHARS + '.');
+    /* ── THE DOOR. Zero work before this: no split, no trim, no parse, no compile. ── */
+    var vo = door.scan(ownersText, {
+      maxChars: MAX_CHARS, maxLines: MAX_RULE_LINES, maxLineLength: MAX_RULE_LINE,
+      maxFieldLength: MAX_FIELD, commentChar: '#', lineTerminators: 'lf'
+    });
+    if (!vo.ok) return doorBanner('CODEOWNERS', vo, { refWhy: REF_WHY });
 
-    /* ONE budget for the WHOLE evaluation, created BEFORE parsing — see lib/nfa.js.
-       The first checker round found parsing and compiling were unmetered, so a single
-       ~1 MiB pattern blocked the main thread for seconds before any budgeted work began. */
-    var budget = nfa.makeBudget();
+    var vp = door.scan(pathsText, {
+      maxChars: MAX_CHARS, maxLines: MAX_PATHS, maxLineLength: MAX_PATH_LINE,
+      lineTerminators: 'any'
+    });
+    if (!vp.ok) return doorBanner('the file list', vp, {});
+    if (vp.nonBlank > MAX_PATHS)
+      return banner('You listed ' + vp.nonBlank + ' paths; this page evaluates up to ' + MAX_PATHS + '.');
 
-    var parsed = co.parseFile(ownersText, budget, MAX_PATTERN);
-    if (parsed.budgetExceeded) return refuseSlow();
+    /* ONE budget for the WHOLE evaluation, created before parsing — see lib/nfa.js. */
+    var budget = nfa.makeBudget(null, PAGE_DEADLINE_MS);
+
+    var parsed = co.parseFile(ownersText, budget, MAX_FIELD);
+    if (parsed.budgetExceeded) return slowBanner();
     if (parsed.patternTooLong)
-      return refuse('The pattern on line ' + parsed.patternTooLong.line + ' is ' +
-        parsed.patternTooLong.length + ' characters; this page evaluates patterns up to ' +
-        MAX_PATTERN + ' — the same cap as a path, because a CODEOWNERS pattern is a path pattern.');
-    if (parsed.lineCount > MAX_RULE_LINES)
-      return refuse('CODEOWNERS has ' + parsed.lineCount + ' lines; this page evaluates up to ' + MAX_RULE_LINES + '.');
+      return banner('The pattern on line ' + parsed.patternTooLong.line + ' is ' +
+        parsed.patternTooLong.length + ' characters; this page evaluates fields up to ' + MAX_FIELD + '.');
 
     var rawPaths = pathsText.split(/\r\n|\r|\n/);
     var paths = [], i, p;
     for (i = 0; i < rawPaths.length; i++) {
       p = rawPaths[i].replace(/^\s+|\s+$/g, '');
       if (!p.length) continue;
-      if (p.length > MAX_LINE)
-        return refuse('Path on line ' + (i + 1) + ' is ' + p.length + ' characters; this page evaluates paths up to ' + MAX_LINE + '.');
       if (p.charAt(0) === '/') p = p.slice(1);   /* repo paths are root-relative */
       paths.push(p);
     }
-    if (paths.length > MAX_PATHS)
-      return refuse('You listed ' + paths.length + ' paths; this page evaluates up to ' + MAX_PATHS + '.');
 
     var rows = [], owned = 0, unowned = 0, exceeded = false;
     var everMatched = {}, everWon = {};
@@ -1163,64 +1434,63 @@ footer a{color:var(--faint)}
       else unowned++;
       rows.push({ path: paths[i], winner: r.winner, lost: r.alsoMatched });
     }
+    if (exceeded) return slowBanner();
 
-    if (exceeded) return refuseSlow();
+    /* ── draw, into a bounded buffer ── */
+    var b = door.buffer(MAX_HTML_CHARS);
 
-    var html = '';
+    b.push('<div class="summary">',
+      '<span><b>', rows.length, '</b> <span class="lab">files</span></span>',
+      '<span><b class="owned">', owned, '</b> <span class="lab">get an owner</span></span>',
+      '<span><b class="unowned">', unowned, '</b> <span class="lab">unowned</span></span>',
+      '<span><b>', parsed.rules.length, '</b> <span class="lab">rules read</span></span>',
+      (parsed.skipped.length ? '<span><b class="unowned">' + parsed.skipped.length + '</b> <span class="lab">lines skipped by GitHub</span></span>' : ''),
+      '</div>');
 
-    /* ── summary ── */
-    html += '<div class="summary">' +
-      '<span><b>' + rows.length + '</b> <span class="lab">files</span></span>' +
-      '<span><b class="owned">' + owned + '</b> <span class="lab">get an owner</span></span>' +
-      '<span><b class="unowned">' + unowned + '</b> <span class="lab">unowned</span></span>' +
-      '<span><b>' + parsed.rules.length + '</b> <span class="lab">rules read</span></span>' +
-      (parsed.skipped.length ? '<span><b class="unowned">' + parsed.skipped.length + '</b> <span class="lab">lines skipped by GitHub</span></span>' : '') +
-      '</div>';
-
-    /* ── per-file table ── */
     if (!rows.length) {
-      html += '<p class="empty">No paths listed — add the files your pull request touches.</p>';
+      b.push('<p class="empty">No paths listed — add the files your pull request touches.</p>');
     } else {
       var drawn = rows.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : rows.length;
       if (rows.length > MAX_ROWS_SHOWN)
-        html += '<p class="empty">Every one of your ' + rows.length + ' files was evaluated and is counted above; ' +
-                'the table draws the first ' + MAX_ROWS_SHOWN + '.</p>';
-      /* An array + join, not string concatenation: an unbounded `+=` is what hit V8's maximum
-         string length and threw, and a throw here left the previous answer on screen. */
-      var buf = ['<table><thead><tr><th>file</th><th>winning rule</th><th>requested for review</th></tr></thead><tbody>'];
+        b.push('<p class="empty">Every one of your ', rows.length, ' files was evaluated and is counted above; ',
+               'the table draws the first ', MAX_ROWS_SHOWN, '.</p>');
+      b.push('<table><thead><tr><th>file</th><th>winning rule</th><th>requested for review</th></tr></thead><tbody>');
+      var stoppedAt = -1;
       for (var ri = 0; ri < drawn; ri++) {
-        /* The render is metered on the same budget as the matching — it is a stage that costs
-           time, and the page promises every such stage is metered. */
-        if (nfa.tick(budget) || budget.exceeded) return refuseSlow();
+        if (nfa.tick(budget) || budget.exceeded) return slowBanner();
         var row = rows[ri];
-        buf.push('<tr><td class="path"><code>', esc(row.path), '</code>');
+        if (!b.push('<tr><td class="path"><code>', cell(row.path), '</code>')) { stoppedAt = ri; break; }
         if (row.lost.length) {
           var lshown = row.lost.length > MAX_LOST_SHOWN ? MAX_LOST_SHOWN : row.lost.length;
-          buf.push('<details><summary>', String(row.lost.length), ' rule',
-                   (row.lost.length > 1 ? 's' : ''), ' also matched, and lost</summary><ul>');
+          b.push('<details><summary>', row.lost.length, ' rule',
+                 (row.lost.length > 1 ? 's' : ''), ' also matched, and lost</summary><ul>');
           for (var li = 0; li < lshown; li++) {
             var l = row.lost[li];
-            buf.push('<li>', ruleLabel(l), ' &rarr; ',
-                     (l.owners.length ? ownerList(l.owners) : '(no owners)'), '</li>');
+            if (!b.push('<li>', ruleLabel(l), ' &rarr; ',
+                        (l.owners.length ? ownerList(l.owners) : '(no owners)'), '</li>')) break;
           }
           if (row.lost.length > lshown)
-            buf.push('<li class="empty">+', String(row.lost.length - lshown), ' more, all of which also lost</li>');
-          buf.push('</ul></details>');
+            b.push('<li class="empty">+', (row.lost.length - lshown), ' more, all of which also lost</li>');
+          b.push('</ul></details>');
         }
-        buf.push('</td><td class="rule">',
-                 (row.winner ? ruleLabel(row.winner) : '<span class="empty">no rule matches</span>'),
-                 '</td><td class="own', (row.winner && row.winner.owners.length ? '' : ' none'), '">',
-                 (row.winner ? ownersHtml(row.winner) : '<span class="own none">(none)</span>'),
-                 '</td></tr>');
+        b.push('</td><td class="rule">',
+               (row.winner ? ruleLabel(row.winner) : '<span class="empty">no rule matches</span>'),
+               '</td><td class="own', (row.winner && row.winner.owners.length ? '' : ' none'), '">',
+               (row.winner ? ownersHtml(row.winner) : '<span class="own none">(none)</span>'),
+               '</td></tr>');
       }
-      buf.push('</tbody></table>');
-      html += buf.join('');
+      b.push('</tbody></table>');
+      if (b.capped())
+        b.push('<p class="empty">Drawing stopped after ', (stoppedAt < 0 ? drawn : stoppedAt),
+               ' of ', rows.length, ' files: the answer reached this page\'s ', MAX_HTML_CHARS,
+               '-character drawing limit. Every file was still evaluated and is counted above.</p>');
     }
 
     /* ── problems ── */
     var problems = [];
-    parsed.skipped.forEach(function (s) {
-      problems.push({ cls: 'bad', html: '<span class="ln">L' + s.line + '</span><code>' + esc(s.text.replace(/^\s+|\s+$/g, '')) + '</code> — GitHub skips this line: ' + esc(s.error) });
+    parsed.skipped.forEach(function (s2) {
+      problems.push({ cls: 'bad', html: '<span class="ln">L' + s2.line + '</span><code>' +
+        cell(s2.text.replace(/^\s+|\s+$/g, '')) + '</code> — GitHub skips this line: ' + esc(s2.error) });
     });
     parsed.rules.forEach(function (r) {
       footgunsFor(r.text).forEach(function (f) {
@@ -1228,11 +1498,12 @@ footer a{color:var(--faint)}
       });
     });
     if (problems.length) {
-      html += '<h2>Lines GitHub will not use as you expect <span class="n">(' + problems.length + ')</span></h2><ul class="plain">';
+      b.push('<h2>Lines GitHub will not use as you expect <span class="n">(', problems.length, ')</span></h2><ul class="plain">');
       var pshown = problems.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : problems.length;
-      for (var pi = 0; pi < pshown; pi++) html += '<li class="' + problems[pi].cls + '">' + problems[pi].html + '</li>';
-      if (problems.length > pshown) html += '<li class="empty">+' + (problems.length - pshown) + ' more, counted above but not drawn</li>';
-      html += '</ul>';
+      for (var pi = 0; pi < pshown; pi++)
+        if (!b.push('<li class="', problems[pi].cls, '">', problems[pi].html, '</li>')) break;
+      if (problems.length > pshown) b.push('<li class="empty">+', (problems.length - pshown), ' more, counted above but not drawn</li>');
+      b.push('</ul>');
     }
 
     /* ── dead rules, relative to the file list given ── */
@@ -1242,40 +1513,61 @@ footer a{color:var(--faint)}
       else if (!everWon[r.line]) shadowed.push(r);
     });
     if (rows.length && (dead.length || shadowed.length)) {
-      html += '<h2>Rules that did nothing for these files <span class="n">(' + (dead.length + shadowed.length) + ')</span></h2><ul class="plain">';
+      b.push('<h2>Rules that did nothing for these files <span class="n">(', (dead.length + shadowed.length), ')</span></h2><ul class="plain">');
       var dshown = dead.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : dead.length;
-      for (var di = 0; di < dshown; di++) html += '<li>' + ruleLabel(dead[di]) + ' — matched none of the listed files.</li>';
-      if (dead.length > dshown) html += '<li class="empty">+' + (dead.length - dshown) + ' more, counted above but not drawn</li>';
+      for (var di = 0; di < dshown; di++)
+        if (!b.push('<li>', ruleLabel(dead[di]), ' — matched none of the listed files.</li>')) break;
+      if (dead.length > dshown) b.push('<li class="empty">+', (dead.length - dshown), ' more, counted above but not drawn</li>');
       var sshown = shadowed.length > MAX_ROWS_SHOWN ? MAX_ROWS_SHOWN : shadowed.length;
-      for (var si = 0; si < sshown; si++) html += '<li class="warn">' + ruleLabel(shadowed[si]) + ' — matched, but a later rule won every time.</li>';
-      if (shadowed.length > sshown) html += '<li class="empty">+' + (shadowed.length - sshown) + ' more, counted above but not drawn</li>';
-      html += '</ul><p class="empty">Judged only against the files you listed — a rule idle here may still fire on another pull request.</p>';
+      for (var si = 0; si < sshown; si++)
+        if (!b.push('<li class="warn">', ruleLabel(shadowed[si]), ' — matched, but a later rule won every time.</li>')) break;
+      if (shadowed.length > sshown) b.push('<li class="empty">+', (shadowed.length - sshown), ' more, counted above but not drawn</li>');
+      b.push('</ul><p class="empty">Judged only against the files you listed — a rule idle here may still fire on another pull request.</p>');
     }
 
-    elResult.innerHTML = html;
+    b.push('<p class="empty" id="measured">&nbsp;</p>');
+    return b.toString();
   }
 
-  /* Belt and braces: nothing in run() should throw, but if anything ever does, the one thing
-     that must NOT happen is the previous answer staying on screen as though it were current.
-     That is exactly what a RangeError did here before the render was bounded. */
-  function runGuarded() {
-    try { run(); }
-    catch (e) {
-      refuse('Cannot evaluate: this input broke the page while drawing the answer. ' +
-             'Nothing above is current — the previous result has been cleared rather than left ' +
-             'standing as though it were current.');
-    }
+  /* begin() is the only entry point. It clears FIRST and lets the clear paint before any
+     work starts, so a stale answer is never the last painted frame while a new one computes
+     — the failure a checker caught by screenshotting mid-run rather than by reading the DOM. */
+  var running = false;
+  function begin() {
+    if (running) return;
+    running = true;
+    elResult.innerHTML = '<p class="empty">working…</p>';
+    document.body.setAttribute('data-state', 'working');
+    afterPaint(function () {
+      var t0 = now(), html;
+      try { html = compute(); }
+      catch (e) {
+        html = banner('Cannot evaluate: this input broke the page while drawing the answer. ' +
+          'Nothing above is current — the previous result has been cleared rather than left ' +
+          'standing as though it were current.');
+      }
+      elResult.innerHTML = html;
+      afterPaint(function () {
+        var ms = Math.round(now() - t0);
+        var el = document.getElementById('measured');
+        if (el) el.textContent = 'answered in ' + ms + ' ms — measured from starting work to this ' +
+                                'text having been painted, so it includes the drawing.';
+        document.body.setAttribute('data-last-ms', String(ms));
+        document.body.setAttribute('data-state', 'idle');
+        running = false;
+      });
+    });
   }
 
   var timer = null;
-  function schedule() { if (timer) clearTimeout(timer); timer = setTimeout(runGuarded, 120); }
+  function schedule() { if (timer) clearTimeout(timer); timer = setTimeout(begin, 120); }
   elOwners.addEventListener('input', schedule);
   elPaths.addEventListener('input', schedule);
 
   renderPresets();
   elOwners.value = PRESETS[0].owners;
-  elPaths.value = PRESETS[0].paths;
-  runGuarded();
+  elPaths.value  = PRESETS[0].paths;
+  begin();
 })();
 </script>
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
