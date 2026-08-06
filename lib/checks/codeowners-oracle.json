@@ -1,0 +1,1218 @@
+{
+ "_doc": "CODEOWNERS matching oracle. Three independent grounds of truth for any ship touching CODEOWNERS / gitignore-style path patterns: (1) `pairs` - the reference implementation's own test corpus; (2) `github_documented` - examples from GitHub's About-code-owners page with the documented expectation quoted, which is the only PUBLISHED ground truth; (3) `line_skipping` - which malformed lines GitHub silently drops. Language-agnostic JSON on purpose.",
+ "pairs_source": "hmarr/codeowners testdata/patterns.json @ 11d3ff2659b769bcb43ddef81a6ab19d1205d9c2 (MIT, Copyright (c) 2020 Harry Marr) - https://github.com/hmarr/codeowners",
+ "github_docs_source": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners (read 2026-08-04)",
+ "differential_recipe": {
+  "_doc": "Beyond fixed corpora: Go 1.24+ is present in the build sandbox and hmarr/codeowners' ROOT package builds with no network (only cmd/ needs pflag, which is unreachable). Write a driver in a difftool/ subpackage of a shallow clone, build with GOFLAGS=-mod=mod, and pipe pairs through it. Ship 003 ran 100,000 generated (pattern, path) pairs this way for zero divergences.",
+  "clone": "git clone --depth 1 https://github.com/hmarr/codeowners.git",
+  "build": "GOFLAGS=-mod=mod go build -o difftool ./difftool   # root pkg only; ./... fails on proxy.golang.org",
+  "modes": {
+   "pairs": "{\"pairs\":[[pattern,path],...]} -> [bool|null|\"PANIC:..\"]",
+   "resolve": "{\"rules\":[\"<full line>\"],\"paths\":[...]} -> {kept,skipped,winner}"
+  },
+  "must_recover_from_panics": "hmarr/codeowners PANICS (index out of range [-1], match.go:47) on the pattern \"/\": newPattern takes the left-anchored-literal fast path, strips the slash, and then indexes prefix[len(prefix)-1] on an empty string. Any driver must recover() per pair or the whole run dies. Found by ship 003, 2026-08-04."
+ },
+ "known_divergences": [
+  {
+   "pattern": "/",
+   "reference": "panics (see above)",
+   "intended": "buildPatternRegex's unreachable `pattern == \"/\"` case compiles \\A\\z, i.e. matches only the empty string",
+   "ship_003": "reports no match for every path",
+   "impact": "none for real input - a changed-file path is never empty"
+  }
+ ],
+ "assert": "A CODEOWNERS matcher must score 100% on `pairs`, must produce the documented winner for every `github_documented` case, and must skip exactly the `line_skipping` entries marked true. Anything less is a wrong answer wearing a verdict's clothes.",
+ "pairs": [
+  {
+   "pattern": "foo",
+   "path": "foo",
+   "match": true,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "foo",
+   "path": "foo.txt",
+   "match": false,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "foo",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "foo",
+   "path": "bar/foo",
+   "match": true,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "foo",
+   "path": "bar/foo.txt",
+   "match": false,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "foo",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "foo",
+   "path": "bar/foo/baz",
+   "match": true,
+   "case": "single-segment pattern"
+  },
+  {
+   "pattern": "/foo",
+   "path": "foo",
+   "match": true,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo",
+   "path": "fool.txt",
+   "match": false,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo",
+   "path": "bar/foo",
+   "match": false,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo",
+   "path": "bar/foo/baz",
+   "match": false,
+   "case": "single-segment pattern with leading slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "foo",
+   "match": false,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "bar/foo",
+   "match": false,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "bar/foo/baz",
+   "match": true,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/",
+   "path": "bar/foo/baz/qux",
+   "match": true,
+   "case": "single-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "foo",
+   "match": false,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "bar/foo",
+   "match": false,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "bar/foo/baz",
+   "match": false,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/",
+   "path": "bar/foo/baz/qux",
+   "match": false,
+   "case": "single-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "foo/bar",
+   "path": "foo/bar",
+   "match": true,
+   "case": "multi-segment (implicitly left-anchored) pattern"
+  },
+  {
+   "pattern": "foo/bar",
+   "path": "foo/bart",
+   "match": false,
+   "case": "multi-segment (implicitly left-anchored) pattern"
+  },
+  {
+   "pattern": "foo/bar",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "multi-segment (implicitly left-anchored) pattern"
+  },
+  {
+   "pattern": "foo/bar",
+   "path": "baz/foo/bar",
+   "match": false,
+   "case": "multi-segment (implicitly left-anchored) pattern"
+  },
+  {
+   "pattern": "foo/bar",
+   "path": "baz/foo/bar/qux",
+   "match": false,
+   "case": "multi-segment (implicitly left-anchored) pattern"
+  },
+  {
+   "pattern": "/foo/bar",
+   "path": "foo/bar",
+   "match": true,
+   "case": "multi-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo/bar",
+   "path": "foo/bart",
+   "match": false,
+   "case": "multi-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo/bar",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "multi-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo/bar",
+   "path": "baz/foo/bar",
+   "match": false,
+   "case": "multi-segment pattern with leading slash"
+  },
+  {
+   "pattern": "/foo/bar",
+   "path": "baz/foo/bar/qux",
+   "match": false,
+   "case": "multi-segment pattern with leading slash"
+  },
+  {
+   "pattern": "foo/bar/",
+   "path": "foo/bar",
+   "match": false,
+   "case": "multi-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/bar/",
+   "path": "foo/bart",
+   "match": false,
+   "case": "multi-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/bar/",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "multi-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/bar/",
+   "path": "baz/foo/bar",
+   "match": false,
+   "case": "multi-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "foo/bar/",
+   "path": "baz/foo/bar/qux",
+   "match": false,
+   "case": "multi-segment pattern with trailing slash"
+  },
+  {
+   "pattern": "/foo/bar/",
+   "path": "foo/bar",
+   "match": false,
+   "case": "multi-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/bar/",
+   "path": "foo/bart",
+   "match": false,
+   "case": "multi-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/bar/",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "multi-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/bar/",
+   "path": "foo/bar/baz/qux",
+   "match": true,
+   "case": "multi-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/bar/",
+   "path": "baz/foo/bar",
+   "match": false,
+   "case": "multi-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "/foo/bar/",
+   "path": "baz/foo/bar/qux",
+   "match": false,
+   "case": "multi-segment pattern with leading and trailing slash"
+  },
+  {
+   "pattern": "*",
+   "path": "foo",
+   "match": true,
+   "case": "single segment lone wildcard"
+  },
+  {
+   "pattern": "*",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single segment lone wildcard"
+  },
+  {
+   "pattern": "*",
+   "path": "bar/foo",
+   "match": true,
+   "case": "single segment lone wildcard"
+  },
+  {
+   "pattern": "*",
+   "path": "bar/foo/baz",
+   "match": true,
+   "case": "single segment lone wildcard"
+  },
+  {
+   "pattern": "*",
+   "path": "bar/baz",
+   "match": true,
+   "case": "single segment lone wildcard"
+  },
+  {
+   "pattern": "*",
+   "path": "xfoo",
+   "match": true,
+   "case": "single segment lone wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "foo",
+   "match": true,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "bar/foo",
+   "match": true,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "bar/foo/baz",
+   "match": true,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "f*",
+   "path": "xfoo",
+   "match": false,
+   "case": "single segment pattern with wildcard"
+  },
+  {
+   "pattern": "/*",
+   "path": "foo",
+   "match": true,
+   "case": "single segment pattern with leading slash and lone wildcard"
+  },
+  {
+   "pattern": "/*",
+   "path": "bar",
+   "match": true,
+   "case": "single segment pattern with leading slash and lone wildcard"
+  },
+  {
+   "pattern": "/*",
+   "path": "foo/bar",
+   "match": false,
+   "case": "single segment pattern with leading slash and lone wildcard"
+  },
+  {
+   "pattern": "/*",
+   "path": "foo/bar/baz",
+   "match": false,
+   "case": "single segment pattern with leading slash and lone wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "foo",
+   "match": true,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "bar/foo",
+   "match": false,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "bar/foo/baz",
+   "match": false,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "/f*",
+   "path": "xfoo",
+   "match": false,
+   "case": "single segment pattern with leading slash and wildcard"
+  },
+  {
+   "pattern": "f*/",
+   "path": "foo",
+   "match": false,
+   "case": "single segment pattern with trailing slash and wildcard"
+  },
+  {
+   "pattern": "f*/",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single segment pattern with trailing slash and wildcard"
+  },
+  {
+   "pattern": "f*/",
+   "path": "bar/foo",
+   "match": false,
+   "case": "single segment pattern with trailing slash and wildcard"
+  },
+  {
+   "pattern": "f*/",
+   "path": "bar/foo/baz",
+   "match": true,
+   "case": "single segment pattern with trailing slash and wildcard"
+  },
+  {
+   "pattern": "f*/",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single segment pattern with trailing slash and wildcard"
+  },
+  {
+   "pattern": "f*/",
+   "path": "xfoo",
+   "match": false,
+   "case": "single segment pattern with trailing slash and wildcard"
+  },
+  {
+   "pattern": "/*/",
+   "path": "foo",
+   "match": false,
+   "case": "single segment pattern with leading and trailing slash and lone wildcard"
+  },
+  {
+   "pattern": "/*/",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single segment pattern with leading and trailing slash and lone wildcard"
+  },
+  {
+   "pattern": "/*/",
+   "path": "bar/foo",
+   "match": true,
+   "case": "single segment pattern with leading and trailing slash and lone wildcard"
+  },
+  {
+   "pattern": "/*/",
+   "path": "bar/foo/baz",
+   "match": true,
+   "case": "single segment pattern with leading and trailing slash and lone wildcard"
+  },
+  {
+   "pattern": "/f*/",
+   "path": "foo",
+   "match": false,
+   "case": "single segment pattern with leading and trailing slash and wildcard"
+  },
+  {
+   "pattern": "/f*/",
+   "path": "foo/bar",
+   "match": true,
+   "case": "single segment pattern with leading and trailing slash and wildcard"
+  },
+  {
+   "pattern": "/f*/",
+   "path": "bar/foo",
+   "match": false,
+   "case": "single segment pattern with leading and trailing slash and wildcard"
+  },
+  {
+   "pattern": "/f*/",
+   "path": "bar/foo/baz",
+   "match": false,
+   "case": "single segment pattern with leading and trailing slash and wildcard"
+  },
+  {
+   "pattern": "/f*/",
+   "path": "bar/baz",
+   "match": false,
+   "case": "single segment pattern with leading and trailing slash and wildcard"
+  },
+  {
+   "pattern": "/f*/",
+   "path": "xfoo",
+   "match": false,
+   "case": "single segment pattern with leading and trailing slash and wildcard"
+  },
+  {
+   "pattern": "f\\*o",
+   "path": "foo",
+   "match": false,
+   "case": "single segment pattern with escaped wildcard"
+  },
+  {
+   "pattern": "f\\*o",
+   "path": "f*o",
+   "match": true,
+   "case": "single segment pattern with escaped wildcard"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "foo",
+   "match": false,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "foo/bar",
+   "match": true,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "foo/bar/baz",
+   "match": false,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "bar/foo",
+   "match": false,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "bar/foo/baz",
+   "match": false,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "bar/baz",
+   "match": false,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*",
+   "path": "xfoo",
+   "match": false,
+   "case": "pattern with trailing wildcard segment"
+  },
+  {
+   "pattern": "foo/*.txt",
+   "path": "foo",
+   "match": false,
+   "case": "multi-segment pattern with wildcard"
+  },
+  {
+   "pattern": "foo/*.txt",
+   "path": "foo/bar.txt",
+   "match": true,
+   "case": "multi-segment pattern with wildcard"
+  },
+  {
+   "pattern": "foo/*.txt",
+   "path": "foo/bar/baz.txt",
+   "match": false,
+   "case": "multi-segment pattern with wildcard"
+  },
+  {
+   "pattern": "foo/*.txt",
+   "path": "qux/foo/bar.txt",
+   "match": false,
+   "case": "multi-segment pattern with wildcard"
+  },
+  {
+   "pattern": "foo/*.txt",
+   "path": "qux/foo/bar/baz.txt",
+   "match": false,
+   "case": "multi-segment pattern with wildcard"
+  },
+  {
+   "pattern": "foo/*/baz",
+   "path": "foo",
+   "match": false,
+   "case": "multi-segment pattern with lone wildcard"
+  },
+  {
+   "pattern": "foo/*/baz",
+   "path": "foo/bar",
+   "match": false,
+   "case": "multi-segment pattern with lone wildcard"
+  },
+  {
+   "pattern": "foo/*/baz",
+   "path": "foo/baz",
+   "match": false,
+   "case": "multi-segment pattern with lone wildcard"
+  },
+  {
+   "pattern": "foo/*/baz",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "multi-segment pattern with lone wildcard"
+  },
+  {
+   "pattern": "foo/*/baz",
+   "path": "foo/bar/baz/qux",
+   "match": true,
+   "case": "multi-segment pattern with lone wildcard"
+  },
+  {
+   "pattern": "f?o",
+   "path": "foo",
+   "match": true,
+   "case": "single segment pattern with single-character wildcard"
+  },
+  {
+   "pattern": "f?o",
+   "path": "fo",
+   "match": false,
+   "case": "single segment pattern with single-character wildcard"
+  },
+  {
+   "pattern": "f?o",
+   "path": "fooo",
+   "match": false,
+   "case": "single segment pattern with single-character wildcard"
+  },
+  {
+   "pattern": "f\\?o",
+   "path": "foo",
+   "match": false,
+   "case": "single segment pattern with escaped single-character wildcard"
+  },
+  {
+   "pattern": "f\\?o",
+   "path": "f?o",
+   "match": true,
+   "case": "single segment pattern with escaped single-character wildcard"
+  },
+  {
+   "pattern": "**/foo/bar",
+   "path": "foo/bar",
+   "match": true,
+   "case": "leading double-asterisk wildcard"
+  },
+  {
+   "pattern": "**/foo/bar",
+   "path": "qux/foo/bar",
+   "match": true,
+   "case": "leading double-asterisk wildcard"
+  },
+  {
+   "pattern": "**/foo/bar",
+   "path": "qux/foo/bar/baz",
+   "match": true,
+   "case": "leading double-asterisk wildcard"
+  },
+  {
+   "pattern": "**/foo/bar",
+   "path": "foo/baz/bar",
+   "match": false,
+   "case": "leading double-asterisk wildcard"
+  },
+  {
+   "pattern": "**/foo/bar",
+   "path": "qux/foo/baz/bar",
+   "match": false,
+   "case": "leading double-asterisk wildcard"
+  },
+  {
+   "pattern": "**/*bar*",
+   "path": "bar",
+   "match": true,
+   "case": "leading double-asterisk wildcard with regular wildcard"
+  },
+  {
+   "pattern": "**/*bar*",
+   "path": "foo/bar",
+   "match": true,
+   "case": "leading double-asterisk wildcard with regular wildcard"
+  },
+  {
+   "pattern": "**/*bar*",
+   "path": "foo/rebar",
+   "match": true,
+   "case": "leading double-asterisk wildcard with regular wildcard"
+  },
+  {
+   "pattern": "**/*bar*",
+   "path": "foo/barrio",
+   "match": true,
+   "case": "leading double-asterisk wildcard with regular wildcard"
+  },
+  {
+   "pattern": "**/*bar*",
+   "path": "foo/qux/bar",
+   "match": true,
+   "case": "leading double-asterisk wildcard with regular wildcard"
+  },
+  {
+   "pattern": "foo/bar/**",
+   "path": "foo/bar",
+   "match": false,
+   "case": "trailing double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/bar/**",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "trailing double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/bar/**",
+   "path": "foo/bar/baz/qux",
+   "match": true,
+   "case": "trailing double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/bar/**",
+   "path": "qux/foo/bar",
+   "match": false,
+   "case": "trailing double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/bar/**",
+   "path": "qux/foo/bar/baz",
+   "match": false,
+   "case": "trailing double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "foo/bar",
+   "match": true,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "foo/qux/bar/baz",
+   "match": true,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "foo/qux/quux/bar/baz",
+   "match": true,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "foo/bar/baz/qux",
+   "match": true,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "qux/foo/bar",
+   "match": false,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/bar",
+   "path": "qux/foo/bar/baz",
+   "match": false,
+   "case": "middle double-asterisk wildcard"
+  },
+  {
+   "pattern": "foo/**/",
+   "path": "foo",
+   "match": false,
+   "case": "middle double-asterisk wildcard with trailing slash"
+  },
+  {
+   "pattern": "foo/**/",
+   "path": "foo/bar",
+   "match": true,
+   "case": "middle double-asterisk wildcard with trailing slash"
+  },
+  {
+   "pattern": "foo/**/",
+   "path": "foo/bar/",
+   "match": true,
+   "case": "middle double-asterisk wildcard with trailing slash"
+  },
+  {
+   "pattern": "foo/**/",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "middle double-asterisk wildcard with trailing slash"
+  },
+  {
+   "pattern": "foo/**/bar/b*",
+   "path": "foo/bar",
+   "match": false,
+   "case": "middle double-asterisk wildcard with trailing wildcard"
+  },
+  {
+   "pattern": "foo/**/bar/b*",
+   "path": "foo/bar/baz",
+   "match": true,
+   "case": "middle double-asterisk wildcard with trailing wildcard"
+  },
+  {
+   "pattern": "foo/**/bar/b*",
+   "path": "foo/bar/qux",
+   "match": false,
+   "case": "middle double-asterisk wildcard with trailing wildcard"
+  },
+  {
+   "pattern": "foo/**/bar/b*",
+   "path": "foo/qux/bar",
+   "match": false,
+   "case": "middle double-asterisk wildcard with trailing wildcard"
+  },
+  {
+   "pattern": "foo/**/bar/b*",
+   "path": "foo/qux/bar/baz",
+   "match": true,
+   "case": "middle double-asterisk wildcard with trailing wildcard"
+  },
+  {
+   "pattern": "foo/**/bar/b*",
+   "path": "foo/qux/bar/qux",
+   "match": false,
+   "case": "middle double-asterisk wildcard with trailing wildcard"
+  },
+  {
+   "pattern": "/apps/[param]/file.ts",
+   "path": "apps/[param]/file.ts",
+   "match": true,
+   "case": "pattern with square brackets"
+  },
+  {
+   "pattern": "/apps/[param]/file.ts",
+   "path": "apps/other/file.ts",
+   "match": false,
+   "case": "pattern with square brackets"
+  },
+  {
+   "pattern": "/apps/[param]/file.ts",
+   "path": "apps/[other]/file.ts",
+   "match": false,
+   "case": "pattern with square brackets"
+  },
+  {
+   "pattern": "/apps/[param]/file.ts",
+   "path": "apps/param/file.ts",
+   "match": false,
+   "case": "pattern with square brackets"
+  },
+  {
+   "pattern": "services/foo:bar/**/*",
+   "path": "services/foo:bar/baz.json",
+   "match": true,
+   "case": "pattern with colon"
+  },
+  {
+   "pattern": "services/foo:bar/**/*",
+   "path": "services/foo-bar/baz.json",
+   "match": false,
+   "case": "pattern with colon"
+  },
+  {
+   "pattern": "vllm/v1/worker/^cpu",
+   "path": "vllm/v1/worker/^cpu",
+   "match": true,
+   "case": "pattern with caret"
+  },
+  {
+   "pattern": "vllm/v1/worker/^cpu",
+   "path": "vllm/v1/worker/cpu",
+   "match": false,
+   "case": "pattern with caret"
+  },
+  {
+   "pattern": "docs/report-v?.md",
+   "path": "docs/report-v\u03b1.md",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "docs/report-v?.md",
+   "path": "docs/report-va.md",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "docs/report-v?.md",
+   "path": "docs/report-v\u65e5.md",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "docs/report-v?.md",
+   "path": "docs/report-vab.md",
+   "match": false,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "fil?.txt",
+   "path": "fil\u00e9.txt",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "fil?.txt",
+   "path": "fila.txt",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "fil?.txt",
+   "path": "fil\ud83d\ude42.txt",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "fil?.txt",
+   "path": "fil.txt",
+   "match": false,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "fil?.txt",
+   "path": "filab.txt",
+   "match": false,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "a??c",
+   "path": "a\u65e5\u672cc",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "a??c",
+   "path": "aXYc",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "a??c",
+   "path": "a\u00e9\u00e9c",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "a??c",
+   "path": "aXc",
+   "match": false,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "?",
+   "path": "\u03b1",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "?",
+   "path": "a",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "?",
+   "path": "\ud83d\ude42",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "?",
+   "path": "ab",
+   "match": false,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1)"
+  },
+  {
+   "pattern": "?",
+   "path": "a/b",
+   "match": true,
+   "case": "single-rune wildcard vs multi-byte UTF-8 (regression: ship 003 checker round 1) \u2014 note a single-segment pattern carries an implicit leading '**/', so '?' matches the LAST segment at any depth (confirmed against the Go reference)"
+  }
+ ],
+ "github_documented": [
+  {
+   "rules": [
+    "*       @global-owner1 @global-owner2",
+    "*.js    @js-owner"
+   ],
+   "path": "app/index.js",
+   "winner": 2,
+   "note": "docs: 'When someone opens a pull request that only modifies JS files, only @js-owner and not the global owner(s) will be requested'"
+  },
+  {
+   "rules": [
+    "*       @global-owner1 @global-owner2",
+    "*.js    @js-owner"
+   ],
+   "path": "README.md",
+   "winner": 1,
+   "note": "docs: the global owners are the default 'unless a later match takes precedence'"
+  },
+  {
+   "rules": [
+    "docs/* docs@example.com"
+   ],
+   "path": "docs/getting-started.md",
+   "winner": 1,
+   "note": "docs: 'The docs/* pattern will match files like docs/getting-started.md'"
+  },
+  {
+   "rules": [
+    "docs/* docs@example.com"
+   ],
+   "path": "docs/build-app/troubleshooting.md",
+   "winner": null,
+   "note": "docs: '...but not further nested files like docs/build-app/troubleshooting.md'"
+  },
+  {
+   "rules": [
+    "apps/ @octocat"
+   ],
+   "path": "src/apps/web/index.js",
+   "winner": 1,
+   "note": "docs: '@octocat owns any file in an apps directory anywhere in your repository'"
+  },
+  {
+   "rules": [
+    "/docs/ @doctocat"
+   ],
+   "path": "docs/build-app/troubleshooting.md",
+   "winner": 1,
+   "note": "docs: '/docs/ ... in the root of your repository and any of its subdirectories'"
+  },
+  {
+   "rules": [
+    "/docs/ @doctocat"
+   ],
+   "path": "src/docs/x.md",
+   "winner": null,
+   "note": "leading slash anchors to the repository root"
+  },
+  {
+   "rules": [
+    "**/logs @octocat"
+   ],
+   "path": "build/logs/x.txt",
+   "winner": 1,
+   "note": "docs: '@octocat owns any file in a /logs directory such as /build/logs, /scripts/logs, and /deeply/nested/logs'"
+  },
+  {
+   "rules": [
+    "**/logs @octocat"
+   ],
+   "path": "deeply/nested/logs/x.txt",
+   "winner": 1,
+   "note": "same docs line"
+  },
+  {
+   "rules": [
+    "/build/logs/ @doctocat"
+   ],
+   "path": "build/logs/run.txt",
+   "winner": 1,
+   "note": "docs: '@doctocat owns any files in the build/logs directory at the root ... and any of its subdirectories'"
+  },
+  {
+   "rules": [
+    "/apps/ @octocat",
+    "/apps/github"
+   ],
+   "path": "apps/github/action.yml",
+   "winner": 2,
+   "note": "docs: the later owner-less rule wins and LEAVES THE SUBDIRECTORY UNOWNED \u2014 a rule with no owners still takes precedence"
+  },
+  {
+   "rules": [
+    "/apps/ @octocat",
+    "/apps/github"
+   ],
+   "path": "apps/web/index.js",
+   "winner": 1,
+   "note": "same example, the un-excepted path"
+  },
+  {
+   "rules": [
+    "/apps/ @octocat",
+    "/apps/github @doctocat"
+   ],
+   "path": "apps/github/action.yml",
+   "winner": 2,
+   "note": "docs: the subdirectory has its own owner @doctocat"
+  }
+ ],
+ "line_skipping": [
+  {
+   "line": "!vendor/** @nobody",
+   "skipped": true,
+   "why": "docs: 'Using ! to negate a pattern' does not work; '!' is not a valid pattern character, so the line is skipped"
+  },
+  {
+   "line": "config/*** @a",
+   "skipped": true,
+   "why": "three consecutive asterisks is not a valid pattern"
+  },
+  {
+   "line": "docs/** plain-string-not-an-owner",
+   "skipped": true,
+   "why": "owner is neither @user, @org/team nor an email address"
+  },
+  {
+   "line": "src/[abc]*.ts @range-owner",
+   "skipped": false,
+   "why": "docs: 'Using [ ] to define a character range' does not work - the brackets are matched LITERALLY, the line is NOT skipped"
+  },
+  {
+   "line": "* @a",
+   "skipped": false,
+   "why": "baseline"
+  },
+  {
+   "line": "  ",
+   "skipped": null,
+   "why": "blank lines are ignored, not skipped"
+  }
+ ],
+ "regression_notes": [
+  {
+   "found": "2026-08-04, ship 003 checker round 1",
+   "defect": "`?` compiled to 'exactly one BYTE that is not /' instead of 'exactly one RUNE that is not /'.",
+   "why_it_hid": "The byte/rune equivalence argument that makes a byte-stepping NFA valid holds for REPEATED constructs (.+ , [^/]+ , [^/]*) but NOT for a single non-repeated occurrence. Every pure-ASCII test passes; only a multi-byte character in the PATH exposes it.",
+   "lesson": "Any single-occurrence byte matcher in a byte-stepping port of a rune-based engine is suspect. Fuzz with non-ASCII paths, not just non-ASCII patterns."
+  },
+  {
+   "found": "2026-08-04, ship 003 checker round 1",
+   "defect": "Parsing and NFA emission were unmetered; a ~1 MiB pattern blocked the main thread ~3.9 s before any budgeted work started.",
+   "lesson": "Meter every stage that costs time, not just the obvious inner loop \u2014 and prefer a WALL-CLOCK deadline to a step counter: step throughput is shape-dependent (~32M/s, ~20M/s and ~4-5M/s measured for three different shapes), so a step budget is not a time bound."
+  },
+  {
+   "found": "2026-08-04, ship 003 targeted re-check (fix cycle 2; second cycle authorised in session)",
+   "defect": "A 1,101-1,291 ms main-thread block against a page advertising ~750 ms, from in-limits input.",
+   "named_causes": "runes() took no budget; addThread()'s epsilon-closure loop had no clock check.",
+   "real_cause_underneath": "literalBytes() called the UTF-8 encoder ONCE PER LITERAL CHARACTER \u2014 `new TextEncoder()` per call \u2014 costing 214 ms of a 526 ms parse on a 300,000-character pattern. An ASCII code point IS its own UTF-8 byte, so the encoder was never needed for it.",
+   "what_a_budget_cannot_bound": "Garbage collection. With the pathological patterns metered, the measured block still overshot the deadline by ~200 ms because ~1M short-lived AST and instruction objects were allocated. A work budget bounds CPU in your own loops; it cannot bound the collector. The fix was a DOMAIN bound \u2014 a CODEOWNERS pattern is a path pattern, so it is capped at the same 4,096 characters a path is \u2014 which removes the allocation-bomb class instead of metering it. Aggregate load (many rules x many paths) stays the budget's job.",
+   "lesson": "When a metered loop still overshoots its deadline, look for (a) a per-item call that allocates, and (b) work you cannot meter at all. Do not answer either one by raising the budget.",
+   "measured": "worst adversarial main-thread block: 3,894 ms -> 1,291 ms -> 954 ms -> 607 ms, against a 750 ms promise."
+  }
+ ]
+}

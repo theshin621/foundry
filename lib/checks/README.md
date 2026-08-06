@@ -35,3 +35,34 @@ build library makes ship #20's build cost half of ship #1's.
   Actions globs; ship 002's rebuild must pass all of them.
 
 Language-agnostic on purpose: JSON corpora, not JS, so a checker in any language loads them.
+
+## Added by ship 003 (codeowners, 2026-08-04)
+
+- `codeowners-oracle.json` — three independent grounds of truth for CODEOWNERS /
+  gitignore-style path matching: the reference implementation's own 153-pair test corpus,
+  13 cases lifted from **GitHub's documented example block** with the documentation's own
+  expectation quoted (the only PUBLISHED ground truth), and the set of malformed lines
+  GitHub silently skips. It also carries a **differential recipe**: Go is installed in the
+  build sandbox and `hmarr/codeowners`' root package builds with no network, so a checker
+  can re-answer any (pattern, path) pair with the real Go implementation instead of arguing
+  about it. Ship 003 ran 100,000 generated pairs through it.
+- **A trap the recipe records so no future checker rediscovers it:** `hmarr/codeowners`
+  *panics* (`index out of range [-1]`, `match.go:47`) on the pattern `/`. A driver without a
+  per-pair `recover()` dies mid-run and looks like a harness bug.
+- Ship 003's checker round then broke the ship twice, and both findings are now permanent
+  regression material inside `codeowners-oracle.json` (`regression_notes` + 18 added pairs):
+  a **single-occurrence byte matcher** in a byte-stepping port of a rune-based engine (`?`
+  matched one byte, not one rune — invisible to every ASCII test), and **unmetered
+  parse/compile** (a ~1 MiB pattern froze the tab 3.9 s before any budgeted work began).
+  The second one carries a general lesson worth more than the fix: **step throughput is
+  shape-dependent** — ~32M/s, ~20M/s and ~4-5M/s measured for three different workloads —
+  so a step counter is not a time bound, and only a wall-clock deadline is honest enough
+  for a UI to quote.
+
+## `door-limits.json` (ship 003 rebuild, 2026-08-05)
+
+Input-dimension probes for any ship with a pasted text box: chars, lines, line length, **field
+length** (the one that gets missed), and output size. Plus the stale-answer probe — a page that
+computes synchronously never paints its own `clear()`, so the last painted frame during a long run
+is the previous answer. Reading the DOM does not catch that; screenshot mid-run or assert a state
+attribute flips before compute begins.

@@ -4,11 +4,11 @@
       "n": 1,
       "date": "2026-07-30",
       "slug": "hub",
-      "one_liner": "the foundry's own hub \u2014 public ledger, factory library, and the deploy pipeline proven end-to-end",
-      "gap_source_url": "PLAYBOOK.md \u00a78 \u2014 ship #001 is the factory itself, proven on its own body before any market idea",
+      "one_liner": "the foundry's own hub — public ledger, factory library, and the deploy pipeline proven end-to-end",
+      "gap_source_url": "PLAYBOOK.md §8 — ship #001 is the factory itself, proven on its own body before any market idea",
       "deploy_url": "/",
       "kind": "app",
-      "checker_verdict": "PASS after one fix-cycle \u2014 initial PARTIAL (stale sites/ ship-path in 3 files; lib/ overclaim; verdict-before-merge) fully cured and re-verified; hub JS/stats/empty-states/mobile/secrets/PII verified against local cold fetch; live-URL unverified (egress)",
+      "checker_verdict": "PASS after one fix-cycle — initial PARTIAL (stale sites/ ship-path in 3 files; lib/ overclaim; verdict-before-merge) fully cured and re-verified; hub JS/stats/empty-states/mobile/secrets/PII verified against local cold fetch; live-URL unverified (egress)",
       "distribution": {
         "registry_pr": "n/a (not an MCP server)",
         "hub": "self",
@@ -16,9 +16,9 @@
       },
       "signal": {},
       "status": "live",
-      "kill_criterion": "n/a \u2014 infrastructure ship; lives while the loop lives",
+      "kill_criterion": "n/a — infrastructure ship; lives while the loop lives",
       "plain": {
-        "money": "Not monetised \u2014 the hub is the shop window and distribution surface for every other ship."
+        "money": "Not monetised — the hub is the shop window and distribution surface for every other ship."
       }
     },
     {
@@ -26,7 +26,7 @@
       "date": "2026-08-03",
       "slug": "gha-trigger",
       "one_liner": "paste a GitHub Actions workflow and an event, get WILL RUN / WON'T RUN plus the exact filter that decided it",
-      "gap_source_url": "https://github.com/orgs/community/discussions/25285 \u2014 recurring 'my workflow didn't trigger' thread (plus community #164673, #180208, #185355). Occupant hunt re-run 2026-08-03, still empty: rhysd/actionlint lints filter-pattern SYNTAX only and never evaluates a concrete event; nektos/act selects workflows by event name alone (its CLI skips the filter layer, though its pkg/workflowpattern library implements the semantics correctly). Demand amplifier dated 2026-07-28: https://github.blog/changelog/2026-07-28-github-actions-holds-potentially-malicious-workflows-for-approval/ adds a brand-new reason for a run not to appear.",
+      "gap_source_url": "https://github.com/orgs/community/discussions/25285 — recurring 'my workflow didn't trigger' thread (plus community #164673, #180208, #185355). Occupant hunt re-run 2026-08-03, still empty: rhysd/actionlint lints filter-pattern SYNTAX only and never evaluates a concrete event; nektos/act selects workflows by event name alone (its CLI skips the filter layer, though its pkg/workflowpattern library implements the semantics correctly). Demand amplifier dated 2026-07-28: https://github.blog/changelog/2026-07-28-github-actions-holds-potentially-malicious-workflows-for-approval/ adds a brand-new reason for a run not to appear.",
       "deploy_url": "/002-gha-trigger/",
       "kind": "app",
       "rebuild_of": "ship 002 attempt 1 (2026-08-02, checker FAIL x2 on a hand-rolled glob->RegExp compiler). Semantics BORROWED from nektos/act pkg/workflowpattern (MIT, commit 4f411281417e88660bea1c1a1749aa71ae0bd60f); execution deliberately NOT ported, because act is linear-time only by virtue of Go's RE2 and a verbatim JS port would have reintroduced the same ReDoS.",
@@ -34,13 +34,37 @@
       "distribution": {
         "registry_pr": "n/a (not an MCP server)",
         "hub": "inherits from public/ledger.json once merged",
-        "x_draft": "drafted in briefs/2026-08-03.md \u2014 never posted"
+        "x_draft": "drafted in briefs/2026-08-03.md — never posted"
       },
       "signal": {},
       "status": "live",
       "kill_criterion": "<300 unique visits to /002-gha-trigger/ in the 30 days after publish -> graveyard.md (per-path pageviews, the only unit the cookieless beacon measures)",
       "plain": {
-        "money": "Free until 2026-09-02 while the beacon counts visits. \u2265300 unique visits graduates it to Sunday triage for a paid layer (e.g. the same check running inside your repo\u2019s CI); under 300, it dies to the graveyard."
+        "money": "Free until 2026-09-02 while the beacon counts visits. ≥300 unique visits graduates it to Sunday triage for a paid layer (e.g. the same check running inside your repo’s CI); under 300, it dies to the graveyard."
+      }
+    },
+    {
+      "n": 3,
+      "date": "2026-08-06",
+      "slug": "codeowners",
+      "one_liner": "paste your CODEOWNERS file and the paths a pull request touches, get the reviewer GitHub will actually request for each one plus the rules it is quietly ignoring",
+      "gap_source_url": "EVERGREEN lane - why-now waived by contract, occupant hunt not waived. Re-run 2026-08-04: six projects (all CLI/library/GitHub-Action shaped: hmarr/codeowners, mszostok/codeowners-validator, and four smaller linters), none a web page you can paste into. Semantics BORROWED, not hand-rolled: hmarr/codeowners @ 11d3ff2659b769bcb43ddef81a6ab19d1205d9c2 (MIT), execution replaced with the lib/nfa.js Pike VM.",
+      "deploy_url": "not deployed - branch ship/003-codeowners, unmerged, HEAD 6197cbf",
+      "kind": "app",
+      "attempts": "THREE. 2026-08-04 build (FAIL), 2026-08-05 rebuild on a recorded design constraint (FAIL after one fix cycle and a targeted re-check), 2026-08-06 rebuild on a two-item design constraint (FAIL after one fix cycle and a targeted re-check). SEVEN independent checker verdicts across three days, all on a different model from the maker, none given a prior verdict. Zero PASS.",
+      "checker_verdict": "FAIL. Three independent refutation-seeking checkers this run, none given a prior verdict, all on a different model from the maker, all driving the real page cold in Chromium. ROUND 1, TWO PARALLEL CHECKERS, VERBATIM: [A] VERDICT: FAIL, printed timing ceiling \"33ms to 533ms\" beaten repeatedly with door-legal input (500 rules x 500 paths -> data-last-ms 534ms and 538ms across 8 trials; 1000 rules x 250 paths -> 567ms twice across 7 trials), the page's own specific \"491 ms\" newline-flood claim beaten in 4/4 fresh-page trials (1 MiB owners box of pure \"\\n\" -> data-last-ms 814/664/617/692ms, all +26% to +66% over claim), the \"9 ms\" full-1MiB-box door.scan claim beaten (cold single-call 17.6-27.8ms across 5 fresh page loads, avg ~20.8ms), a door-legal 297-char path silently rendered truncated to 256 chars+\"...\" in the results table via cell() hardcoding MAX_FIELD for every value including paths (which have their own separate 1024-char limit), and ledger.json's ship-3 row (status \"failed\", verdict FAIL, describing attempt 2's residual defects) was never updated after commit 1361cdc rebuilt the page a third time, so the ledger does not describe the code actually under test on this branch. [B] VERDICT: FAIL - door-legal input (CODEOWNERS box: 1500 rules of the form `/a @owner000 @owner001 ... @owner019` [20 owners each, literal-anchored pattern], 304,500 chars; paths box: 5000 lines of `a`, 10,000 chars - every door limit satisfied with wide margin) makes compute() reproducibly return a complete, byte-verified-correct, non-refused answer while blowing the page's own 500ms work-deadline and documented \"up to 533ms\" ceiling: page-reported data-last-ms up to 789ms (independently-verified-correct trials reached 635ms), wall-clock-to-idle up to 1023ms - caused by an unmetered O(rules x paths) loop at page.src.html:453-454 (`[r.winner].concat(r.alsoMatched)` + `everMatched[all[k].line]=true`) and lib/codeowners.js:461 (`hits.slice(1)`), none of which ever call `nfa.tick()`, compounded by the ~982,000-character drawn table's DOM/layout/paint cost which the budget has no visibility into at all. ONE FIX CYCLE (all the contract allows): the aggregation loop whose cost tracks the HIT RATE rather than the rule count was charged against the budget in both places (lib/codeowners.js resolve() and the page's row loop, which also dropped the [winner].concat(alsoMatched) allocation); paths were given pathCell() so they clip at their own 1024 limit instead of the 256 field limit; and every printed speed ceiling was REMOVED rather than re-measured, on the reasoning that four consecutive rounds of a beaten number is a structural defect and a page whose cost depends on input, machine and paint cannot honestly advertise a ceiling at all. TARGETED RE-CHECK by a fresh adversary on the fix diff (1361cdc..6197cbf), VERBATIM: VERDICT: FAIL - cell() (clip at MAX_FIELD=256) still renders skipped-CODEOWNERS-line raw text (`s2.text`, door-legal up to MAX_RULE_LINE=4096) in the shipped index.html:1655 / page.src.html:562, silently truncating any door-legal skipped line over 256 chars with an ellipsis. Reproduced with the 292-char line `docs/** bad-owner-token-xx` x12 (a syntactically-valid-length line the door never refuses, GitHub skips it for invalid owner format) rendered in the \"Lines GitHub will not use as you expect\" list truncated to exactly 257 chars, hiding 35 characters of the real line; same 257-char truncation reproduced at line lengths 300/500/1000/2000/4000/4073 chars (always cut to 257, never the true length). This is the identical \"right answer, wrong label\" defect class pathCell() was built to close (per the page's own comment on cell(): \"clipping there can only ever fire on something already refused\" - falsified by this sink). Secondary, softer finding: the prose's \"well under a millisecond\" / \"a fraction of a millisecond\" claims for door refusals are true only of the isolated door.scan() call (0.05ms field-bomb, 0.50ms newline-flood, directly measured) - the page's own data-last-ms for those exact refusals was 33ms and 596-607ms respectively (the newline-flood figure is 600x+ the claim), and for door-level refusals the page shows no visible timing text at all (#measured element absent), so the claim can't be self-checked where it's made. WHAT THE RE-CHECK CONFIRMED HELD, and is therefore proven rather than assumed: the named 1500x5000 adversarial input now refuses at 473 ms reported / 650 ms wall (was 789/1023 answering); ~100 live-page runs across rule counts 500-20,000 x path counts 50-5,000 x four hit-rate shapes found NO case where metered work exceeded 500 ms while still answering (JS compute 197-430 ms in every instrumented case, the excess being browser paint the prose explicitly disclaims); the new budget charge never corrupts an answer it lets through - 190/190 oracle cases (171 pairs + 13 GitHub-documented + 6 line-skipping) run against the LIVE page with 0 mismatches against a budget=null Node reference, plus four maximum-alsoMatched stress cases matching exactly including true untruncated lost-rule counts; the charge is monotone (clean non-oscillating cutoff, no shape-dependent hole across four ~3M-pair shapes); pathCell boundaries 255/256/257/1023/1024 drawn byte-exact and 1025 refused at the door; fields still capped at 256; 1000 rows of 1024-char paths produced 997,617 raw characters against the 1,000,000 bound with zero tag imbalance and the correct 'Drawing stopped after 858 of 1000 files' disclosure, captured through a prototype-level innerHTML interceptor so browser error-recovery could not hide a defect; the bare-textarea comparison verified independently (bare 29.36 s vs this page 28.12 s on 1 MiB of newlines); every door limit off-by-one exact in both directions; the generation-counter runner did not strand across 73 rAF-sampled frames under a 4-wave x 6-delay input barrage; 9 XSS payloads x 4 sinks, 0 injections; 2 network requests, 0 cookies; mobile 375px no overflow. THE VERDICT IS STILL FAIL. The residual is one line: the skipped-line sink at page.src.html:562 still calls cell() where it needs a 4096-char clip. It is NOT fixed here, because the contract allows one fix cycle and changing code after the verdict would mean recording a verdict against something other than what was tested.",
+      "distribution": {
+        "registry_pr": "n/a (not an MCP server)",
+        "hub": "not listed - never staged, never public",
+        "x_draft": "none - the build-in-public draft is a stage-gate deliverable and the stage gate was not reached"
+      },
+      "signal": {},
+      "status": "failed",
+      "kill_criterion": "n/a - never published. KILLED instead by the anti-grind clause written into briefs/2026-08-06.md BEFORE the build: 'if today's build does not reach a checker PASS, codeowners goes to graveyard.md and never re-enters.'",
+      "plain": {
+        "what": "A free web page: paste your CODEOWNERS file and the files a pull request touches, and see exactly who GitHub will ask to review each one - and which of your rules a later line is quietly overriding.",
+        "solves": "CODEOWNERS picks reviewers on every PR, but the LAST matching rule wins rather than the most specific one, so teams believe a rule protects a directory when a broader rule below it has been overriding it for months.",
+        "money": "None, and there will not be any. The matching is correct and heavily proven - 190/190 reference cases against the live page - and the page is secure, private, bounded and mobile-clean. It died on presentation defects, not on being wrong: three days and seven verdicts, and every fix cycle revealed a sibling of the defect it had just closed. The loop killed it under a rule it wrote for itself before starting, rather than spend a fourth day. The engineering is kept: lib/door.js, lib/checks/door-limits.json and four hard-won build rules carry into every future ship."
       }
     }
   ]
