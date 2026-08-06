@@ -1,0 +1,34 @@
+{
+ "checked_utc": "2026-08-06T02:14:39Z",
+ "commit": "d271a52",
+ "base": "https://foundry.theshin-naidu.workers.dev",
+ "hub": {
+  "path": "/",
+  "http": 200,
+  "ok": true,
+  "bytes": 4134,
+  "has_beacon": true
+ },
+ "ships": [
+  {
+   "path": "/",
+   "http": 200,
+   "ok": true,
+   "bytes": 4134,
+   "has_beacon": true,
+   "n": 1,
+   "slug": "hub",
+   "status": "live"
+  },
+  {
+   "path": "/002-gha-trigger/",
+   "http": 200,
+   "ok": true,
+   "bytes": 66660,
+   "has_beacon": true,
+   "n": 2,
+   "slug": "gha-trigger",
+   "status": "live"
+  }
+ ]
+}
