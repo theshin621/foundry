@@ -198,15 +198,25 @@
    "date": "2026-08-06",
    "slug": "khanya-school-tutor",
    "lane": "DIRECTED",
-   "outcome": "FAST-TRACK ORDERED by Theshin (2026-08-06, foundry session) \u2014 short-circuit the scout, build and DEPLOY. Spec lives in another conversation; recovery pending (claude.ai signed out in Chrome). Publish approval is GIVEN in advance by the order itself; checker still gates.",
-   "note": "Theshin reports he ordered this school tutoring app fast-tracked into the foundry in a separate convo; that session's work never reached the repo (no write path outside the foundry environment). Do NOT dedupe-reject; builds in the interactive session on spec recovery."
+   "outcome": "BUILT + DEPLOYED 2026-08-06 as ship 004 (directed) \u2014 recovered from vault projects/tutor-agent; embedded family API key stripped for the public build; checker PASS",
+   "note": "Theshin reports he ordered this school tutoring app fast-tracked into the foundry in a separate convo; that session's work never reached the repo (no write path outside the foundry environment). Do NOT dedupe-reject; builds in the interactive session on spec recovery.",
+   "plain": {
+    "what": "Gamified CAPS/IEB school tutor web app, Gr 3-12: Socratic chat, knowledge maps, Snap & Solve, tests, spaced repetition",
+    "solves": "kids get a $100/hr-style tutor without the tutor \u2014 SA curriculum-aligned, demo mode free, BYO free Gemini key",
+    "money": "parent-corner R99/R199 placeholders; monetisation gated on backend key proxy per the vault README (browser key = family-only)"
+   }
   },
   {
    "date": "2026-08-06",
    "slug": "appcleaner-for-mac",
    "lane": "DIRECTED",
-   "outcome": "FAST-TRACK ORDERED by Theshin (2026-08-06, foundry session) \u2014 short-circuit the scout, build and DEPLOY. Spec lives in another conversation; recovery pending (claude.ai signed out in Chrome). Publish approval is GIVEN in advance by the order itself; checker still gates.",
-   "note": "Theshin reports he ordered this AppCleaner-for-Mac utility fast-tracked into the foundry in a separate convo; that session's work never reached the repo (no write path outside the foundry environment). Do NOT dedupe-reject; builds in the interactive session on spec recovery."
+   "outcome": "BUILT + DEPLOYED 2026-08-06 as ship 005 maccleaner v1.1.4 (directed) \u2014 recovered from the stalled build session; checker PARTIAL -> one fix cycle -> RECHECK PASS",
+   "note": "Theshin reports he ordered this AppCleaner-for-Mac utility fast-tracked into the foundry in a separate convo; that session's work never reached the repo (no write path outside the foundry environment). Do NOT dedupe-reject; builds in the interactive session on spec recovery.",
+   "plain": {
+    "what": "Single-file bash cleanup tool: AppCleaner-style orphan hunt + pip/npm/gradle/cargo/brew/Xcode/Docker/Trash debris",
+    "solves": "reclaims dev-Mac gigabytes without the terror \u2014 quarantine not delete, manifest, full undo, purge double-gated",
+    "money": "free-first per foundry rules; donation/pro-features candidate at Sunday triage once signal exists"
+   }
   }
  ],
  "dropped_on_occupancy": [

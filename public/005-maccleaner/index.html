@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>maccleaner — safe, auditable macOS cleanup</title>
+<meta name="description" content="AppCleaner-style leftover finder plus dev-machine debris cleanup for macOS. Scan by default, quarantine instead of delete, everything restorable, every action logged.">
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--text2:#c9d1d9;--muted:#8b949e;--pos:#3fb950;--warn:#d29922;--accent:#58a6ff;--accent-strong:#1f6feb;--mono:ui-monospace,SFMono-Regular,monospace;--sans:-apple-system,"Segoe UI",Roboto,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text2);font:400 14px/1.6 var(--sans)}
+  .wrap{max-width:820px;margin:0 auto;padding:40px 20px 60px}
+  h1{font:600 28px/1.2 var(--sans);color:var(--text);margin:0 0 6px}
+  h2{font:600 17px/1.4 var(--sans);color:var(--text);margin:28px 0 10px}
+  .sub{color:var(--muted);font-size:15px;margin-bottom:22px}
+  .pill{display:inline-block;background:var(--surface2);border-radius:4px;padding:2px 8px;font:400 11px/1.4 var(--mono);margin-right:6px}
+  .pill.pos{color:var(--pos)} .pill.warn{color:var(--warn)}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .btn{display:inline-block;background:var(--accent-strong);color:var(--text);border-radius:6px;padding:10px 16px;font:500 14px/1 var(--sans);margin:4px 8px 4px 0}
+  .btn.green{background:#238636}
+  pre{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px;font:12.5px/1.6 var(--mono);overflow-x:auto;color:var(--text2)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px 18px;margin:10px 0}
+  .card.warn{border-left:3px solid var(--warn)}
+  .card.pos{border-left:3px solid var(--pos)}
+  ul{margin:8px 0;padding-left:22px} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+  th{color:var(--muted);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:6px 8px;border-bottom:1px solid var(--border)}
+  td.mono{font-family:var(--mono);white-space:nowrap}
+  footer{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>maccleaner</h1>
+  <div class="sub">Safe, auditable macOS cleanup — the AppCleaner leftover-finding trick, plus all the dev-machine debris it ignores. <b>Scans by default. Quarantines instead of deleting. Everything restorable.</b></div>
+
+  <span class="pill pos">v1.1.4</span>
+  <span class="pill">bash 3.2-compatible syntax</span>
+  <span class="pill">zero dependencies</span>
+  <span class="pill">single file · ~28 KB</span>
+
+  <p style="margin-top:18px">
+    <a class="btn green" href="maccleaner.sh" download>Download maccleaner.sh</a>
+    <a class="btn" href="https://github.com/theshin621/foundry/blob/main/public/005-maccleaner/maccleaner.sh">Read the source</a>
+  </p>
+
+  <h2>Run it</h2>
+<pre>curl -fsSLO https://foundry.theshin-naidu.workers.dev/005-maccleaner/maccleaner.sh
+bash maccleaner.sh              # scan + report — touches NOTHING
+bash maccleaner.sh --apply all-safe   # act on the conservative preset
+bash maccleaner.sh --list-quarantine  # see what was moved
+bash maccleaner.sh --restore TIMESTAMP  # full undo</pre>
+  <p>Your first run should always be the plain scan — read the report before applying anything.</p>
+
+  <h2>What it cleans</h2>
+  <table>
+    <tr><th>category</th><th>what</th><th>how</th></tr>
+    <tr><td class="mono">caches · logs</td><td>~/Library/Caches, ~/Library/Logs</td><td>quarantined, restorable</td></tr>
+    <tr><td class="mono">pip · npm · pnpm · yarn<br>gradle · cargo · xcode</td><td>developer tool caches, DerivedData</td><td>native tool clean where possible (measured), else quarantine</td></tr>
+    <tr><td class="mono">brew · sim · docker</td><td>Homebrew cleanup, dead simulators, docker prune</td><td>native commands, measured honestly</td></tr>
+    <tr><td class="mono">trash</td><td>~/.Trash items old by BOTH mtime and ctime</td><td>permanent — must be named explicitly, double age-gated</td></tr>
+    <tr><td class="mono">orphans</td><td>leftovers of uninstalled apps (the AppCleaner trick)</td><td>only regenerable state auto-quarantines; anything that could hold user data is report-only</td></tr>
+  </table>
+
+  <h2>The safety model</h2>
+  <ul>
+    <li><b>Default run is a pure scan</b> — it writes only its own report and log files.</li>
+    <li><b>--apply moves to quarantine</b> (<span class="pill mono">~/MacCleaner/quarantine/</span>) with a manifest — <span class="pill mono">--restore</span> is a full undo. Nothing is deleted until you explicitly purge.</li>
+    <li><b>Structurally unreachable:</b> Documents, Desktop, Dropbox, Pictures/Music/Movies, code folders, iOS device backups — an allowlist plus a protected-list veto on every single move, and (v1.1.4) moves through <i>symlinked parent directories</i> are refused outright, so a relocated-caches setup can't smuggle protected files past the path checks.</li>
+    <li><b>Refuses to run as root.</b> Timestamps are the only thing restore/purge accept — path traversal is killed at argument parse.</li>
+    <li>Only trash-emptying and explicit purge are permanent, and both are double-gated.</li>
+  </ul>
+
+  <h2>Verification — stated honestly</h2>
+  <div class="card pos">
+    <b>Original build:</b> three adversarial checker rounds on an independent model (rounds 1–2 FAIL with real blockers — including a trash-aging bug and a purge path-traversal the checker caught before anything shipped; round 3 PASS, zero blockers). 85/85 automated checks, shellcheck clean.<br><br>
+    <b>This deployment</b> (recovered from the build session and re-verified independently): <span class="mono">bash -n</span> clean · shellcheck clean (warning level) · embedded-python compiles · behavioral suite green (scan touches nothing; apply→quarantine→manifest→restore round-trip; traversal/bad-category/age guards all reject; trash aging deletes only both-ways-old items; root refusal) · fresh adversarial checker round: <b>PARTIAL</b> — it reproduced a symlinked-<i>ancestor</i> escape (a relocated ~/Library/Caches could let protected files be quarantined; restorable, never destroyed) → fixed in v1.1.4 (moves through symlinked parents are refused) and re-verified under the same attack. Full verdicts verbatim in the <a href="https://github.com/theshin621/foundry/blob/main/ledger.json">foundry ledger</a>.
+  </div>
+  <div class="card warn">
+    <b>Known limit:</b> tested hard on Linux bash 5 + GNU userland; <b>not yet on stock macOS bash 3.2.57 / BSD tools</b> (no bash-4+ syntax is used; its owner reports a successful real-Mac run of v1.1.3). Make your first run the harmless no-argument scan. Trash and orphan actions on a real Mac deserve a look at the report first.
+  </div>
+
+  <h2>Why not just AppCleaner?</h2>
+  <p>AppCleaner is great at one thing: dragging an app to find its leftovers. maccleaner does the leftover hunt across your whole machine at once <i>plus</i> the gigabytes AppCleaner never looks at — pip/npm/pnpm/yarn/gradle/cargo/Homebrew/Xcode caches, Docker debris, aged Trash — with a stricter model: quarantine first, delete only when you say so, and a report that never lies about what was measured versus estimated.</p>
+
+  <footer>built by <a href="https://foundry.theshin-naidu.workers.dev">foundry</a> · day 005 · <a href="https://foundry.theshin-naidu.workers.dev/dashboard/">status</a> · ship 005 was a directed build (ordered by Theshin, 2026-08-06), verified before deploy like every other ship</footer>
+</div>
+</body>
+</html>
