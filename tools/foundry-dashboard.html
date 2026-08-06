@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-generated="2026-08-06T04:01:24Z">
+<html lang="en" data-generated="2026-08-06T06:17:27Z">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -71,12 +71,14 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-06 04:01 UTC (06:01 SAST)</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-06 06:17 UTC (08:17 SAST)</span>
     <span class="pill mut mono" id="age" title="how old this copy's baked data is — computed in your browser at open, no network needed">age —</span>
-    <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-06 02:21 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-06 02:21 UTC</span>
+    <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-06 04:04 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-06 04:04 UTC</span>
     <span class="grow"></span>
+    <button class="btn" id="refresh-btn" type="button" style="border:0;cursor:pointer;margin-right:8px;font-family:var(--sans)" title="re-pull ledger, candidates, graveyard, brief and health from the repo right now and re-render — no need to reopen the page">&#8635; Refresh data</button>
+    <a class="btn" id="latest-btn" href="https://foundry.theshin-naidu.workers.dev/002-gha-trigger/" style="background:#8957e5;margin-right:8px" title="the newest LIVE ship — restamped every run, live-updated when refresh works">Latest ship: <span id="latest-btn-label">002 · gha-trigger</span></a>
     <a class="btn" id="live-btn" href="https://foundry.theshin-naidu.workers.dev" style="background:#238636;margin-right:8px">Open live site</a>
-    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-05.md">Open latest brief</a>
+    <a class="btn" id="brief-btn" href="https://github.com/theshin621/foundry/blob/main/briefs/2026-08-06.md">Open latest brief</a>
   </div>
 
   <div class="tiles">
@@ -144,7 +146,8 @@
 
       <div class="panel">
         <h2>Links</h2>
-        <div class="kv"><span class="k">live dashboard</span><span class="v"><a href="https://foundry.theshin-naidu.workers.dev/dashboard/">/dashboard/ · restamped every run</a></span></div>
+        <div class="kv"><span class="k">latest ship</span><span class="v"><a id="latest-url" style="word-break:break-all" href="https://foundry.theshin-naidu.workers.dev/002-gha-trigger/">foundry.theshin-naidu.workers.dev/002-gha-trigger/</a></span></div>
+        <div class="kv"><span class="k">live dashboard</span><span class="v"><a style="word-break:break-all" href="https://foundry.theshin-naidu.workers.dev/dashboard/">foundry.theshin-naidu.workers.dev/dashboard/</a></span></div>
         <div class="kv"><span class="k">repo</span><span class="v"><a href="https://github.com/theshin621/foundry">theshin621/foundry</a></span></div>
         <div class="kv"><span class="k">ledger</span><span class="v"><a href="https://github.com/theshin621/foundry/blob/main/ledger.json">ledger.json</a></span></div>
         <div class="kv"><span class="k">playbook</span><span class="v"><a href="https://github.com/theshin621/foundry/blob/main/PLAYBOOK.md">PLAYBOOK.md</a></span></div>
@@ -235,6 +238,17 @@
     var passed=ships.filter(function(s){return String(s.checker_verdict||'').indexOf('PASS')===0}).length;
     document.getElementById('t-pass').textContent=passed+'/'+ships.length;
     document.getElementById('t-day').textContent=ships.length?String(ships[0].n).padStart(3,'0'):'000';
+    // keep the "Latest ship" button + URL row pointed at the newest LIVE ship
+    var liveShips=ships.filter(function(s){return st(s).indexOf('live')===0}).sort(function(a,b){return a.n-b.n});
+    if(liveShips.length){
+      var L=liveShips[liveShips.length-1];
+      var path=(L.slug==='hub'||L.n===1)?'/':'/'+String(L.n).padStart(3,'0')+'-'+L.slug+'/';
+      var u='https://foundry.theshin-naidu.workers.dev'+path;
+      var lb=document.getElementById('latest-btn'), lt=document.getElementById('latest-btn-label'), ll=document.getElementById('latest-url');
+      if(lb)lb.href=u;
+      if(lt)lt.textContent=(path==='/'?'hub':String(L.n).padStart(3,'0')+' · '+L.slug);
+      if(ll){ll.href=u; ll.textContent=u.replace('https://','');}
+    }
     document.getElementById('ships-body').innerHTML=ships.map(function(s){
       var v=String(s.checker_verdict||'pending'), short=v.split(' ')[0];
       var d7=s.signal&&s.signal.d7_visits!=null?s.signal.d7_visits:'–';
@@ -362,6 +376,11 @@
   }
   browserProbe();
 
+  var BAKED_FRESH=document.getElementById('fresh').textContent;
+  function loadData(){
+  bust='?t='+Date.now();
+  var fp=document.getElementById('fresh');
+  fp.textContent='refreshing from repo…'; fp.className='pill mut';
   Promise.allSettled([
     fetch(RAW+'ledger.json'+bust).then(function(r){return r.json()}),
     fetch(RAW+'candidates-seen.json'+bust).then(function(r){return r.json()}),
@@ -393,10 +412,17 @@
       if(briefs.length){fetch(RAW+'briefs/'+briefs[0].name+bust).then(function(r){return r.text()}).then(function(t){renderBrief(briefs[0].name,t)}).catch(function(){})}
     }
     var f=document.getElementById('fresh');
-    if(ok){f.textContent='LIVE · refreshed from repo just now';f.className='pill pos'}
-    else{f.textContent+=' · live refresh unavailable in this view';f.className='pill warn'}
+    if(ok){f.textContent='LIVE · refreshed '+new Date().toISOString().slice(11,16)+' UTC';f.className='pill pos'}
+    else{f.textContent=BAKED_FRESH+' · live refresh unavailable in this view';f.className='pill warn'}
     stalenessVerdict(ok);
-  }).catch(function(){stalenessVerdict(false)});
+  }).catch(function(){
+    var f=document.getElementById('fresh');
+    f.textContent=BAKED_FRESH+' · live refresh unavailable in this view'; f.className='pill warn';
+    stalenessVerdict(false);
+  });
+  }
+  document.getElementById('refresh-btn').addEventListener('click',function(){verdictDone=false;loadData();});
+  loadData();
 })();
 </script>
 </body>

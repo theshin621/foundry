@@ -54,6 +54,28 @@ if hp.exists():
     except Exception:
         pass  # never let the health bake break the stamp itself
 
+# Best-effort: point the "Latest ship" button + URL row at the newest LIVE ship
+# from ledger.json, so even a fetch-blocked copy opens the right page.
+led = root / 'ledger.json'
+try:
+    ships = json.loads(led.read_text()).get('ships', [])
+    live = sorted([s for s in ships if str(s.get('status', '')).startswith('live')],
+                  key=lambda s: s.get('n', 0))
+    base = 'https://foundry.theshin-naidu.workers.dev'
+    if live:
+        s = live[-1]
+        path = '/' if (s.get('slug') == 'hub' or s.get('n') == 1) else '/%03d-%s/' % (s['n'], s['slug'])
+        url, label = base + path, ('hub' if path == '/' else '%03d · %s' % (s['n'], s['slug']))
+    else:
+        url, label = base + '/', 'hub'
+    html, a = re.subn(r'(<a class="btn" id="latest-btn" href=")[^"]*(")', r'\g<1>%s\g<2>' % url, html, count=1)
+    html, b = re.subn(r'(<span id="latest-btn-label">)[^<]*(</span>)', r'\g<1>%s\g<2>' % label, html, count=1)
+    html, c = re.subn(r'(<a id="latest-url" style="word-break:break-all" href=")[^"]*(">)[^<]*(</a>)',
+                      r'\g<1>%s\g<2>%s\g<3>' % (url, url.replace('https://', '')), html, count=1)
+    print('latest-ship baked (%d/%d/%d anchors): %s' % (a, b, c, url))
+except Exception as e:
+    print('latest-ship bake SKIPPED:', e)
+
 src.write_text(html)
 out = root / 'public' / 'dashboard' / 'index.html'
 out.parent.mkdir(parents=True, exist_ok=True)
