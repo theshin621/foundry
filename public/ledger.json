@@ -59,12 +59,17 @@
         "x_draft": "none - the build-in-public draft is a stage-gate deliverable and the stage gate was not reached"
       },
       "signal": {},
-      "status": "failed",
+      "status": "killed",
       "kill_criterion": "n/a - never published. KILLED instead by the anti-grind clause written into briefs/2026-08-06.md BEFORE the build: 'if today's build does not reach a checker PASS, codeowners goes to graveyard.md and never re-enters.'",
       "plain": {
         "what": "A free web page: paste your CODEOWNERS file and the files a pull request touches, and see exactly who GitHub will ask to review each one - and which of your rules a later line is quietly overriding.",
         "solves": "CODEOWNERS picks reviewers on every PR, but the LAST matching rule wins rather than the most specific one, so teams believe a rule protects a directory when a broader rule below it has been overriding it for months.",
         "money": "None, and there will not be any. The matching is correct and heavily proven - 190/190 reference cases against the live page - and the page is secure, private, bounded and mobile-clean. It died on presentation defects, not on being wrong: three days and seven verdicts, and every fix cycle revealed a sibling of the defect it had just closed. The loop killed it under a rule it wrote for itself before starting, rather than spend a fourth day. The engineering is kept: lib/door.js, lib/checks/door-limits.json and four hard-won build rules carry into every future ship."
+      },
+      "killed": {
+        "date": "2026-08-06",
+        "to": "graveyard.md",
+        "reason": "Killed on main by the anti-grind clause in briefs/2026-08-06.md. This branch is the frozen record of the build that was tested; main's ledger is authoritative."
       }
     }
   ]
