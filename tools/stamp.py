@@ -54,6 +54,70 @@ if hp.exists():
     except Exception:
         pass  # never let the health bake break the stamp itself
 
+# Bake the Scouted cards + Graveyard rows + candidates tile from repo data, so a
+# fetch-blocked copy (the desktop artifact) shows the full candidate history
+# instead of an ancient empty-state. Mirrors the page's own JS renderers, which
+# simply overwrite these nodes when a live refresh works. (Added 2026-08-06
+# after Theshin found the artifact's Scouted panel still showing day 001.)
+import html as _h
+import re as _re
+def _bake_panels(html):
+    try:
+        c = json.loads((root / 'candidates-seen.json').read_text())
+        seen = c.get('seen', c) if isinstance(c, dict) else c
+    except Exception:
+        seen = []
+    def esc(s): return _h.escape(str('' if s is None else s), quote=True)
+    def picked(o):
+        o = str(o or '').lower()
+        return bool(_re.search(r'pick|built|live|staged|rebuild picked', o)) and not _re.search(r'runner-up|first pick for', o)
+    cards = []
+    for cand in reversed(seen):
+        if isinstance(cand, str):
+            cards.append('<div class="cand rejected"><div class="cand-h"><span class="name">%s</span><span class="st rejected">dropped</span></div></div>' % esc(cand))
+            continue
+        outcome = cand.get('outcome') or cand.get('note') or ''
+        is_p = picked(outcome)
+        st_word = (_re.split(r'[—\-(]', str(outcome))[0] or '').strip() or ('picked' if is_p else 'seen')
+        st_word = st_word[:22]
+        plain = cand.get('plain') or {}
+        rows = ''
+        def row(lbl, val, cls=''):
+            return ('<div class="lbl">%s</div><div class="val%s">%s</div>' % (lbl, cls, esc(val))) if val else ''
+        if plain.get('what') or plain.get('solves') or plain.get('money'):
+            rows = row('what', plain.get('what')) + row('problem', plain.get('solves')) + row('money', plain.get('money'), ' money')
+        else:
+            rows = row('note', cand.get('note') or cand.get('one_liner'))
+        cards.append(
+            '<div class="cand %s"><div class="cand-h"><span class="name">%s</span>%s<span class="st %s">%s</span>%s</div>%s</div>' % (
+                'picked' if is_p else 'rejected',
+                esc(cand.get('slug') or cand.get('name') or '?'),
+                ('<span class="lane">%s</span>' % esc(cand['lane'])) if cand.get('lane') else '',
+                'picked' if is_p else 'rejected', esc(st_word),
+                ('<span class="date">%s</span>' % esc(cand['date'])) if cand.get('date') else '',
+                ('<div class="cand-r">%s</div>' % rows) if rows else ''))
+    scouted = '<div id="scouted-body">%s</div>' % ''.join(cards) if cards else '<div id="scouted-body" class="empty">No scouted candidates recorded yet.</div>'
+    grave = '<div id="grave-body"></div>'
+    try:
+        glines = [l for l in (root / 'graveyard.md').read_text().split('\n')
+                  if l.startswith('|') and '---' not in l and not l.startswith('| date')]
+        if glines:
+            trs = []
+            for l in list(reversed(glines))[:5]:
+                cells = [x.strip() for x in l.split('|')]
+                trs.append('<tr><td class="mono">%s</td><td class="mono">%s</td><td class="one">%s</td></tr>' % (
+                    esc(cells[1] if len(cells) > 1 else ''), esc(cells[2] if len(cells) > 2 else ''), esc(cells[3] if len(cells) > 3 else '')))
+            grave = ('<div id="grave-body"><h2 style="margin-top:16px">Graveyard · %d</h2><table><thead><tr><th>date</th><th>what</th><th>why killed</th></tr></thead><tbody>%s</tbody></table></div>' % (len(glines), ''.join(trs)))
+    except Exception:
+        pass
+    html, s1 = re.subn(r'<!--BAKE:SCOUTED-->.*?<!--/BAKE:SCOUTED-->', '<!--BAKE:SCOUTED-->%s<!--/BAKE:SCOUTED-->' % scouted, html, count=1, flags=re.S)
+    html, s2 = re.subn(r'<!--BAKE:GRAVE-->.*?<!--/BAKE:GRAVE-->', '<!--BAKE:GRAVE-->%s<!--/BAKE:GRAVE-->' % grave, html, count=1, flags=re.S)
+    html, s3 = re.subn(r'(<b id="t-scouted">)[^<]*(</b>)', r'\g<1>%d\g<2>' % len(seen), html, count=1)
+    print('panels baked: scouted=%d cards (markers %d), graveyard rows (markers %d), tile (%d)' % (len(cards), s1, s2, s3))
+    return html
+
+html = _bake_panels(html)
+
 # Best-effort: point the "Latest ship" button + URL row at the newest LIVE ship
 # from ledger.json, so even a fetch-blocked copy opens the right page.
 led = root / 'ledger.json'
