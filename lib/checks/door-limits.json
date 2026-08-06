@@ -1,36 +1,126 @@
 {
-  "_doc": "Input-dimension probes for any ship that accepts a pasted text box. Contributed by ship 003 (codeowners rebuild, 2026-08-05). The lesson these encode, learned over six checker verdicts: bounding AGGREGATE input proves nothing, because every DIMENSION inside the aggregate is a separate multiplier on downstream cost. A page that caps 1 MiB and nothing else is unguarded.",
-  "assert": "Feed each probe into every text input the page exposes. Each must be REFUSED (or answered) within the page's own advertised ceiling, measured dispatch-to-PAINT across two animation frames — not by a JavaScript timer, which stops before the browser draws. A probe that is 'handled' in JS but leaves the tab unresponsive is a FAIL.",
-  "dimensions": [
-    {"name": "chars", "why": "the only dimension most pages check"},
-    {"name": "lines", "why": "1 MiB of newlines is ~1,000,000 lines inside a 1 MiB cap"},
-    {"name": "line_length", "why": "1 MiB on ONE line is 1 line inside a 20,000-line cap"},
-    {"name": "field_length", "why": "THE ONE THAT GETS MISSED. One unbroken whitespace-delimited token inside a short-enough line. Cost 23,701 ms on ship 003 attempt 1, because the token was re-drawn once per matching row."},
-    {"name": "output_size", "why": "bounding what is READ says nothing about what is WRITTEN. A view derived from input has no length cap of its own; ship 003 hit V8's maximum string length and threw a RangeError that left the PREVIOUS answer on screen with no error — the worst available failure, a silently wrong result."}
-  ],
-  "probes": [
-    {"id": "field-bomb", "dimension": "field_length", "build": "'** @' + 'a'.repeat(100000)", "bytes": 100004, "history": "ship 003 attempt 1: 23,701 ms. Rebuild: refused at the door in 0.007 ms.", "expect": "refused, naming the field limit"},
-    {"id": "one-huge-line", "dimension": "line_length", "build": "'*'.repeat(1048570)", "bytes": 1048570, "expect": "refused, naming the line limit"},
-    {"id": "million-lines", "dimension": "lines", "build": "'\\n'.repeat(1048570)", "bytes": 1048570, "note": "ALSO measure the cost of the PASTE itself: a textarea laying out ~1,000,000 empty lines cost Chromium ~17 s on 2026-08-05 BEFORE any script ran. That cost is the browser's, not the page's, but a user waits for it either way and a page that quietly excludes it from its printed number is misreporting.", "expect": "refused, naming the line-count limit"},
-    {"id": "wide-owner-list", "dimension": "output_size", "build": "'** ' + Array.from({length:40000},(_,i)=>'@o'+i).join(' ')", "history": "ship 003 attempt 1 against 5,000 paths: 13.7 s then RangeError, previous answer left on screen.", "expect": "refused or drawn within the advertised ceiling, with the previous answer never left standing"},
-    {"id": "long-path-line", "dimension": "line_length", "build": "'a'.repeat(1048570) as a single path", "expect": "refused, naming the path-line limit"},
-    {"id": "many-long-paths", "dimension": "chars+lines", "build": "5,000 paths of 1,000 chars each", "expect": "refused or answered within the ceiling"},
-    {"id": "cap-exact", "dimension": "all", "build": "for each limit L: an input of exactly L (must pass) and exactly L+1 (must fail)", "expect": "off-by-one exact, and the refusal message must contain both the measured size and the limit"},
-    {"id": "empty", "dimension": "all", "build": "'' in every box", "expect": "an empty state, never a crash and never a stale previous answer"}
-  ],
-  "stale_answer_probe": {
-    "why": "A page that computes synchronously never paints its own clear(), so the LAST PAINTED FRAME during a long run is the PREVIOUS answer — which reads as a current answer to the only observer that matters. Reading the DOM does not catch this; the DOM is already correct.",
-    "how": "Screenshot mid-run, or expose a state attribute and assert it flips to a non-answer state BEFORE compute begins. Ship 003's rebuild clears, waits two animation frames so the clear is painted, and only then starts work.",
-    "expect": "no frame during a run shows a stale answer as though it were current"
+ "_doc": "Input-dimension probes for any ship that accepts a pasted text box. Contributed by ship 003 (codeowners rebuild, 2026-08-05). The lesson these encode, learned over six checker verdicts: bounding AGGREGATE input proves nothing, because every DIMENSION inside the aggregate is a separate multiplier on downstream cost. A page that caps 1 MiB and nothing else is unguarded.",
+ "assert": "Feed each probe into every text input the page exposes. Each must be REFUSED (or answered) within the page's own advertised ceiling, measured dispatch-to-PAINT across two animation frames — not by a JavaScript timer, which stops before the browser draws. A probe that is 'handled' in JS but leaves the tab unresponsive is a FAIL.",
+ "dimensions": [
+  {
+   "name": "chars",
+   "why": "the only dimension most pages check"
   },
-  "measured_2026_08_05": {
-    "engine": "Chromium 1194, headless, in the build sandbox",
-    "door_scan_reject_field_bomb_ms": 0.007,
-    "door_scan_passing_1MiB_ms": 9,
-    "worst_dispatch_to_paint_ms": 550,
-    "page_work_deadline_ms": 500,
-    "overshoot_ms": 50,
-    "overshoot_cause": "drawing the refusal happens after the work meter has already stopped, so dispatch-to-paint is always larger than the deadline; state the measured total, never the deadline alone",
-    "answered_band": "200 rules x 500 paths = 100,000 pairs answered in 435 ms; 500 x 500 = 250,000 pairs refused. Input caps (20,000 rules, 5,000 paths) are READ limits and are far above the WORK limit — say so on the page rather than letting the caps imply a capability."
+  {
+   "name": "lines",
+   "why": "1 MiB of newlines is ~1,000,000 lines inside a 1 MiB cap"
+  },
+  {
+   "name": "line_length",
+   "why": "1 MiB on ONE line is 1 line inside a 20,000-line cap"
+  },
+  {
+   "name": "field_length",
+   "why": "THE ONE THAT GETS MISSED. One unbroken whitespace-delimited token inside a short-enough line. Cost 23,701 ms on ship 003 attempt 1, because the token was re-drawn once per matching row."
+  },
+  {
+   "name": "output_size",
+   "why": "bounding what is READ says nothing about what is WRITTEN. A view derived from input has no length cap of its own; ship 003 hit V8's maximum string length and threw a RangeError that left the PREVIOUS answer on screen with no error — the worst available failure, a silently wrong result."
+  },
+  {
+   "name": "total_segments",
+   "why": "THE ONE THAT GETS MISSED SECOND, and only after the first is fixed. Capping NON-BLANK lines is right for downstream cost and wrong for preprocessing cost: split() allocates one string per line including blanks, before anything metered runs. 1 MiB of newlines is 0 non-blank lines and 1,048,576 segments. Ship 003 rebuild-1 (2026-08-05) fixed a real off-by-one by excluding blank lines from its single cap and thereby opened this hole; the re-checker measured 1,309-1,342 ms reported / 16-34 s wall clock on a fully door-legal input. RULE: the door must bound EVERY quantity any loop between the door and the budget will iterate over, and no raw split may be taken over a quantity the door has not bounded. A page needs BOTH caps, never one."
   }
+ ],
+ "probes": [
+  {
+   "id": "field-bomb",
+   "dimension": "field_length",
+   "build": "'** @' + 'a'.repeat(100000)",
+   "bytes": 100004,
+   "history": "ship 003 attempt 1: 23,701 ms. Rebuild: refused at the door in 0.007 ms.",
+   "expect": "refused, naming the field limit"
+  },
+  {
+   "id": "one-huge-line",
+   "dimension": "line_length",
+   "build": "'*'.repeat(1048570)",
+   "bytes": 1048570,
+   "expect": "refused, naming the line limit"
+  },
+  {
+   "id": "million-lines",
+   "dimension": "lines",
+   "build": "'\\n'.repeat(1048570)",
+   "bytes": 1048570,
+   "note": "ALSO measure the cost of the PASTE itself: a textarea laying out ~1,000,000 empty lines cost Chromium ~17 s on 2026-08-05 BEFORE any script ran. That cost is the browser's, not the page's, but a user waits for it either way and a page that quietly excludes it from its printed number is misreporting.",
+   "expect": "refused, naming the line-count limit"
+  },
+  {
+   "id": "wide-owner-list",
+   "dimension": "output_size",
+   "build": "'** ' + Array.from({length:40000},(_,i)=>'@o'+i).join(' ')",
+   "history": "ship 003 attempt 1 against 5,000 paths: 13.7 s then RangeError, previous answer left on screen.",
+   "expect": "refused or drawn within the advertised ceiling, with the previous answer never left standing"
+  },
+  {
+   "id": "long-path-line",
+   "dimension": "line_length",
+   "build": "'a'.repeat(1048570) as a single path",
+   "expect": "refused, naming the path-line limit"
+  },
+  {
+   "id": "many-long-paths",
+   "dimension": "chars+lines",
+   "build": "5,000 paths of 1,000 chars each",
+   "expect": "refused or answered within the ceiling"
+  },
+  {
+   "id": "cap-exact",
+   "dimension": "all",
+   "build": "for each limit L: an input of exactly L (must pass) and exactly L+1 (must fail)",
+   "expect": "off-by-one exact, and the refusal message must contain both the measured size and the limit"
+  },
+  {
+   "id": "empty",
+   "dimension": "all",
+   "build": "'' in every box",
+   "expect": "an empty state, never a crash and never a stale previous answer"
+  },
+  {
+   "id": "newline-flood",
+   "dimension": "total_segments",
+   "build": "'\\n'.repeat(1048575)",
+   "bytes": 1048575,
+   "history": "ship 003 rebuild-1: 0 non-blank lines, walked through a 20,000-line cap, 1,309-1,342 ms reported. Rebuild-2 (2026-08-06, door.maxSegments): refused in 0.9 ms.",
+   "expect": "refused, naming a TOTAL-lines limit distinct from the rule/path limit"
+  },
+  {
+   "id": "segment-off-by-one",
+   "dimension": "total_segments",
+   "build": "'\\n'.repeat(maxSegments-1) vs '\\n'.repeat(maxSegments)",
+   "history": "added 2026-08-06 - the previous cap's off-by-one (20,000 rules + a trailing newline rejected as 20,001) is exactly the bug that motivated excluding blanks, so the replacement cap must be off-by-one exact in BOTH directions or the cure repeats the disease.",
+   "expect": "exactly maxSegments segments ANSWERED; maxSegments+1 REFUSED. Verified at the page 2026-08-06 for 20,000/20,001."
+  },
+  {
+   "id": "strand-on-working",
+   "dimension": "reentrancy",
+   "build": "drive input events repeatedly (every ~30 ms) while a slow-but-legal input is mid-run, then again at a sweep of delays 5/22/39/56/73/90 ms after dispatch to land inside every phase",
+   "history": "ship 003 rebuild-1 used `var running=false; if(running) return;` - a lock with no release path on the re-entrant case. An input arriving during the post-paint measurement was DROPPED with no rescheduler, leaving the page on 'working...' with data-state='idle' indefinitely. Replaced 2026-08-06 with a generation counter (gen/painted/busy) where every release of `busy` re-pumps if the newest generation is unpainted.",
+   "expect": "page returns to data-state='idle' with a real answer; data-state='idle' NEVER coexists with the text 'working...' in the result panel"
+  }
+ ],
+ "stale_answer_probe": {
+  "why": "A page that computes synchronously never paints its own clear(), so the LAST PAINTED FRAME during a long run is the PREVIOUS answer — which reads as a current answer to the only observer that matters. Reading the DOM does not catch this; the DOM is already correct.",
+  "how": "Screenshot mid-run, or expose a state attribute and assert it flips to a non-answer state BEFORE compute begins. Ship 003's rebuild clears, waits two animation frames so the clear is painted, and only then starts work.",
+  "expect": "no frame during a run shows a stale answer as though it were current"
+ },
+ "measured_2026_08_05": {
+  "engine": "Chromium 1194, headless, in the build sandbox",
+  "door_scan_reject_field_bomb_ms": 0.007,
+  "door_scan_passing_1MiB_ms": 9,
+  "worst_dispatch_to_paint_ms": 550,
+  "page_work_deadline_ms": 500,
+  "overshoot_ms": 50,
+  "overshoot_cause": "drawing the refusal happens after the work meter has already stopped, so dispatch-to-paint is always larger than the deadline; state the measured total, never the deadline alone",
+  "answered_band": "200 rules x 500 paths = 100,000 pairs answered in 435 ms; 500 x 500 = 250,000 pairs refused. Input caps (20,000 rules, 5,000 paths) are READ limits and are far above the WORK limit — say so on the page rather than letting the caps imply a capability."
+ },
+ "regression_notes": [
+  "2026-08-06: a boolean re-entrancy guard cannot express the question that matters. 'Is something running?' is not 'is the newest input the one on screen?' - the second needs a number. Any ship that debounces recomputation must use a generation counter, not a lock: gen (newest requested), painted (on screen), busy (in flight, or -1). Two checkable properties: every exit from the run releases busy, and every release re-pumps when gen !== painted."
+ ]
 }

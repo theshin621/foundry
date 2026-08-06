@@ -46,6 +46,17 @@ Why it exists: bounding aggregate input proves nothing. `** @` + 100,000 `a` is 
 every aggregate cap — and cost ship 003 attempt 1 twenty-three seconds, because one absurd owner
 token was re-drawn once per matching row. The rebuild refuses it in 0.007 ms.
 
+**Two line caps, not one (added 2026-08-06).** `maxLines` bounds NON-BLANK lines — the ones that
+are downstream work. `maxSegments` bounds TOTAL segments — what `String.split` actually produces.
+You need both, and the reason is not obvious until it bites: counting only non-blank lines is
+correct for the *answer* and useless for the *preprocessing*, because the split allocates one
+string per line, blanks included, before anything metered runs. 1 MiB of newlines is **0** non-blank
+lines and **1,048,576** segments, and it walked straight through a 20,000-line cap. Binding rule:
+**the door must bound every quantity any loop between the door and the budget will iterate over,
+and no raw split may be taken over a quantity the door has not bounded.** `kind:'segments'` bails
+the instant the cap is passed, so `length` is `limit+1` with `exact:false` — phrase that refusal as
+"more than N", never "N+1".
+
 Also exports `buffer(maxChars)` (bounds *output* by construction, the other half of the same
 lesson) and `clip(s, max)` (a second belt on any single drawn value).
 

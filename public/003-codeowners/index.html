@@ -109,15 +109,24 @@ footer a{color:var(--faint)}
     matching nothing.</p>
     <p><b>What it refuses, and why it refuses it at the door.</b> Every dimension that drives
     work is measured <em>before</em> anything is split, parsed or compiled: the size of each box
-    (1&nbsp;MiB), the number of lines (20,000 rules, 5,000 paths), the length of a line
-    (4,096&nbsp;characters here, 1,024 for a path) and the length of a single whitespace-delimited
-    field (256&nbsp;characters — a pattern and an owner are both fields). That last one is the
-    limit this page was missing: <code>**&nbsp;@</code> followed by 100,000&nbsp;<code>a</code>
+    (1&nbsp;MiB), the number of lines that are actually rules or files
+    (20,000&nbsp;rules, 5,000&nbsp;paths), the number of lines in <em>total</em> including blank
+    ones (50,000 and 20,000), the length of a line (4,096&nbsp;characters here, 1,024 for a path)
+    and the length of a single whitespace-delimited
+    field (256&nbsp;characters — a pattern and an owner are both fields). The field limit is the
+    one this page was missing first: <code>**&nbsp;@</code> followed by 100,000&nbsp;<code>a</code>
     is a legal-looking 100&nbsp;KB line that cost 23.7&nbsp;seconds, because one absurd owner was
-    re-drawn once per matching file. Counting is done in a single pass that allocates nothing and
-    stops at the first violation, so refusing that input now costs
-    <b>0.007&nbsp;ms</b>; scanning a full 1&nbsp;MiB box that passes every limit costs
-    <b>9&nbsp;ms</b>.</p>
+    re-drawn once per matching file. The <em>total</em>-lines limit is the one it was missing
+    second, and it is the subtler of the two: blank lines are not rules and are not files, so
+    counting only the useful ones is right for the matching — but splitting the box still
+    allocates one string per line before anything else can run, so 1&nbsp;MiB of nothing but
+    newlines is <em>zero</em> rules and <em>a million</em> allocations, and it walked straight
+    through a limit that was counting the wrong thing. A limit has to bound every quantity
+    something downstream will loop over, not just the quantity that matters to the answer.
+    Counting is done in a single pass that allocates nothing and
+    stops at the first violation, so refusing the over-long field costs
+    <b>0.007&nbsp;ms</b>, refusing the newline flood costs about <b>1&nbsp;ms</b>, and scanning a
+    full 1&nbsp;MiB box that passes every limit costs <b>9&nbsp;ms</b>.</p>
     <p><b>Where this deliberately refuses rather than copying the reference.</b> The reference
     implementation reads its file with Go's <code>bufio.Scanner</code>, which silently drops any
     line of <b>65,536&nbsp;bytes or more</b> — and then abandons every rule after it, so a single
@@ -150,24 +159,33 @@ footer a{color:var(--faint)}
     it starts to matter, and past roughly 250,000 it will not answer at all. Which is why the page
     prints its own measured time under every answer instead of asking you to trust a number
     somebody measured once, somewhere else.</p>
-    <p><b>The timing number is measured, not claimed.</b> Under every answer this page prints the
+    <p><b>The timing number is measured, not claimed — and the one that counts is yours.</b>
+    Under every answer this page prints the
     real time from starting work to the browser having painted the result, taken across two
     animation frames so it includes the paint and not merely the JavaScript. Across 24 trials of
-    the four heaviest inputs available to it, that measurement ranged from 517&nbsp;ms to
-    <b>641&nbsp;ms</b> — always above the 500&nbsp;ms work meter, because drawing the refusal
-    happens after the meter has already stopped, and worst at the input that is cheapest to
-    evaluate and most expensive to have received. An earlier version of this page advertised a
-    ceiling measured with a JavaScript timer that stopped before the browser drew anything and was
-    wrong by 810&nbsp;ms; the version before this one quoted a single 550&nbsp;ms reading that a
-    second measurement immediately beat. The number above is a range over repeated trials for that
-    reason.</p>
-    <p><b>One cost this page does not control.</b> That measurement starts when this page starts
+    the four heaviest inputs available to it — re-measured on 2026-08-06, because the limits
+    changed and an old number would have been a stale one — that measurement ran from
+    33&nbsp;ms to <b>533&nbsp;ms</b> on the machine that built this page. That is a description of
+    one machine, not a promise about yours: the same page has been measured on a slower two-core
+    machine refusing inputs this one answers. Which is exactly why the number under your answer is
+    computed on your machine rather than quoted from this paragraph. Two earlier versions of this
+    page did quote a fixed ceiling: the first was measured with a JavaScript timer that stopped
+    before the browser drew anything and was wrong by 810&nbsp;ms, and the second was a single
+    550&nbsp;ms reading that a second measurement immediately beat.</p>
+    <p><b>One cost this page does not control, measured against a page that does nothing.</b>
+    That measurement starts when this page starts
     working, which is <em>after</em> the browser has accepted your paste. Pasting a megabyte of
     text into a plain <code>&lt;textarea&gt;</code> is itself work the browser does before any
-    script runs: a 1&nbsp;MiB file of ordinary CODEOWNERS lines costs it about half a second, and
-    1&nbsp;MiB consisting only of newlines — a million empty lines to lay out — cost roughly
-    <b>17&nbsp;seconds</b> in the same test, none of it ours and none of it avoidable from here.
-    Said plainly rather than quietly excluded from a number.</p>
+    script runs, and for a file that is nothing but newlines — a million empty lines to lay out —
+    that work is enormous. Measured on 2026-08-06 in the same browser: this page refuses that
+    input at the door in <b>0.9&nbsp;ms</b>, reports <b>491&nbsp;ms</b> from starting work to
+    painting the refusal, and the whole thing is over about <b>25&nbsp;seconds</b> after the paste
+    lands. The gap is not ours. An <em>empty</em> page containing one bare
+    <code>&lt;textarea&gt;</code> and no script at all needed <b>28&nbsp;seconds</b> to get through
+    two animation frames after the identical assignment. So on this input the tool is measurably
+    faster than doing nothing, and if your browser hangs for many seconds on a paste like that,
+    every page with a text box will hang the same way. Said plainly rather than quietly excluded
+    from a number.</p>
     <p>Sibling tool: <a href="../002-gha-trigger/">why didn't my GitHub Actions workflow run?</a></p>
   </div>
 
@@ -263,6 +281,21 @@ footer a{color:var(--faint)}
    *                  newline passed.) `lines` is still REPORTED, for messages and for
    *                  callers that need split-equivalence; only the CAP counts
    *                  non-blank lines, because only non-blank lines are work.
+   *   maxSegments    maximum TOTAL segments — the count String.prototype.split would
+   *                  produce, blank ones included. THE SECOND CAP, ADDED 2026-08-06.
+   *                  maxLines bounds DOWNSTREAM work; maxSegments bounds the
+   *                  PREPROCESSING BETWEEN THE DOOR AND THE BUDGET. Excluding blank
+   *                  lines from the single cap (above) was correct for downstream cost
+   *                  and simultaneously opened a hole: 1 MiB of newlines is 0 non-blank
+   *                  lines and ~1,048,576 segments, so it walked through a maxLines
+   *                  cap of 20,000 and into an unmetered split() + per-line trim. The
+   *                  independent re-checker measured the page's own reported timing at
+   *                  1,309–1,342 ms (16–34 s wall clock) on that fully door-legal
+   *                  input. BINDING RULE, and the reason this parameter exists rather
+   *                  than an inline guard at one call site: THE DOOR MUST BOUND EVERY
+   *                  QUANTITY ANY LOOP BETWEEN THE DOOR AND THE BUDGET WILL ITERATE
+   *                  OVER, AND NO RAW SPLIT MAY BE TAKEN OVER A QUANTITY THE DOOR HAS
+   *                  NOT BOUNDED. Omit it only when the caller never splits.
    *   maxLineLength  longest single line, in CHARS
    *   maxFieldLength optional — longest whitespace-delimited field within a line
    *   commentChar    optional — stop field scanning at the first occurrence of
@@ -270,15 +303,22 @@ footer a{color:var(--faint)}
    * }
    *
    * returns {ok:true, lines, nonBlank}
-   *      or {ok:false, kind:'chars'|'lines'|'line'|'field', line, length, limit}
+   *      or {ok:false, kind:'chars'|'lines'|'segments'|'line'|'field', line, length, limit}
    *         where `line` is 1-based and `length` is the measured size that broke
    *         the limit — so the caller's refusal message can be exact rather than
    *         vague. Off-by-one exactness is a checkable property: a value equal to
    *         the limit must pass and limit+1 must fail.
+   *
+   *         ONE DELIBERATE EXCEPTION to "length is measured": kind:'segments' bails
+   *         the instant the cap is passed, so the true total is NOT known and
+   *         `length` is reported as limit+1 with `exact:false`. Scanning on to
+   *         produce an exact total would be doing the very work the cap exists to
+   *         prevent. Callers must phrase that refusal as "more than N", never "N+1".
    */
   function scan(text, limits) {
     var s = String(text == null ? '' : text);
     var maxChars = limits.maxChars, maxLines = limits.maxLines;
+    var maxSegments = limits.maxSegments;
     var maxLine = limits.maxLineLength, maxField = limits.maxFieldLength;
     var commentCode = limits.commentChar ? limits.commentChar.charCodeAt(0) : -1;
 
@@ -353,6 +393,17 @@ footer a{color:var(--faint)}
       if (i === n) break;
 
       line++;
+
+      /* THE SECOND CAP. `line` has just become the 1-based index of the segment we
+         are about to start reading, i.e. the running segment TOTAL. Checking here
+         rather than at the end is the whole point: a 1 MiB newline flood is refused
+         after maxSegments characters, not after 1,048,576. Off-by-one: a text of
+         exactly maxSegments segments performs maxSegments-1 increments and leaves
+         `line` at maxSegments, so it passes; maxSegments+1 segments performs one more
+         and fails here. `length` is limit+1 and flagged inexact — see the header. */
+      if (maxSegments && line > maxSegments)
+        return { ok: false, kind: 'segments', line: line, length: maxSegments + 1,
+                 limit: maxSegments, exact: false };
 
       i += term - 1;                 /* skip the second char of a CRLF */
       lineStart = i + 1;
@@ -1244,6 +1295,21 @@ footer a{color:var(--faint)}
                                     purpose, because this page must stay responsive.       */
   var MAX_RULE_LINES = 20000;
   var MAX_PATHS      = 5000;
+
+  /* ── THE SECOND LINE CAP (2026-08-06). MAX_RULE_LINES / MAX_PATHS count NON-BLANK
+     lines, because only non-blank lines are downstream work — and that is still right.
+     But `split()` allocates a segment for every line, blank ones included, and BOTH
+     consumers split before anything metered runs: lib/codeowners.js:414 takes
+     src.split('\n') outside the budget, and the paths preprocessing loop below is
+     outside it entirely. 1 MiB of newlines is 0 non-blank lines and 1,048,576 segments,
+     so it walked straight through a 20,000 non-blank cap. The independent re-checker
+     measured 1,309–1,342 ms reported / 16–34 s wall clock on exactly that input, on a
+     paste that was legal by every other door limit.
+     Set well above any real file (GitHub's own CODEOWNERS limit is 3 MB of rules; a
+     5,000-path PR with generous blank grouping is nowhere near 20,000 segments), and low
+     enough that the split it authorises is a few milliseconds rather than seconds. ── */
+  var MAX_RULE_SEGMENTS = 50000; /* total lines incl. blanks in the CODEOWNERS box */
+  var MAX_PATH_SEGMENTS = 20000; /* total lines incl. blanks in the file-list box   */
   var MAX_RULE_LINE  = 4096;     /* one CODEOWNERS line                                    */
   var MAX_PATH_LINE  = 1024;     /* one path. Paths may contain spaces, so a path line has
                                     no field structure to validate — only a length.        */
@@ -1402,6 +1468,13 @@ footer a{color:var(--faint)}
       return banner(box + ' is ' + v.length + ' characters; this page evaluates up to ' + v.limit + '.');
     if (v.kind === 'lines')
       return banner(box + ' has more than ' + v.limit + ' lines; this page evaluates up to ' + v.limit + '.');
+    /* 'segments' bails the moment the cap is passed, so the exact total is unknown by
+       design — the message says "more than N" and never invents an N+1. */
+    if (v.kind === 'segments')
+      return banner(box + ' has more than ' + v.limit + ' lines in total (blank lines included); ' +
+        'this page evaluates up to ' + v.limit + '. Blank lines are not rules and are not files, but ' +
+        'splitting the box still allocates one string per line before anything else can run — so the ' +
+        'total is capped as well as the useful count.');
     if (v.kind === 'line')
       return banner('Line ' + v.line + ' of ' + box + ' is ' + v.length + ' characters; this page evaluates lines up to ' +
         v.limit + '.' + (limits.refWhy ? ' ' + limits.refWhy : ''));
@@ -1422,13 +1495,15 @@ footer a{color:var(--faint)}
 
     /* ── THE DOOR. Zero work before this: no split, no trim, no parse, no compile. ── */
     var vo = door.scan(ownersText, {
-      maxChars: MAX_CHARS, maxLines: MAX_RULE_LINES, maxLineLength: MAX_RULE_LINE,
+      maxChars: MAX_CHARS, maxLines: MAX_RULE_LINES, maxSegments: MAX_RULE_SEGMENTS,
+      maxLineLength: MAX_RULE_LINE,
       maxFieldLength: MAX_FIELD, commentChar: '#', lineTerminators: 'lf'
     });
     if (!vo.ok) return doorBanner('CODEOWNERS', vo, { refWhy: REF_WHY });
 
     var vp = door.scan(pathsText, {
-      maxChars: MAX_CHARS, maxLines: MAX_PATHS, maxLineLength: MAX_PATH_LINE,
+      maxChars: MAX_CHARS, maxLines: MAX_PATHS, maxSegments: MAX_PATH_SEGMENTS,
+      maxLineLength: MAX_PATH_LINE,
       lineTerminators: 'any'
     });
     if (!vp.ok) return doorBanner('the file list', vp, {});
@@ -1576,15 +1651,51 @@ footer a{color:var(--faint)}
     return b.toString() + tail;
   }
 
-  /* begin() is the only entry point. It clears FIRST and lets the clear paint before any
-     work starts, so a stale answer is never the last painted frame while a new one computes
-     — the failure a checker caught by screenshotting mid-run rather than by reading the DOM. */
-  var running = false;
-  function begin() {
-    if (running) return;
-    running = true; stale = false;
+  /* ─────────────────────────────────────────────────────────────────────────────────
+     THE RUNNER — a generation counter, NOT a lock. Replaced 2026-08-06.
+
+     What was here before was `var running = false; if (running) return;`. That is a lock
+     with no release path on the case it exists to handle: an input arriving while a prior
+     run's post-paint measurement was still pending hit `if (running) return` and was
+     DROPPED — and because the debounce timer had already fired, nothing rescheduled it.
+     The page then sat on "working…" (written synchronously by the input handler) while the
+     finishing run set data-state="idle", so the page contradicted itself and stayed that
+     way. The independent re-checker reproduced it deterministically and watched it hold for
+     10+ seconds with no self-correction.
+
+     The rule that generalises: a boolean guard answers "is something running?", which is
+     not the question. The question is "is the NEWEST input the one on screen?" — and that
+     needs a number, not a flag.
+
+       gen      monotonic; incremented by every input event. The newest request.
+       painted  the generation whose answer is currently on screen.
+       busy     the generation being computed right now, or -1 for none.
+
+     Two properties, both checkable and both structural rather than defensive:
+
+     (A) CANNOT DEADLOCK. `busy` is assigned a live value at exactly one place, immediately
+         before entering the afterPaint chain, and EVERY exit from that chain sets it back
+         to -1 — including the superseded path and the throw path (compute() is wrapped).
+         There is no branch that leaves the chain without releasing.
+     (B) CANNOT DROP THE NEWEST INPUT. Every release of `busy` is followed by pump(), which
+         re-runs if gen !== painted. So the newest generation is either painted, in flight,
+         or about to be pumped — never forgotten. A superseded result is discarded rather
+         than drawn, so a stale answer can never be the one on screen.
+     ───────────────────────────────────────────────────────────────────────────────── */
+  var gen = 0, painted = -1, busy = -1, timer = null;
+
+  function showWorking() {
     elResult.innerHTML = '<p class="empty">working…</p>';
     document.body.setAttribute('data-state', 'working');
+  }
+
+  function pump() {
+    timer = null;
+    if (busy !== -1) return;          /* a run is in flight; its release re-pumps */
+    if (gen === painted) return;      /* the newest answer is already on screen   */
+
+    var my = busy = gen;
+    showWorking();
     afterPaint(function () {
       var t0 = now(), html;
       try { html = compute(); }
@@ -1593,35 +1704,39 @@ footer a{color:var(--faint)}
           'Nothing above is current — the previous result has been cleared rather than left ' +
           'standing as though it were current.');
       }
+      /* Superseded while computing: throw the answer away rather than paint a stale one,
+         release, and immediately run the newest. */
+      if (gen !== my) { busy = -1; pump(); return; }
+
       elResult.innerHTML = html;
       afterPaint(function () {
         var ms = Math.round(now() - t0);
+        busy = -1;
+        /* Superseded during the paint: what is on screen is real but no longer current, so
+           do NOT claim idle and do NOT publish its timing — pump the newest instead. */
+        if (gen !== my) { showWorking(); pump(); return; }
         var el = document.getElementById('measured');
         if (el) el.textContent = 'answered in ' + ms + ' ms — measured from starting work to this ' +
                                 'text having been painted, so it includes the drawing.';
         document.body.setAttribute('data-last-ms', String(ms));
+        painted = my;
         document.body.setAttribute('data-state', 'idle');
-        running = false;
       });
     });
   }
 
   /* The debounce used to be the whole story, and that left a real window: for the
-     120 ms between a paste landing and begin() running, the boxes already showed the
+     120 ms between a paste landing and the run starting, the boxes already showed the
      NEW input while the panel below still showed the OLD answer, with nothing marking
      it stale. A checker photographed that frame at t=337 ms on 2026-08-05 — composited,
      not merely present in the DOM. Reading the DOM would never have caught it, because
      the DOM was already right. So the answer is invalidated on the input event itself,
      synchronously, and only the recomputation is debounced. */
-  var timer = null, stale = false;
   function onInput() {
-    if (!stale) {
-      stale = true;
-      elResult.innerHTML = '<p class="empty">working…</p>';
-      document.body.setAttribute('data-state', 'working');
-    }
+    gen++;
+    showWorking();                    /* synchronous — no frame can show a stale answer */
     if (timer) clearTimeout(timer);
-    timer = setTimeout(begin, 120);
+    timer = setTimeout(pump, 120);
   }
   elOwners.addEventListener('input', onInput);
   elPaths.addEventListener('input', onInput);
@@ -1629,7 +1744,7 @@ footer a{color:var(--faint)}
   renderPresets();
   elOwners.value = PRESETS[0].owners;
   elPaths.value  = PRESETS[0].paths;
-  begin();
+  gen = 1; pump();
 })();
 </script>
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
