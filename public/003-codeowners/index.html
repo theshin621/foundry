@@ -124,9 +124,13 @@ footer a{color:var(--faint)}
     through a limit that was counting the wrong thing. A limit has to bound every quantity
     something downstream will loop over, not just the quantity that matters to the answer.
     Counting is done in a single pass that allocates nothing and
-    stops at the first violation, so refusing the over-long field costs
-    <b>0.007&nbsp;ms</b>, refusing the newline flood costs about <b>1&nbsp;ms</b>, and scanning a
-    full 1&nbsp;MiB box that passes every limit costs <b>9&nbsp;ms</b>.</p>
+    stops at the first violation. What that buys is a <em>shape</em>, not a fixed number: the
+    cost of a refusal is proportional to how far into your text the first violation is, so the
+    over-long field and the newline flood are both refused within the first few thousand
+    characters and are done in well under a millisecond, while a box that passes every limit has
+    to be read to the end and costs on the order of tens of milliseconds for a full 1&nbsp;MiB
+    — the first call on a cold page being the slowest one. Those are observations from one
+    machine and one browser, offered as a scale rather than a guarantee.</p>
     <p><b>Where this deliberately refuses rather than copying the reference.</b> The reference
     implementation reads its file with Go's <code>bufio.Scanner</code>, which silently drops any
     line of <b>65,536&nbsp;bytes or more</b> — and then abandons every rule after it, so a single
@@ -138,9 +142,18 @@ footer a{color:var(--faint)}
     <p><b>Why it can't hang.</b> Patterns are compiled to a non-backtracking automaton, not to a
     JavaScript <code>RegExp</code>, so no input can trigger catastrophic backtracking. Because
     linear time still is not <em>bounded</em> time, every stage that costs anything — reading the
-    file, compiling each pattern, matching, and <em>drawing</em> — is metered against one shared
+    file, compiling each pattern, matching, collecting which rules matched, and <em>drawing</em>
+    — is metered against one shared
     wall clock, and past <b>500&nbsp;ms</b> of work this page says it cannot evaluate rather than
-    answering from a half-finished pass. The answer itself is bounded by construction rather than
+    answering from a half-finished pass. Collecting the losing rules was the one stage that was
+    <em>not</em> metered until 2026-08-06, and it mattered precisely because its cost tracks how
+    many rules <em>match</em> rather than how many exist — an adversary measured it at 15.6&nbsp;s
+    on an input the meter thought was cheap. It is charged now. Note carefully what this meter
+    can and cannot see: it bounds the <em>work this page does</em>, and it cannot bound the time
+    your browser then spends laying out and painting what that work produced, or holding the text
+    you pasted. That is why the number under your answer — which includes the paint — is always
+    the larger one, and why it, not the meter, is the honest figure.
+    The answer itself is bounded by construction rather than
     by that meter: at most 1,000 rows, 20 owners per rule, 10 losing rules per file and
     1,000,000 characters of drawn output in total, whichever binds first — the counts in the
     summary are computed over everything you pasted, and the page says so whenever it draws less
@@ -151,41 +164,42 @@ footer a{color:var(--faint)}
     <p><b>The input limits are not the work limit.</b> The numbers above are the largest inputs
     this page will <em>read</em>. Whether it can <em>finish</em> depends on rules&nbsp;×&nbsp;paths,
     because every path is tested against every rule, and that is a property of your machine as much
-    as of your input. Measured on 2026-08-05: 200 rules against 500 files — 100,000 pairs, larger
-    than most real pull requests — answered 5/5 times in at most <b>417&nbsp;ms</b> on the machine
-    that built this, while an independent run of the identical input on a slower two-core machine
-    <em>refused</em> it every time. 300 × 500 refused 1 time in 5 here; 500 × 500 refused every
-    time on both. So there is no honest fixed pair-count to quote — around 100,000 pairs is where
-    it starts to matter, and past roughly 250,000 it will not answer at all. Which is why the page
-    prints its own measured time under every answer instead of asking you to trust a number
-    somebody measured once, somewhere else.</p>
-    <p><b>The timing number is measured, not claimed — and the one that counts is yours.</b>
-    Under every answer this page prints the
-    real time from starting work to the browser having painted the result, taken across two
-    animation frames so it includes the paint and not merely the JavaScript. Across 24 trials of
-    the four heaviest inputs available to it — re-measured on 2026-08-06, because the limits
-    changed and an old number would have been a stale one — that measurement ran from
-    33&nbsp;ms to <b>533&nbsp;ms</b> on the machine that built this page. That is a description of
-    one machine, not a promise about yours: the same page has been measured on a slower two-core
-    machine refusing inputs this one answers. Which is exactly why the number under your answer is
-    computed on your machine rather than quoted from this paragraph. Two earlier versions of this
-    page did quote a fixed ceiling: the first was measured with a JavaScript timer that stopped
-    before the browser drew anything and was wrong by 810&nbsp;ms, and the second was a single
-    550&nbsp;ms reading that a second measurement immediately beat.</p>
+    as of your input — and, because a rule that <em>matches</em> costs more than one that does
+    not, of how broad your patterns are. Observed while building this: 200 rules against 500 files
+    — 100,000 pairs, larger than most real pull requests — answered every time on the machine that
+    built it and was <em>refused</em> every time by an independent run of the identical input on a
+    slower two-core machine. Around 500 × 500 it starts refusing on both, and a file of very broad
+    patterns tips over sooner than the same count of narrow ones. So there is no honest fixed
+    pair-count to quote, and no honest fixed time either: what you get is either an answer with its
+    own measured time under it, or a plain refusal — never a half-finished pass presented as an
+    answer.</p>
+    <p><b>This page does not print a speed ceiling, on purpose.</b> Under every answer it prints
+    the real time from starting work to the browser having painted the result, taken across two
+    animation frames so it includes the paint and not merely the JavaScript. That number is
+    computed on <em>your</em> machine, for <em>your</em> input, and it is the only timing claim
+    here. Four earlier versions of this page did quote a fixed ceiling and every one of them was
+    beaten: the first was measured with a JavaScript timer that stopped before the browser drew
+    anything and was wrong by 810&nbsp;ms; the second quoted a single 550&nbsp;ms reading that a
+    second measurement immediately beat; the third quoted a range that an independent adversary
+    beat by 30% with an input inside every limit; the fourth quoted a re-measured range and was
+    beaten again the same day. The lesson was not that the numbers were badly measured. It was
+    that <em>a page whose cost depends on your input, your machine and your browser's paint
+    cannot honestly advertise a ceiling at all</em> — so this one no longer does. What it
+    advertises instead is bounded WORK (below) and a measurement you can read for yourself.</p>
     <p><b>One cost this page does not control, measured against a page that does nothing.</b>
     That measurement starts when this page starts
     working, which is <em>after</em> the browser has accepted your paste. Pasting a megabyte of
     text into a plain <code>&lt;textarea&gt;</code> is itself work the browser does before any
     script runs, and for a file that is nothing but newlines — a million empty lines to lay out —
-    that work is enormous. Measured on 2026-08-06 in the same browser: this page refuses that
-    input at the door in <b>0.9&nbsp;ms</b>, reports <b>491&nbsp;ms</b> from starting work to
-    painting the refusal, and the whole thing is over about <b>25&nbsp;seconds</b> after the paste
-    lands. The gap is not ours. An <em>empty</em> page containing one bare
-    <code>&lt;textarea&gt;</code> and no script at all needed <b>28&nbsp;seconds</b> to get through
-    two animation frames after the identical assignment. So on this input the tool is measurably
-    faster than doing nothing, and if your browser hangs for many seconds on a paste like that,
-    every page with a text box will hang the same way. Said plainly rather than quietly excluded
-    from a number.</p>
+    that work is enormous, and it dwarfs anything this page does. The comparison that settles it,
+    run on 2026-08-06 in this browser: an <em>empty</em> page containing one bare
+    <code>&lt;textarea&gt;</code> and <em>no script at all</em> needed about <b>28&nbsp;seconds</b>
+    to get through two animation frames after being given 1&nbsp;MiB of newlines. This page,
+    given the identical paste, reached its answer sooner than that — while also refusing the
+    input at the door in a fraction of a millisecond. So on that input the tool is measurably
+    faster than doing nothing, the seconds you wait are your browser laying out a million empty
+    lines, and every page with a text box will do the same. Said plainly rather than quietly
+    excluded from a number.</p>
     <p>Sibling tool: <a href="../002-gha-trigger/">why didn't my GitHub Actions workflow run?</a></p>
   </div>
 
@@ -1265,6 +1279,16 @@ footer a{color:var(--faint)}
       if (patternMatch(rules[i].pattern, bytes, budget)) hits.push(rules[i]);
     }
     if (budget && budget.exceeded) return { budgetExceeded: true, winner: null, alsoMatched: [] };
+    /* hits.slice(1) allocates a copy proportional to the number of MATCHING rules, and
+       "matching" is where the multiplication lives: a file where every rule matches every
+       path makes this O(rules) per path on top of the metered matching. It was free.
+       Charged 2026-08-06 after an independent adversary measured the surrounding
+       aggregation at 15,577 ms on 100M hits against 2,105 ms on ~0 hits with the identical
+       rule and path counts — the cost tracked the HIT RATE, which nothing was metering. */
+    if (budget) {
+      budget.left -= (hits.length >> 1) + 1;
+      if (budget.left <= 0) { budget.exceeded = true; return { budgetExceeded: true, winner: null, alsoMatched: [] }; }
+    }
     return { winner: hits.length ? hits[0] : null, alsoMatched: hits.slice(1), budgetExceeded: false };
   }
 
@@ -1436,7 +1460,16 @@ footer a{color:var(--faint)}
 
   /* Every value drawn is already field-capped at the door. clip() is the second belt: a
      future caller who forgets a door limit still cannot emit an unbounded cell. */
+  /* cell() is for FIELDS — patterns and owner tokens — which the door caps at MAX_FIELD, so
+     clipping there can only ever fire on something already refused. */
   function cell(s) { return esc(door.clip(s, MAX_FIELD)); }
+  /* pathCell() is for PATHS, and it exists because using cell() for them was a real defect:
+     a path may legally be up to MAX_PATH_LINE characters, so a 297-character path — accepted,
+     matched and counted correctly on its full value — was drawn truncated at 256 with an
+     ellipsis. The answer was right and the label was wrong, which is the worse of the two.
+     Found by an independent checker, 2026-08-06. A drawn value is clipped at its OWN limit or
+     it misidentifies the thing it names. */
+  function pathCell(s) { return esc(door.clip(s, MAX_PATH_LINE)); }
 
   function ownerList(owners) {
     var shown = owners.length > MAX_OWNERS_SHOWN ? owners.slice(0, MAX_OWNERS_SHOWN) : owners;
@@ -1533,10 +1566,26 @@ footer a{color:var(--faint)}
     for (i = 0; i < paths.length; i++) {
       var r = co.resolve(parsed, paths[i], budget);
       if (r.budgetExceeded) { exceeded = true; break; }
-      var all = r.winner ? [r.winner].concat(r.alsoMatched) : [];
-      for (var k = 0; k < all.length; k++) everMatched[all[k].line] = true;
-      if (r.winner) { everWon[r.winner.line] = true; if (r.winner.owners.length) owned++; else unowned++; }
-      else unowned++;
+      /* METERED 2026-08-06. This aggregation used to be free, and it is not cheap: it is
+         O(matching rules) per path, so its cost tracks the HIT RATE rather than the rule
+         count the meter was watching. An independent adversary measured 15,577 ms here on
+         100M hits against 2,105 ms on ~0 hits at identical rule×path counts, and found a
+         door-legal 1,500×5,000 input that completed and drew a full answer at 789 ms —
+         past a 500 ms meter that could not see this loop. No concat, no intermediate
+         array: the winner is counted directly and the losers are walked in place. */
+      if (r.winner) {
+        everMatched[r.winner.line] = true;
+        everWon[r.winner.line] = true;
+        if (r.winner.owners.length) owned++; else unowned++;
+        var lost = r.alsoMatched;
+        if (nfa.tick(budget) || budget.exceeded) { exceeded = true; break; }
+        budget.left -= (lost.length >> 1) + 1;
+        if (budget.left <= 0) { budget.exceeded = true; exceeded = true; break; }
+        for (var k = 0; k < lost.length; k++) everMatched[lost[k].line] = true;
+      } else {
+        unowned++;
+        if (nfa.tick(budget) || budget.exceeded) { exceeded = true; break; }
+      }
       rows.push({ path: paths[i], winner: r.winner, lost: r.alsoMatched });
     }
     if (exceeded) return slowBanner();
@@ -1575,7 +1624,7 @@ footer a{color:var(--faint)}
         var row = rows[ri];
         /* ONE complete row, assembled before it is offered to the buffer. A row that
            does not fit is not drawn at all — it is never half-drawn. */
-        var rowHtml = '<tr><td class="path"><code>' + cell(row.path) + '</code>';
+        var rowHtml = '<tr><td class="path"><code>' + pathCell(row.path) + '</code>';
         if (row.lost.length) {
           var lshown = row.lost.length > MAX_LOST_SHOWN ? MAX_LOST_SHOWN : row.lost.length;
           rowHtml += '<details><summary>' + row.lost.length + ' rule' +
