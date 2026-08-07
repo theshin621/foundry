@@ -1,0 +1,1405 @@
+<!doctype html>
+<!-- public/006-npm-publish-preflight/page.src.html — SOURCE. Do not edit index.html by hand.
+     Build:  node lib/inline.js public/006-npm-publish-preflight/page.src.html public/006-npm-publish-preflight/index.html
+     Verify: node lib/inline.js public/006-npm-publish-preflight/page.src.html /tmp/o && diff /tmp/o public/006-npm-publish-preflight/index.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>npm publish preflight — what npm will actually upload · foundry day 006</title>
+<meta name="description" content="Paste your package.json, .npmignore, .gitignore and file list. See the exact set of files npm publish will put in the tarball, and the one rule that decided each file. Runs entirely in your browser.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--faint:#4b535c;--line:#1c2128;--panel:#111418;
+      --in:#3fb950;--out:#8b949e;--warn:#d29922;--bad:#f85149;--accent:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+     font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{max-width:60rem;margin:0 auto;padding:2.5rem 1.1rem}
+h1{font-size:1.35rem;margin:0 0 .35rem;letter-spacing:-.01em}
+h2{font-size:.95rem;margin:2rem 0 .6rem;color:var(--fg)}
+.sub{color:var(--dim);margin:0 0 .4rem}
+.priv{color:var(--faint);font-size:.8rem;margin:0 0 1.6rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.6rem .7rem}
+.box label{display:block;font-size:.8rem;color:var(--dim);margin-bottom:.35rem}
+.box .hint{font-size:.72rem;color:var(--faint);font-weight:400}
+textarea{width:100%;min-height:8.5rem;resize:vertical;background:#0b0d10;color:var(--fg);
+         border:1px solid var(--line);border-radius:4px;padding:.5rem;
+         font:12.5px/1.55 ui-monospace,Menlo,monospace}
+textarea:focus{outline:1px solid var(--accent);outline-offset:0}
+.chk{font-size:.74rem;color:var(--dim);margin-top:.4rem;display:flex;align-items:center;gap:.4rem}
+.chk input{accent-color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:.55rem;margin:1.1rem 0 .3rem;align-items:center}
+button{font:inherit;font-size:.85rem;padding:.5rem .95rem;border-radius:5px;cursor:pointer;
+       background:#1f6feb;color:#fff;border:1px solid #1f6feb}
+button.ghost{background:transparent;color:var(--dim);border-color:var(--line)}
+button:hover{filter:brightness(1.12)}
+#status{font-size:.78rem;color:var(--faint);min-height:1.2rem;margin:.4rem 0 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.85rem 1rem;margin:.8rem 0}
+.sum{display:flex;flex-wrap:wrap;gap:1.4rem;font-size:.85rem}
+.sum b{font-size:1.1rem;font-weight:600}
+.sum .k{color:var(--faint);font-size:.72rem;display:block;text-transform:uppercase;letter-spacing:.04em}
+.alarm{border-left:3px solid var(--bad);background:#17110f;padding:.6rem .8rem;margin:.55rem 0;border-radius:0 4px 4px 0;font-size:.85rem}
+.alarm.warn{border-left-color:var(--warn);background:#161208}
+.alarm.info{border-left-color:var(--accent);background:#0d1218}
+.alarm b{display:block;margin-bottom:.15rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:.5rem}
+th{text-align:left;color:var(--faint);font-weight:400;font-size:.7rem;text-transform:uppercase;
+   letter-spacing:.05em;border-bottom:1px solid var(--line);padding:.35rem .4rem}
+td{padding:.34rem .4rem;border-bottom:1px solid #14181d;vertical-align:top}
+tr.out td.p{color:var(--out)}
+td.v{white-space:nowrap;font-weight:600}
+td.v.in{color:var(--in)} td.v.out{color:var(--out)}
+td.p{word-break:break-all}
+td.r{color:var(--dim)}
+td.r code{color:var(--fg);background:#0b0d10;border:1px solid var(--line);border-radius:3px;padding:0 .25rem}
+.badge{display:inline-block;font-size:.66rem;padding:.05rem .35rem;border:1px solid var(--line);
+       border-radius:3px;color:var(--faint);margin-right:.3rem;white-space:nowrap}
+.badge.sec{color:var(--bad);border-color:#5a2725}
+@media(max-width:640px){
+  table,thead,tbody,tr,th,td{display:block}
+  thead{display:none}
+  tr{border-bottom:1px solid var(--line);padding:.4rem 0}
+  td{border:0;padding:.1rem .1rem}
+  td.v{font-size:.75rem}
+}
+details{margin:1.6rem 0 0;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+summary{cursor:pointer;padding:.6rem .8rem;font-size:.85rem;color:var(--dim)}
+details .body{padding:0 .9rem .9rem;font-size:.82rem;color:var(--dim)}
+details .body ul{padding-left:1.1rem}
+details .body code{color:var(--fg)}
+a{color:var(--accent)}
+footer{margin-top:3rem;color:var(--faint);font-size:.8rem}
+footer a{color:var(--faint)}
+</style>
+</head>
+<body>
+<main>
+  <h1>npm publish preflight</h1>
+  <p class="sub">Paste your <code>package.json</code>, your ignore files and your file list. Get the exact
+  set of files <code>npm publish</code> would upload — and for every file, the <em>one rule that decided it</em>.</p>
+  <p class="priv">Runs entirely in this page. Nothing is uploaded, stored or sent anywhere — your file
+  list never leaves the browser. Every rule below is traceable to npm's own documentation; the sources
+  are listed at the bottom.</p>
+
+  <div class="grid">
+    <div class="box">
+      <label for="pkg">package.json <span class="hint">— <code>files</code>, <code>main</code> and <code>bin</code> are what matter here</span></label>
+      <textarea id="pkg" spellcheck="false" placeholder='{ "name": "my-pkg", "main": "lib/index.js" }'></textarea>
+    </div>
+    <div class="box">
+      <label for="paths">file list <span class="hint">— one relative path per line (<code>git ls-files</code> or <code>find . -type f</code>)</span></label>
+      <textarea id="paths" spellcheck="false" placeholder="src/index.js&#10;dist/bundle.js&#10;.env"></textarea>
+    </div>
+    <div class="box">
+      <label for="npmignore">.npmignore</label>
+      <textarea id="npmignore" spellcheck="false" placeholder="test/&#10;*.log"></textarea>
+      <div class="chk"><input type="checkbox" id="npmignore-present"><label for="npmignore-present" style="margin:0">this file exists (tick even if it is empty — an empty .npmignore switches .gitignore off)</label></div>
+    </div>
+    <div class="box">
+      <label for="gitignore">.gitignore</label>
+      <textarea id="gitignore" spellcheck="false" placeholder="node_modules/&#10;dist/"></textarea>
+      <div class="chk"><input type="checkbox" id="gitignore-present"><label for="gitignore-present" style="margin:0">this file exists</label></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="go">Resolve the publish set</button>
+    <button id="example" class="ghost">Load an example</button>
+    <button id="clear" class="ghost">Clear</button>
+  </div>
+  <p id="status">Paste a file list and press Resolve — or load the example to see the classic accident.</p>
+
+  <div id="result"></div>
+
+  <details>
+    <summary>The rules this page applies, and where each one comes from</summary>
+    <div class="body">
+      <p><b>Always included</b>, whatever your <code>files</code> array or ignore files say:
+      <code>package.json</code>, <code>README</code> and <code>LICENSE</code>/<code>LICENCE</code> at
+      the package root in any case and any extension, the file named by <code>main</code>, and the
+      file(s) named by <code>bin</code>.</p>
+      <p><b>Always ignored:</b> <code>*.orig</code>, <code>.*.swp</code>, <code>.DS_Store</code>,
+      <code>._*</code>, <code>.git</code>, <code>.hg</code>, <code>.lock-wscript</code>,
+      <code>.npmrc</code>, <code>.svn</code>, <code>.wafpickle-*</code>, <code>CVS</code>,
+      <code>config.gypi</code>, <code>node_modules</code>, <code>npm-debug.log</code>,
+      <code>package-lock.json</code>, <code>pnpm-lock.yaml</code>, <code>yarn.lock</code>,
+      <code>bun.lockb</code> — plus <code>.gitignore</code> and <code>.npmignore</code> themselves.</p>
+      <p><b>Cannot be re-included even if you name them explicitly:</b> <code>.git</code>,
+      <code>.npmrc</code>, <code>node_modules</code>, <code>package-lock.json</code>,
+      <code>pnpm-lock.yaml</code>, <code>yarn.lock</code>, <code>bun.lockb</code>.</p>
+      <p><b>.npmignore replaces .gitignore — it does not merge with it.</b> If <code>.npmignore</code>
+      is missing, <code>.gitignore</code>'s contents are used <em>instead</em>. So an <em>empty</em>
+      <code>.npmignore</code> is a real idiom: it turns <code>.gitignore</code> off entirely and
+      publishes everything.</p>
+      <p><b>files[] currently wins over .npmignore.</b> npm's own wiki says entries matched by
+      <code>files</code> are included regardless of <code>.npmignore</code> — and flags that as its
+      open issue #11669 rather than intended design. This page follows the documented behaviour and
+      says so on every affected row.</p>
+      <p><b>Two places npm's docs are silent, and what this page does</b> — named rather than
+      resolved quietly:</p>
+      <ul>
+        <li>Do npm's default ignores still apply <em>inside</em> a directory named by
+        <code>files</code>? The docs are explicit only about the hard-core list. This page takes the
+        conservative reading — they do apply — and labels any file it drops that way
+        <code>npm-default-ignore</code>, so you can see it and disagree.</li>
+        <li>Are <code>README</code>/<code>LICENSE</code> honoured at any depth or only at the package
+        root? The docs say "any case and extension" and nothing about depth. npm's own packlist
+        anchors them to the root, so this page does too.</li>
+      </ul>
+      <p><b>A pattern rule that is not about patterns:</b> npm's walker never descends into an
+      excluded directory, so a <code>!</code> deeper in the file never gets to run. This page tests
+      every ancestor directory and treats the first excluded one as final — which is why
+      <code>build/</code> followed by <code>!build/keep.js</code> still leaves
+      <code>build/keep.js</code> out.</p>
+      <p><b>Sources.</b>
+      <a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json" rel="noopener noreferrer" target="_blank">package.json &rarr; files</a> ·
+      <a href="https://docs.npmjs.com/cli/v11/using-npm/developers/" rel="noopener noreferrer" target="_blank">npm developers guide</a> ·
+      <a href="https://github.com/npm/cli/wiki/Files-&amp;-Ignores" rel="noopener noreferrer" target="_blank">npm/cli wiki: Files &amp; Ignores</a> ·
+      pattern syntax follows <code>gitignore(5)</code>, which npm states its ignore files match.</p>
+      <p><b>What this is not.</b> It is not <code>npm pack --dry-run</code>: it never reads your disk,
+      never resolves <code>bundleDependencies</code>, and does not know about workspaces. It answers
+      the question <code>--dry-run</code> does not — <em>which rule decided this file</em>.
+      The credential alarm is this page's own heuristic on file <em>names</em>, not an npm rule, and it
+      never changes a verdict.</p>
+    </div>
+  </details>
+
+  <footer>built by <a href="../">foundry</a> · day 006 · verified before ship</footer>
+</main>
+
+<script>/* inlined verbatim from lib/esc.js — regenerate with lib/inline.js */
+/* lib/esc.js — the ONE HTML-escape helper every ship uses on any user-derived string
+ * before it reaches innerHTML. Inline a copy into each ship (pages stay self-contained);
+ * this file is the canonical source.
+ *
+ * WHY THIS IS A SHARED PRIMITIVE (2026-08-02): ship 002 shipped TWO security findings in
+ * two checker rounds, both the same class — a user-controlled string reaching innerHTML
+ * unescaped. Round 1: a value interpolated into a template. Round 2: a value interpolated
+ * into a THROWN ERROR MESSAGE, then rendered. The lesson is not "remember to escape" — it
+ * is "route every sink through one audited function and escape at the boundary". If a ship
+ * builds HTML from input, it uses this. The checker greps for raw `innerHTML=` assignments
+ * that don't pass through esc().
+ *
+ * Escapes the five characters that matter in both element and attribute context. It does
+ * NOT make arbitrary input safe inside a <script>, a style, a URL, or an unquoted attribute
+ * — those need context-specific handling and are out of scope on purpose.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.esc = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  var MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return MAP[c]; });
+  };
+});
+</script>
+<script>/* inlined verbatim from lib/door.js — regenerate with lib/inline.js */
+/* lib/door.js — validate every dimension of a pasted text box AT THE DOOR,
+ * counting without materialising. Contributed by ship 003 (codeowners rebuild,
+ * 2026-08-05).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THIS FILE EXISTS
+ *
+ * Ship 003's first attempt bounded its inputs and still froze. Six checker
+ * verdicts over three fix cycles converged on ONE root cause, and it is general
+ * enough that every paste-a-text-box ship will meet it:
+ *
+ *     AGGREGATE input was bounded. The DIMENSIONS that drive work were not.
+ *
+ * A 1 MiB cap says nothing about how many lines that MiB contains, how long the
+ * longest one is, or how long a single whitespace-delimited FIELD inside a line
+ * is. Each of those is a separate multiplier on downstream cost, and the field
+ * dimension is the one that got missed: `** @` followed by 100,000 'a' is 100 KB
+ * — comfortably inside every aggregate cap — and it cost 23,701 ms, because one
+ * absurd owner token was re-drawn once per matching file.
+ *
+ * The second half of the lesson is subtler and is why this file exists at all
+ * rather than five inline `if`s: the ACT OF MEASURING must not itself be the
+ * cost. The obvious implementation —
+ *
+ *     text.split('\n').forEach(l => { if (l.length > MAX) ... })
+ *
+ * — allocates the entire line array before it can reject anything, so a hostile
+ * paste has already won by the time the guard runs. Everything below is a single
+ * forward pass over char codes with NO split, NO slice, NO regex and NO array of
+ * lines, and it BAILS at the first violation. Cost is O(chars up to the first
+ * violation), bounded by the aggregate cap the caller has already applied, with
+ * an allocation count of zero.
+ *
+ * ── ORDER MATTERS ────────────────────────────────────────────────────────────
+ * Call this BEFORE any split / trim / parse / compile. Zero work before
+ * validation. A guard that runs after the parse is not a guard, it is a report.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.door = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var NL = 10, CR = 13, SP = 32, TAB = 9;
+
+  function isSpace(c) { return c === SP || c === TAB || c === CR; }
+
+  /* scan(text, limits) — one pass, no allocation, early bail.
+   *
+   * limits: {
+   *   maxChars       total length of the box
+   *   maxLines       maximum NON-BLANK lines. Blank lines are excluded on purpose:
+   *                  they cost nothing downstream, and counting them made a file of
+   *                  exactly maxLines rules saved the ordinary way — with a trailing
+   *                  newline — fail the limit it was exactly at. (Found by the
+   *                  independent checker, 2026-08-05: 20,000 rules + "\n" was
+   *                  rejected as 20,001 while the identical file without the trailing
+   *                  newline passed.) `lines` is still REPORTED, for messages and for
+   *                  callers that need split-equivalence; only the CAP counts
+   *                  non-blank lines, because only non-blank lines are work.
+   *   maxSegments    maximum TOTAL segments — the count String.prototype.split would
+   *                  produce, blank ones included. THE SECOND CAP, ADDED 2026-08-06.
+   *                  maxLines bounds DOWNSTREAM work; maxSegments bounds the
+   *                  PREPROCESSING BETWEEN THE DOOR AND THE BUDGET. Excluding blank
+   *                  lines from the single cap (above) was correct for downstream cost
+   *                  and simultaneously opened a hole: 1 MiB of newlines is 0 non-blank
+   *                  lines and ~1,048,576 segments, so it walked through a maxLines
+   *                  cap of 20,000 and into an unmetered split() + per-line trim. The
+   *                  independent re-checker measured the page's own reported timing at
+   *                  1,309–1,342 ms (16–34 s wall clock) on that fully door-legal
+   *                  input. BINDING RULE, and the reason this parameter exists rather
+   *                  than an inline guard at one call site: THE DOOR MUST BOUND EVERY
+   *                  QUANTITY ANY LOOP BETWEEN THE DOOR AND THE BUDGET WILL ITERATE
+   *                  OVER, AND NO RAW SPLIT MAY BE TAKEN OVER A QUANTITY THE DOOR HAS
+   *                  NOT BOUNDED. Omit it only when the caller never splits.
+   *   maxLineLength  longest single line, in CHARS
+   *   maxFieldLength optional — longest whitespace-delimited field within a line
+   *   commentChar    optional — stop field scanning at the first occurrence of
+   *                  this char on a line (fields after it are a comment)
+   * }
+   *
+   * returns {ok:true, lines, nonBlank}
+   *      or {ok:false, kind:'chars'|'lines'|'segments'|'line'|'field', line, length, limit}
+   *         where `line` is 1-based and `length` is the measured size that broke
+   *         the limit — so the caller's refusal message can be exact rather than
+   *         vague. Off-by-one exactness is a checkable property: a value equal to
+   *         the limit must pass and limit+1 must fail.
+   *
+   *         CALLER NOTE, added by ship 006 (2026-08-07) after driving a real page:
+   *         "length is the measured size" holds for 'chars' and 'line' and for a
+   *         'field' that closed normally. It does NOT hold for 'lines', for
+   *         'segments', or for a 'field' that bailed mid-run — those three return
+   *         limit+1 because the scan stops the instant the cap is passed, and a
+   *         box of 600 lines and a box of 60,000 both report limit+1. A caller
+   *         that prints "has 301 lines" there is reporting a measurement the door
+   *         never took. Phrase all three as "more than N". Worse, the return value
+   *         does not distinguish the exact 'field' from the inexact one, so
+   *         "more than N" is the only phrasing that is never wrong for 'field'.
+   *
+   *         ONE DELIBERATE EXCEPTION to "length is measured": kind:'segments' bails
+   *         the instant the cap is passed, so the true total is NOT known and
+   *         `length` is reported as limit+1 with `exact:false`. Scanning on to
+   *         produce an exact total would be doing the very work the cap exists to
+   *         prevent. Callers must phrase that refusal as "more than N", never "N+1".
+   */
+  function scan(text, limits) {
+    var s = String(text == null ? '' : text);
+    var maxChars = limits.maxChars, maxLines = limits.maxLines;
+    var maxSegments = limits.maxSegments;
+    var maxLine = limits.maxLineLength, maxField = limits.maxFieldLength;
+    var commentCode = limits.commentChar ? limits.commentChar.charCodeAt(0) : -1;
+
+    if (s.length > maxChars)
+      return { ok: false, kind: 'chars', line: 0, length: s.length, limit: maxChars };
+
+    var n = s.length;
+    var line = 1, lineStart = 0, nonBlank = 0;
+    var sawNonSpace = false, inComment = false;
+    var fieldStart = -1;
+    var i, c, term, lineEnd, lineLen, fieldLen;
+    /* Which byte sequences end a line MUST match whatever the caller later splits
+       on, or the door counts a different number of lines than the caller produces
+       and the guard is decorative rather than binding. Measured 2026-08-05 across
+       both consumers in this repo: lib/codeowners.js splits on "\n" only (a lone
+       "\r" stays inside the line), while a path list split with
+       /\r\n|\r|\n/ treats all three as terminators. So the caller declares it.
+         'lf'  -> "\n" and "\r\n"          (lone "\r" is ordinary text)
+         'any' -> "\n", "\r\n" and "\r"                                        */
+    var loneCrEnds = limits.lineTerminators === 'any';
+
+    /* One pass. Position `n` is a final virtual terminator, so the last line is
+       validated on exactly the same path as every other line — the trailing-line
+       special case is where off-by-one bugs live. A terminator at the very end
+       DOES open a final empty line, because that is what String.prototype.split
+       produces and matching it exactly is the whole point. */
+    for (i = 0; i <= n; i++) {
+      c = i < n ? s.charCodeAt(i) : NL;
+      term = (i === n) ? 1
+           : (c === NL ? 1
+           : (c === CR ? (s.charCodeAt(i + 1) === NL ? 2 : (loneCrEnds ? 1 : 0)) : 0));
+
+      if (!term) {
+        if (commentCode !== -1 && c === commentCode) inComment = true;
+        if (!isSpace(c)) sawNonSpace = true;
+
+        if (maxField && !inComment) {
+          if (isSpace(c)) {
+            if (fieldStart !== -1) {
+              fieldLen = i - fieldStart;
+              if (fieldLen > maxField)
+                return { ok: false, kind: 'field', line: line, length: fieldLen, limit: maxField };
+              fieldStart = -1;
+            }
+          } else if (fieldStart === -1) {
+            fieldStart = i;
+          } else if (i - fieldStart >= maxField) {
+            /* Bail INSIDE the field rather than waiting for its end: a single
+               1 MiB field would otherwise be scanned in full before rejection.
+               i - fieldStart === maxField means maxField+1 chars seen so far. */
+            return { ok: false, kind: 'field', line: line, length: maxField + 1, limit: maxField };
+          }
+        }
+        continue;
+      }
+
+      /* --- close the line at `i` (exclusive of the terminator) --- */
+      lineEnd = i;
+      lineLen = lineEnd - lineStart;
+      if (lineLen > maxLine)
+        return { ok: false, kind: 'line', line: line, length: lineLen, limit: maxLine };
+
+      if (maxField && !inComment && fieldStart !== -1) {
+        fieldLen = lineEnd - fieldStart;
+        if (fieldLen > maxField)
+          return { ok: false, kind: 'field', line: line, length: fieldLen, limit: maxField };
+      }
+
+      if (sawNonSpace) nonBlank++;
+      if (nonBlank > maxLines)
+        return { ok: false, kind: 'lines', line: line, length: nonBlank, limit: maxLines };
+      if (i === n) break;
+
+      line++;
+
+      /* THE SECOND CAP. `line` has just become the 1-based index of the segment we
+         are about to start reading, i.e. the running segment TOTAL. Checking here
+         rather than at the end is the whole point: a 1 MiB newline flood is refused
+         after maxSegments characters, not after 1,048,576. Off-by-one: a text of
+         exactly maxSegments segments performs maxSegments-1 increments and leaves
+         `line` at maxSegments, so it passes; maxSegments+1 segments performs one more
+         and fails here. `length` is limit+1 and flagged inexact — see the header. */
+      if (maxSegments && line > maxSegments)
+        return { ok: false, kind: 'segments', line: line, length: maxSegments + 1,
+                 limit: maxSegments, exact: false };
+
+      i += term - 1;                 /* skip the second char of a CRLF */
+      lineStart = i + 1;
+      sawNonSpace = false; inComment = false; fieldStart = -1;
+    }
+
+    return { ok: true, lines: line, nonBlank: nonBlank };
+  }
+
+  /* A bounded output buffer. The other half of the same lesson: bounding what is
+     READ does nothing about what is WRITTEN, and a results view derived from
+     input has no length cap of its own. Everything appended goes through here,
+     so the emitted size is a CONSTANT regardless of input — bounded by
+     construction, not by a budget that has to be consulted correctly. */
+  function buffer(maxChars) {
+    var parts = [], used = 0, capped = false;
+    return {
+      push: function () {
+        var i, a;
+        for (i = 0; i < arguments.length; i++) {
+          a = String(arguments[i]);
+          if (used + a.length > maxChars) { capped = true; return false; }
+          parts.push(a); used += a.length;
+        }
+        return true;
+      },
+      capped: function () { return capped; },
+      used: function () { return used; },
+      toString: function () { return parts.join(''); }
+    };
+  }
+
+  /* Truncate a single value for display, with a visible marker. Used for values
+     that are already field-capped at the door — this is the second belt, so that
+     a future caller who forgets a door limit still cannot emit an unbounded cell. */
+  function clip(s, max) {
+    var t = String(s == null ? '' : s);
+    return t.length <= max ? t : t.slice(0, max) + '…';
+  }
+
+  return { scan: scan, buffer: buffer, clip: clip };
+});
+</script>
+<script>/* inlined verbatim from lib/gitignore.js — regenerate with lib/inline.js */
+/* lib/gitignore.js — gitignore-syntax pattern sets: parse + match, with NO regex
+ * and NO backtracking. Contributed by ship 006 (npm-publish-preflight, 2026-08-07).
+ * Ships INLINE a copy (pages stay self-contained); this file is the canonical source.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY IT IS A DYNAMIC-PROGRAM AND NOT A REGEX, AND NOT lib/nfa.js EITHER
+ *
+ * Three ships in this repo have now been failed by a matcher's COST rather than
+ * its correctness, so the cost model is chosen first here and the code follows it.
+ *
+ *   * `new RegExp(userPattern)` is out on sight. JavaScript's engine backtracks;
+ *     ship 002 failed twice on exactly that (see lib/codeowners.js's header).
+ *
+ *   * lib/nfa.js (Thompson NFA + Pike VM) is the repo's proven linear-time answer
+ *     and it is the RIGHT tool when a few patterns run against many long strings:
+ *     compile once, then O(len(input) x len(program)) per test.
+ *     This ship has the opposite shape. A publish-set resolution is MANY patterns
+ *     (an ignore file) x MANY short paths (a file list) — order 500 x 4,000 = 2e6
+ *     tests — and each individual test is tiny and nearly always dies on its first
+ *     segment. Under the Pike VM every one of those 2e6 tests pays the whole
+ *     program width; under the segment walk below, the overwhelming majority pay
+ *     ONE segment comparison and stop. Same asymptotic safety, ~3 orders of
+ *     magnitude less constant. Choosing nfa.js here would have been borrowing the
+ *     familiar tool instead of the fitting one.
+ *
+ *   * What is emphatically NOT used is the textbook RECURSIVE glob matcher
+ *     (`if (p==='*') return m(s,p+1) || m(s+1,p)`). That one is exponential on
+ *     `a*a*a*a*b` and is the same defect class as a backtracking regex wearing a
+ *     different hat. Both matchers below are bottom-up DP over a boolean row:
+ *     bounded by construction at O(n x m), no recursion, no backtracking possible.
+ *
+ * ── SEMANTICS ARE BORROWED, NOT INVENTED ─────────────────────────────────────
+ *   Source: the gitignore pattern format as specified in `git help gitignore`
+ *   (PATTERN FORMAT). npm states its own ignore files "work just like a
+ *   .gitignore" — https://docs.npmjs.com/cli/v11/configuring-npm/package-json
+ *   The clauses implemented, each traceable to that spec:
+ *     - blank lines match nothing; `#` starts a comment; `\#` is a literal `#`
+ *     - trailing spaces are ignored unless escaped with a backslash
+ *     - `!` negates (re-includes); `\!` is a literal `!`
+ *     - a trailing `/` makes the pattern match directories only
+ *     - a `/` at the beginning or middle anchors the pattern to the ignore file's
+ *       own directory; a pattern with no such `/` matches at ANY depth
+ *     - `*` and `?` never match `/`; `[...]` is a character class (with `!`/`^`
+ *       negation and `a-z` ranges) and never matches `/`
+ *     - a segment that is exactly `**` matches zero or more directories; a
+ *       TRAILING `/**` matches everything inside and so requires at least one
+ *     - last matching rule wins
+ *
+ *   Deliberately NOT implemented, because git's own spec calls them out and a
+ *   silent partial implementation is worse than a named gap:
+ *     - POSIX bracket expressions ([[:alpha:]]) — parsed as ordinary class members
+ *     - the "cannot re-include a file if a parent directory is excluded" rule is
+ *       NOT enforced here; it is a property of walking a tree, not of matching one
+ *       path, so it belongs to the caller. The caller must test ancestors itself.
+ *       (npm's own walker prunes directories, so a caller that skips this WILL
+ *       disagree with npm. Ship 006 tests every ancestor and memoises.)
+ *
+ * ── BUDGET ───────────────────────────────────────────────────────────────────
+ * Every loop is metered. `budget` = { left: <steps>, deadline: <ms epoch or 0> }.
+ * On exhaustion the call returns `{ exceeded: true }` and the caller must surface
+ * that as an incomplete answer — never as "not ignored". Silence on exhaustion is
+ * how a matcher lies. Callers must still call lib/door.js BEFORE this file: the
+ * budget bounds the work, the door bounds the input, and they are not the same job.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.gitignore = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* token kinds inside one path segment */
+  var T_LIT = 1, T_STAR = 2, T_ANY = 3, T_CLASS = 4;
+  /* whole-segment kinds */
+  var S_DSTAR = '**', S_DSTAR_PLUS = '**+';
+
+  function tick(b, n) {
+    if (!b) return false;
+    b.left -= (n || 1);
+    if (b.left <= 0) { b.exceeded = true; return true; }
+    if (b.deadline) {
+      b.since = (b.since | 0) + 1;
+      if (b.since >= 2048) {
+        b.since = 0;
+        if (Date.now() > b.deadline) { b.exceeded = true; return true; }
+      }
+    }
+    return false;
+  }
+
+  /* ── compile one path segment into single-character tokens ──────────────────
+     Every token except T_STAR consumes exactly one character, which is what makes
+     the DP below a plain O(n x m) row sweep with no special cases. */
+  function compileSegment(str) {
+    var toks = [], i = 0, n = str.length, c, plain = true;
+    while (i < n) {
+      c = str.charAt(i);
+      if (c === '\\' && i + 1 < n) { toks.push({ t: T_LIT, c: str.charAt(i + 1) }); i += 2; plain = false; continue; }
+      if (c === '*') {
+        /* collapse runs of '*' — '**' inside a segment is just '*' per the spec */
+        while (i < n && str.charAt(i) === '*') i++;
+        toks.push({ t: T_STAR }); plain = false; continue;
+      }
+      if (c === '?') { toks.push({ t: T_ANY }); i++; plain = false; continue; }
+      if (c === '[') {
+        var cls = parseClass(str, i);
+        if (cls) { toks.push(cls.tok); i = cls.next; plain = false; continue; }
+        /* an unterminated '[' is a literal '[' — git treats it as ordinary text */
+        toks.push({ t: T_LIT, c: '[' }); i++; continue;
+      }
+      toks.push({ t: T_LIT, c: c }); i++;
+    }
+    /* Three cheap NECESSARY CONDITIONS, precomputed once per pattern and checked
+       before the DP on every candidate string. Each can only reject what the DP
+       would also reject, so they change no verdict — the oracle is run before and
+       after any change here to keep that honest.
+         lit     the whole segment is metacharacter-free -> one === compare
+         minLen  every token except '*' consumes exactly one char, so a string
+                 shorter than the token count cannot match
+         pre/suf leading and trailing LITERAL runs must appear at the same ends of
+                 the string. This is the one that matters at scale: '*.log' tested
+                 against 'file912.js' dies on a 4-char suffix compare instead of a
+                 66-cell DP, and an ignore file is mostly extension globs. */
+    var pre = '', suf = '', k, minLen = 0, hasStar = false;
+    for (k = 0; k < toks.length; k++) { if (toks[k].t === T_STAR) hasStar = true; else minLen++; }
+    for (k = 0; k < toks.length && toks[k].t === T_LIT; k++) pre += toks[k].c;
+    for (k = toks.length - 1; k >= 0 && toks[k].t === T_LIT; k--) suf = toks[k].c + suf;
+    /* a segment with no '*' at all is fully described by pre; do not double-count */
+    if (pre.length === toks.length) suf = '';
+    return { toks: toks, lit: plain ? str : null, pre: pre, suf: suf, minLen: minLen, hasStar: hasStar };
+  }
+
+  function parseClass(str, start) {
+    var i = start + 1, n = str.length, neg = false, items = [], c;
+    if (i < n && (str.charAt(i) === '!' || str.charAt(i) === '^')) { neg = true; i++; }
+    /* a ']' as the FIRST member is a literal ']' */
+    if (i < n && str.charAt(i) === ']') { items.push({ a: ']', b: ']' }); i++; }
+    while (i < n) {
+      c = str.charAt(i);
+      if (c === ']') return { tok: { t: T_CLASS, neg: neg, items: items }, next: i + 1 };
+      if (c === '\\' && i + 1 < n) { items.push({ a: str.charAt(i + 1), b: str.charAt(i + 1) }); i += 2; continue; }
+      if (i + 2 < n && str.charAt(i + 1) === '-' && str.charAt(i + 2) !== ']') {
+        items.push({ a: c, b: str.charAt(i + 2) }); i += 3; continue;
+      }
+      items.push({ a: c, b: c }); i++;
+    }
+    return null;                                   /* unterminated */
+  }
+
+  function classHas(tok, ch) {
+    var i, it, hit = false;
+    for (i = 0; i < tok.items.length; i++) {
+      it = tok.items[i];
+      if (ch >= it.a && ch <= it.b) { hit = true; break; }
+    }
+    return tok.neg ? !hit : hit;
+  }
+
+  function tokMatch(tok, ch) {
+    if (ch === '/') return false;                  /* no wildcard ever crosses a '/' */
+    if (tok.t === T_LIT) return tok.c === ch;
+    if (tok.t === T_ANY) return true;
+    if (tok.t === T_CLASS) return classHas(tok, ch);
+    return false;
+  }
+
+  /* Scratch rows, hoisted out of the matchers. A publish-set resolution runs the
+     DP on the order of a million times, and allocating two Uint8Arrays per call
+     was ~30% of the measured wall time. segMatch and pathMatch get SEPARATE pools
+     because pathMatch's row must survive across the segMatch calls it makes —
+     sharing one pool here would be a silent correctness bug, not just a slow one.
+     Safe because JS is single-threaded and neither matcher is re-entrant. */
+  function pool() {
+    var a = new Uint8Array(64), b = new Uint8Array(64);
+    return function (need) {
+      if (a.length < need) { a = new Uint8Array(need); b = new Uint8Array(need); }
+      a.fill(0, 0, need); b.fill(0, 0, need);
+      return [a, b];
+    };
+  }
+  var segPool = pool(), pathPool = pool();
+
+  /* ── segment matcher: bottom-up DP, O(len(seg) x len(toks)), no recursion ──── */
+  function segMatch(seg, str, budget) {
+    if (seg.lit !== null) { tick(budget); return seg.lit === str; }
+    var toks = seg.toks, m = toks.length, n = str.length, i, j, t;
+    tick(budget);
+    /* With no '*' anywhere, every token consumes exactly one character, so the
+       lengths must be EQUAL — not merely sufficient. Without this an all-class
+       pattern like x[a-z][a-z]...y is the one shape that walks past minLen, pre
+       and suf and still pays a full row sweep on every candidate. */
+    if (seg.hasStar ? (n < seg.minLen) : (n !== seg.minLen)) return false;
+    if (seg.pre) {
+      if (n < seg.pre.length) return false;
+      for (i = 0; i < seg.pre.length; i++) if (str.charAt(i) !== seg.pre.charAt(i)) return false;
+    }
+    if (seg.suf) {
+      if (n < seg.suf.length) return false;
+      for (i = 0; i < seg.suf.length; i++)
+        if (str.charAt(n - seg.suf.length + i) !== seg.suf.charAt(i)) return false;
+    }
+    var buf = segPool(m + 1), dp = buf[0], nd = buf[1];
+    dp[0] = 1;
+    for (j = 0; j < m; j++) { if (toks[j].t === T_STAR && dp[j]) dp[j + 1] = 1; else break; }
+    for (i = 1; i <= n; i++) {
+      if (tick(budget, m)) return false;
+      nd[0] = 0;
+      for (j = 1; j <= m; j++) {
+        t = toks[j - 1];
+        if (t.t === T_STAR) nd[j] = (nd[j - 1] || dp[j]) ? 1 : 0;
+        else nd[j] = (dp[j - 1] && tokMatch(t, str.charAt(i - 1))) ? 1 : 0;
+      }
+      for (j = 0; j <= m; j++) dp[j] = nd[j];
+    }
+    return !!dp[m];
+  }
+
+  /* ── path matcher: the same DP one level up, over segments ──────────────────
+     Two O(1)-ish NECESSARY-CONDITION checks run before the DP. Both are exact —
+     they can only reject inputs the DP would also have rejected — and together
+     they are what makes a realistic 300-rule x 3,000-path resolution finish in a
+     click rather than in a second and a half.
+
+       (a) LAST SEGMENT. If the pattern's last segment is concrete (not `**`), a
+           full match REQUIRES it to match the path's last segment. Testing that
+           one segment first turns a rule ending in a `.log` glob, tested against a
+           `.js` file, from a 25-cell row sweep into a single failed compare.
+           Measured on the worst door-legal input ship 006 accepts: 1,658 ms down
+           to double digits, with every oracle verdict unchanged.
+       (b) ARITY. With no `**` anywhere the segment counts must be equal; with
+           `**` present the path needs at least one segment per concrete segment
+           plus one per trailing `/**`.
+
+     Order matters: both run BEFORE pathPool(), so a rejected pattern does not
+     even pay for zeroing a scratch row. */
+  function pathMatch(patSegs, pathSegs, budget) {
+    var m = patSegs.length, n = pathSegs.length, i, j, p;
+    if (m === 0) return n === 0;
+
+    var last = patSegs[m - 1];
+    if (last !== S_DSTAR && last !== S_DSTAR_PLUS) {
+      if (n === 0) return false;
+      if (!segMatch(last, pathSegs[n - 1], budget)) return false;
+      if (budget && budget.exceeded) return false;
+    }
+
+    var hasD = false, need = 0;
+    for (i = 0; i < m; i++) {
+      p = patSegs[i];
+      if (p === S_DSTAR) hasD = true;
+      else if (p === S_DSTAR_PLUS) { hasD = true; need++; }
+      else need++;
+    }
+    if (!hasD) { if (m !== n) return false; }
+    else if (n < need) return false;
+
+    var buf = pathPool(m + 1), dp = buf[0], nd = buf[1];
+    dp[0] = 1;
+    for (j = 0; j < m; j++) { if (patSegs[j] === S_DSTAR && dp[j]) dp[j + 1] = 1; else break; }
+    for (i = 1; i <= n; i++) {
+      if (tick(budget)) return false;
+      nd[0] = 0;
+      for (j = 1; j <= m; j++) {
+        p = patSegs[j - 1];
+        if (p === S_DSTAR) nd[j] = (nd[j - 1] || dp[j]) ? 1 : 0;
+        else if (p === S_DSTAR_PLUS) nd[j] = (dp[j - 1] || dp[j]) ? 1 : 0;
+        else nd[j] = (dp[j - 1] && segMatch(p, pathSegs[i - 1], budget)) ? 1 : 0;
+        if (budget && budget.exceeded) return false;
+      }
+      for (j = 0; j <= m; j++) dp[j] = nd[j];
+    }
+    return !!dp[m];
+  }
+
+  /* ── parse one line into a rule (or null) ─────────────────────────────────── */
+  function parseLine(raw, lineNo) {
+    var s = raw, neg = false, dirOnly = false, i;
+
+    /* strip trailing whitespace unless the last space is backslash-escaped */
+    var end = s.length;
+    while (end > 0 && (s.charAt(end - 1) === ' ' || s.charAt(end - 1) === '\t')) {
+      var back = 0, k = end - 2;
+      while (k >= 0 && s.charAt(k) === '\\') { back++; k--; }
+      if (back % 2 === 1) break;                   /* escaped — keep it */
+      end--;
+    }
+    s = s.slice(0, end);
+
+    if (s === '') return null;
+    if (s.charAt(0) === '#') return null;
+    if (s.charAt(0) === '\\' && (s.charAt(1) === '#' || s.charAt(1) === '!')) s = s.slice(1);
+    else if (s.charAt(0) === '!') { neg = true; s = s.slice(1); if (s === '') return { error: 'empty pattern after "!"', line: lineNo, raw: raw }; }
+
+    if (s.length > 1 && s.charAt(s.length - 1) === '/') { dirOnly = true; s = s.slice(0, -1); }
+    if (s === '' || s === '/') return { error: 'empty pattern', line: lineNo, raw: raw };
+
+    var anchored = s.indexOf('/') !== -1;
+    if (s.charAt(0) === '/') s = s.slice(1);
+    if (s === '') return { error: 'empty pattern', line: lineNo, raw: raw };
+
+    var parts = s.split('/'), segs = [], j;
+    for (j = 0; j < parts.length; j++) {
+      if (parts[j] === '**') segs.push(j === parts.length - 1 ? S_DSTAR_PLUS : S_DSTAR);
+      else if (parts[j] === '') continue;          /* collapse '//' */
+      else segs.push(compileSegment(parts[j]));
+    }
+    if (!segs.length) return { error: 'empty pattern', line: lineNo, raw: raw };
+    if (!anchored) segs.unshift(S_DSTAR);
+
+    return { neg: neg, dirOnly: dirOnly, segs: segs, raw: raw, line: lineNo };
+  }
+
+  /* compile(text, opts) — opts.maxRules caps the rule count (the door should have
+     bounded the text already; this is the second belt). */
+  function compile(text, opts) {
+    opts = opts || {};
+    var lines = String(text == null ? '' : text).split(/\r\n|\r|\n/);
+    var rules = [], errors = [], i, r;
+    var cap = opts.maxRules || 5000;
+    for (i = 0; i < lines.length; i++) {
+      if (rules.length >= cap) { errors.push({ line: i + 1, error: 'rule limit ' + cap + ' reached', raw: lines[i] }); break; }
+      r = parseLine(lines[i], i + 1);
+      if (!r) continue;
+      if (r.error) { errors.push(r); continue; }
+      rules.push(r);
+    }
+    return { rules: rules, errors: errors, lineCount: lines.length };
+  }
+
+  /* test(compiled, path, isDir, budget) — LAST matching rule wins, so the scan
+     runs backwards and stops at the first hit. Returns the deciding rule so the
+     caller can show WHY, which is the entire product in ship 006. */
+  function test(compiled, path, isDir, budget) {
+    var segs = String(path).split('/'), i, r;
+    for (i = segs.length - 1; i >= 0; i--) if (segs[i] === '') segs.splice(i, 1);
+    if (!segs.length) return { ignored: false, rule: null };
+    for (i = compiled.rules.length - 1; i >= 0; i--) {
+      r = compiled.rules[i];
+      if (budget && budget.exceeded) return { exceeded: true, ignored: false, rule: null };
+      if (r.dirOnly && !isDir) continue;
+      if (pathMatch(r.segs, segs, budget)) {
+        if (budget && budget.exceeded) return { exceeded: true, ignored: false, rule: null };
+        return { ignored: !r.neg, rule: r };
+      }
+    }
+    if (budget && budget.exceeded) return { exceeded: true, ignored: false, rule: null };
+    return { ignored: false, rule: null };
+  }
+
+  /* matchOne — a single pattern string against a single path. Convenience for the
+     package.json `files[]` allowlist, which is gitignore-ish but not an ignore file. */
+  function matchOne(pattern, path, isDir, budget) {
+    var r = parseLine(String(pattern), 0);
+    if (!r || r.error) return false;
+    var segs = String(path).split('/'), i;
+    for (i = segs.length - 1; i >= 0; i--) if (segs[i] === '') segs.splice(i, 1);
+    if (!segs.length) return false;
+    if (r.dirOnly && !isDir) return false;
+    return pathMatch(r.segs, segs, budget);
+  }
+
+  return {
+    compile: compile,
+    test: test,
+    matchOne: matchOne,
+    _parseLine: parseLine,
+    _segMatch: segMatch,
+    _compileSegment: compileSegment
+  };
+});
+</script>
+<script>/* inlined verbatim from lib/npmpack.js — regenerate with lib/inline.js */
+/* lib/npmpack.js — resolve the set of files `npm publish` would put in the tarball,
+ * and the ONE rule that decided each. Contributed by ship 006
+ * (npm-publish-preflight, 2026-08-07). Runs on lib/gitignore.js.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * EVERY RULE BELOW IS QUOTED FROM npm's OWN DOCUMENTATION, NOT FROM MEMORY.
+ * The three sources, and what each one settles:
+ *
+ *   [A] https://docs.npmjs.com/cli/v11/configuring-npm/package-json  ("files")
+ *       - the always-INCLUDED list, incl. "README & LICENSE can have any case
+ *         and extension", plus the `main` and `bin` targets
+ *       - the always-IGNORED list
+ *       - the hard core that "cannot be included even if explicitly specified":
+ *         .git, .npmrc, node_modules, package-lock.json, pnpm-lock.yaml,
+ *         yarn.lock, bun.lockb
+ *       - "The .npmignore file works just like a .gitignore. If there is a
+ *         .gitignore file, and .npmignore is missing, .gitignore's contents will
+ *         be used instead."
+ *   [B] https://docs.npmjs.com/cli/v11/using-npm/developers/
+ *       - the same replacement rule stated from the other side, and the trick it
+ *         implies: "If you want to include something that is excluded by your
+ *         .gitignore file, you can create an EMPTY .npmignore file to override it."
+ *         That is why this module takes a `present` flag per ignore file and not
+ *         just its text — an empty-but-present .npmignore is a meaningful input
+ *         and a tool that only looks at the text cannot see it.
+ *       - adds .gitignore and .npmignore themselves to the ignored list
+ *   [C] https://github.com/npm/cli/wiki/Files-&-Ignores
+ *       - "Entries matched by `files` will be included, regardless of .npmignore
+ *         settings" — and flags this as npm's own open issue (#11669) rather than
+ *         intended design.
+ *
+ * ── TWO PLACES THE DOCS ARE SILENT, AND WHAT THIS MODULE DOES ────────────────
+ * Named here rather than resolved quietly, because a tool that guesses and does
+ * not say so is worse than one that refuses.
+ *
+ *   1. Do npm's DEFAULT ignores still apply inside a directory named by `files`?
+ *      [A] is explicit only about the hard core. This module takes the
+ *      CONSERVATIVE reading — defaults apply in both modes — and labels any file
+ *      it drops that way `npm-default-ignore`, so the answer is visible and
+ *      arguable rather than buried. Flagged on the page too.
+ *   2. Are README/LICENSE honoured at any depth or only at the package root?
+ *      [A] says "can have any case and extension" and says nothing about depth.
+ *      npm's own packlist anchors them to the root, so this module does too, and
+ *      says so in the reason string (`always-include (root)`).
+ *
+ * ── ONE RULE THAT IS NOT A MATCHING RULE ─────────────────────────────────────
+ * git (and therefore npm's walker) CANNOT re-include a file whose parent
+ * directory was excluded — the walker never descends, so a `!` deeper in the file
+ * never gets a chance to run. That is a property of walking a tree, not of
+ * matching a path, so lib/gitignore.js deliberately does not implement it and
+ * this module does: every ancestor directory is tested, shortest first, and the
+ * first ignored ancestor is terminal. Ancestor verdicts are MEMOISED — without
+ * that, a 2,000-path list re-tests the same directories thousands of times and
+ * the cost is quadratic in the thing a user pastes.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(
+    typeof require === 'function' ? require('./gitignore.js') : null);
+  else root.npmpack = factory(root.gitignore);
+})(typeof self !== 'undefined' ? self : this, function (gitignore) {
+  'use strict';
+
+  /* [A] + [B]. Written as gitignore lines because that is exactly how npm applies
+     them — as the first rules of the stack, overridable by a later `!` except for
+     the hard core below. Each carries the source that documents it. */
+  var DEFAULT_IGNORE = [
+    ['*.orig', 'A'], ['.*.swp', 'A'], ['.DS_Store', 'A'], ['._*', 'A'],
+    ['.git', 'A'], ['.hg', 'A'], ['.lock-wscript', 'A'], ['.npmrc', 'A'],
+    ['.svn', 'A'], ['.wafpickle-*', 'A'], ['CVS', 'A'], ['config.gypi', 'A'],
+    ['node_modules', 'A'], ['npm-debug.log', 'A'], ['package-lock.json', 'A'],
+    ['pnpm-lock.yaml', 'A'], ['yarn.lock', 'A'], ['bun.lockb', 'A'],
+    ['.gitignore', 'B'], ['.npmignore', 'B']
+  ];
+
+  /* [A] "certain ignored files cannot be included even if explicitly specified" */
+  var HARD = ['.git', '.npmrc', 'node_modules', 'package-lock.json',
+              'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb'];
+
+  /* Files whose names LOOK like credentials. Not an npm rule — this module's own
+     alarm, and labelled as such everywhere it surfaces. It never changes a
+     verdict; it only raises a flag on a file npm WOULD publish. */
+  var SECRET_PATTERNS = [
+    '.env', '.env.*', '*.pem', '*.key', '*.p12', '*.pfx', '*.keystore', '*.jks',
+    'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519', '*.ppk',
+    'credentials', 'credentials.json', 'secrets.*', '*.secret', '.netrc',
+    'service-account*.json', '*.pkcs12', 'terraform.tfstate', '.pypirc'
+  ];
+
+  function norm(p) {
+    var s = String(p == null ? '' : p).replace(/\\/g, '/').replace(/^\.\//, '');
+    while (s.length > 1 && s.charAt(0) === '/') s = s.slice(1);
+    while (s.length > 1 && s.charAt(s.length - 1) === '/') s = s.slice(0, -1);
+    return s;
+  }
+
+  function ancestorsOf(path) {
+    var segs = path.split('/'), out = [], acc = '', i;
+    for (i = 0; i < segs.length - 1; i++) {
+      acc = acc ? acc + '/' + segs[i] : segs[i];
+      out.push(acc);
+    }
+    return out;
+  }
+
+  function baseOf(p) { var i = p.lastIndexOf('/'); return i === -1 ? p : p.slice(i + 1); }
+
+  /* README / LICENSE / LICENCE at the package root, any case, any extension [A] */
+  function isRootReadmeOrLicence(path) {
+    if (path.indexOf('/') !== -1) return false;
+    var u = path.toUpperCase();
+    if (u === 'README' || u.indexOf('README.') === 0) return true;
+    if (u === 'LICENSE' || u.indexOf('LICENSE.') === 0) return true;
+    if (u === 'LICENCE' || u.indexOf('LICENCE.') === 0) return true;
+    return false;
+  }
+
+  function binTargets(pkg) {
+    var out = [], b = pkg && pkg.bin, k;
+    if (!b) return out;
+    if (typeof b === 'string') { out.push(norm(b)); return out; }
+    if (typeof b === 'object') for (k in b) if (Object.prototype.hasOwnProperty.call(b, k)) {
+      if (typeof b[k] === 'string') out.push(norm(b[k]));
+    }
+    return out;
+  }
+
+  /* resolve(input) — input:
+       pkg        parsed package.json object (or null)
+       npmignore  { present: bool, text: string }
+       gitignore  { present: bool, text: string }
+       paths      array of repo-relative file paths
+       budget     { left, deadline }
+     returns { rows, summary, notes, exceeded } */
+  function resolve(input) {
+    var budget = input.budget || null;
+    var pkg = input.pkg || null;
+    var ni = input.npmignore || { present: false, text: '' };
+    var gi = input.gitignore || { present: false, text: '' };
+
+    var useNpmignore = !!ni.present;
+    var useGitignore = !ni.present && !!gi.present;
+    var chosenName = useNpmignore ? '.npmignore' : (useGitignore ? '.gitignore' : null);
+    var chosenText = useNpmignore ? (ni.text || '') : (useGitignore ? (gi.text || '') : '');
+
+    var defaults = gitignore.compile(DEFAULT_IGNORE.map(function (r) { return r[0]; }).join('\n'));
+    var user = chosenName ? gitignore.compile(chosenText, { maxRules: 5000 }) : null;
+    var hard = gitignore.compile(HARD.join('\n'));
+    var secrets = gitignore.compile(SECRET_PATTERNS.join('\n'));
+
+    var filesArr = (pkg && Object.prototype.hasOwnProperty.call(pkg, 'files') && Array.isArray(pkg.files))
+      ? pkg.files.filter(function (x) { return typeof x === 'string' && x !== ''; }) : null;
+    var hasFilesArray = !!filesArr;
+
+    var mainTarget = (pkg && typeof pkg.main === 'string') ? norm(pkg.main) : null;
+    var bins = binTargets(pkg);
+
+    /* stack: later entries win (last matching rule wins across the whole stack) */
+    var stack = [{ name: 'npm-default-ignore', c: defaults }];
+    if (user) stack.push({ name: chosenName, c: user });
+
+    var memo = Object.create(null);
+
+    function decide(path, isDir) {
+      var key = (isDir ? 'd:' : 'f:') + path;
+      if (memo[key] !== undefined) return memo[key];
+      var k, r, out = { ignored: false, source: null, rule: null };
+      for (k = stack.length - 1; k >= 0; k--) {
+        r = gitignore.test(stack[k].c, path, isDir, budget);
+        if (r.exceeded) { out = { ignored: false, source: null, rule: null, exceeded: true }; break; }
+        if (r.rule) { out = { ignored: r.ignored, source: stack[k].name, rule: r.rule }; break; }
+      }
+      memo[key] = out;
+      return out;
+    }
+
+    /* Ancestor verdicts are memoised. Without this, a 2,000-path list at depth 30
+       re-tests the same 30 directories 2,000 times — measured at 1,247 ms before
+       the memo and 40 ms after it, on the same input. The memo is keyed on the
+       directory path, which is exactly the granularity npm's own walker works at. */
+    var hardMemo = Object.create(null);
+    function hardDir(dir) {
+      if (hardMemo[dir] !== undefined) return hardMemo[dir];
+      var rr = gitignore.test(hard, dir, true, budget);
+      return (hardMemo[dir] = rr.rule || null);
+    }
+    function hardHit(path) {
+      var r = gitignore.test(hard, path, false, budget);
+      if (r.rule) return r.rule;
+      var a = ancestorsOf(path), i, hit;
+      for (i = 0; i < a.length; i++) { hit = hardDir(a[i]); if (hit) return hit; }
+      return null;
+    }
+
+    /* a files[] entry matches a path if it matches the path itself OR any ancestor
+       directory of it — that is what "a directory entry includes it recursively"
+       means once you are matching flat paths instead of walking a tree */
+    function filesHit(path) {
+      var i, j, a = ancestorsOf(path), e;
+      for (i = 0; i < filesArr.length; i++) {
+        e = norm(filesArr[i]);
+        if (e === '' ) continue;
+        if (gitignore.matchOne(e, path, false, budget)) return { entry: filesArr[i], index: i, via: null };
+        for (j = 0; j < a.length; j++) {
+          if (gitignore.matchOne(e, a[j], true, budget)) return { entry: filesArr[i], index: i, via: a[j] };
+        }
+        if (budget && budget.exceeded) return null;
+      }
+      return null;
+    }
+
+    var rows = [], seen = Object.create(null);
+    var paths = input.paths || [];
+    var i, p, row, h, anc, d, fh, k, stopped = false;
+
+    for (i = 0; i < paths.length; i++) {
+      if (budget && budget.exceeded) { stopped = true; break; }
+      p = norm(paths[i]);
+      if (p === '' || p === '.') continue;
+      if (seen[p]) continue;
+      seen[p] = 1;
+
+      row = { path: p, included: false, source: '', detail: '', line: null, secret: false };
+
+      h = hardHit(p);
+      if (h) {
+        row.included = false; row.source = 'npm-hard-exclude';
+        row.detail = h.raw;
+        row.why = 'npm never publishes this, and it cannot be re-included even if named in files[]';
+        rows.push(row); continue;
+      }
+
+      if (p === 'package.json' || isRootReadmeOrLicence(p) ||
+          (mainTarget && p === mainTarget) || bins.indexOf(p) !== -1) {
+        row.included = true; row.source = 'npm-always-include';
+        row.detail = p === 'package.json' ? 'package.json'
+          : isRootReadmeOrLicence(p) ? 'README/LICENSE at the package root, any case or extension'
+          : (mainTarget && p === mainTarget) ? 'the "main" entry point'
+          : 'a "bin" entry point';
+        row.why = 'always included regardless of files[], .npmignore or .gitignore';
+        row.secret = !!gitignore.test(secrets, p, false, budget).rule;
+        rows.push(row); continue;
+      }
+
+      anc = ancestorsOf(p); d = null;
+      for (k = 0; k < anc.length; k++) {
+        d = decide(anc[k], true);
+        if (d.exceeded) { stopped = true; break; }
+        if (d.ignored) break;
+        d = null;
+      }
+      if (stopped) break;
+      if (d && d.ignored) {
+        row.included = false;
+        row.source = d.source;
+        row.detail = d.rule.raw;
+        row.line = d.rule.line || null;
+        row.why = 'the directory "' + anc[k] + '" is excluded, so nothing under it is walked — a later "!" rule cannot bring this back';
+        rows.push(row); continue;
+      }
+
+      if (hasFilesArray) {
+        fh = filesHit(p);
+        if (budget && budget.exceeded) { stopped = true; break; }
+        if (!fh) {
+          row.included = false; row.source = 'files[]';
+          row.detail = 'no entry matches';
+          row.why = 'package.json has a "files" array, which is an allow-list — anything it does not name is left out';
+          rows.push(row); continue;
+        }
+        d = decide(p, false);
+        if (d.exceeded) { stopped = true; break; }
+        if (d.ignored && d.source === 'npm-default-ignore') {
+          row.included = false; row.source = 'npm-default-ignore';
+          row.detail = d.rule.raw;
+          row.why = 'npm ignores this by default; the docs are explicit only about the hard-core list, so this tool takes the conservative reading and still drops it';
+          rows.push(row); continue;
+        }
+        row.included = true; row.source = 'files[]';
+        row.detail = fh.entry + (fh.via ? '  (matched the directory "' + fh.via + '")' : '');
+        row.why = 'matched by files[' + fh.index + ']. npm documents this as winning over .npmignore — and flags it as its own open issue #11669';
+        row.secret = !!gitignore.test(secrets, p, false, budget).rule;
+        rows.push(row); continue;
+      }
+
+      d = decide(p, false);
+      if (d.exceeded) { stopped = true; break; }
+      if (d.ignored) {
+        row.included = false; row.source = d.source;
+        row.detail = d.rule.raw; row.line = d.rule.line || null;
+        row.why = d.source === 'npm-default-ignore'
+          ? 'on npm\'s always-ignored list'
+          : 'last matching rule in ' + d.source + ' wins';
+        rows.push(row); continue;
+      }
+      row.included = true;
+      row.source = d.rule ? d.source : (chosenName ? 'not ignored' : 'no ignore rules');
+      row.detail = d.rule ? d.rule.raw : (chosenName ? 'no rule matched' : 'no files[], no ' + '.npmignore' + ', no .gitignore');
+      row.line = d.rule ? (d.rule.line || null) : null;
+      row.why = d.rule
+        ? 'the last matching rule is a "!" re-include'
+        : (chosenName ? 'nothing excluded it' : 'nothing was supplied that could exclude it');
+      row.secret = !!gitignore.test(secrets, p, false, budget).rule;
+      rows.push(row);
+    }
+
+    var included = 0, secretsOut = [];
+    for (i = 0; i < rows.length; i++) {
+      if (rows[i].included) {
+        included++;
+        if (rows[i].secret) secretsOut.push(rows[i].path);
+      }
+    }
+
+    var inSet = Object.create(null);
+    for (i = 0; i < rows.length; i++) if (rows[i].included) inSet[rows[i].path] = 1;
+
+    var missing = [];
+    if (mainTarget && !inSet[mainTarget]) missing.push({ field: 'main', target: mainTarget });
+    for (i = 0; i < bins.length; i++) if (!inSet[bins[i]]) missing.push({ field: 'bin', target: bins[i] });
+
+    var notes = [];
+    if (!hasFilesArray && !ni.present && !gi.present) {
+      notes.push({ level: 'warn', text: 'No "files" array, no .npmignore and no .gitignore — everything in the tree is published except npm\'s own default excludes.' });
+    }
+    if (ni.present && gi.present) {
+      notes.push({ level: 'info', text: '.npmignore is present, so .gitignore is ignored ENTIRELY — npm replaces, it does not merge. Rules you rely on in .gitignore are not in force.' });
+    }
+    if (ni.present && (ni.text || '').trim() === '') {
+      notes.push({ level: 'info', text: 'The .npmignore is empty. That is a real npm idiom: an empty .npmignore switches .gitignore off so everything gets published.' });
+    }
+    if (hasFilesArray && (ni.present || gi.present)) {
+      notes.push({ level: 'info', text: 'A "files" array is present. npm documents entries matched by files[] as included regardless of .npmignore — npm\'s own wiki flags that as open issue #11669, so treat it as current behaviour rather than a guarantee.' });
+    }
+
+    /* How many DISTINCT paths were supplied, counted the same way the loop
+       de-duplicates them. A caller that stopped early needs "attempted minus
+       resolved" to state honestly how many files it never reached — comparing
+       against the raw input length would over-count every duplicate line. */
+    var attempted = 0, seenAll = Object.create(null), q;
+    for (i = 0; i < paths.length; i++) {
+      q = norm(paths[i]);
+      if (q === '' || q === '.' || seenAll[q]) continue;
+      seenAll[q] = 1; attempted++;
+    }
+
+    return {
+      rows: rows,
+      attempted: attempted,
+      exceeded: stopped || !!(budget && budget.exceeded),
+      summary: {
+        total: rows.length,
+        included: included,
+        excluded: rows.length - included,
+        mode: hasFilesArray ? 'files[] allow-list' : (chosenName ? chosenName : 'no ignore file'),
+        chosenIgnore: chosenName,
+        ignoredIgnoreFile: (ni.present && gi.present) ? '.gitignore' : null,
+        secrets: secretsOut,
+        missingTargets: missing,
+        userRuleErrors: user ? user.errors : []
+      },
+      notes: notes
+    };
+  }
+
+  return {
+    resolve: resolve,
+    DEFAULT_IGNORE: DEFAULT_IGNORE,
+    HARD: HARD,
+    SECRET_PATTERNS: SECRET_PATTERNS,
+    _norm: norm,
+    _ancestorsOf: ancestorsOf,
+    _isRootReadmeOrLicence: isRootReadmeOrLicence
+  };
+});
+</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── DOOR LIMITS ──────────────────────────────────────────────────────────
+     Called BEFORE any split/parse on every box. maxSegments is the cap that
+     matters for a paste of pure newlines: lib/gitignore.js and the path reader
+     both split on /\r\n|\r|\n/, so lineTerminators is 'any' for all four boxes
+     — the door must count lines the same way the caller later splits them. */
+  var LIMITS = {
+    pkg:       { maxChars: 131072, maxLines: 6000, maxSegments: 12000, maxLineLength: 8192,  maxFieldLength: 8192,  lineTerminators: 'any' },
+    npmignore: { maxChars: 65536,  maxLines: 300,  maxSegments: 4000,  maxLineLength: 1024,  maxFieldLength: 1024,  lineTerminators: 'any' },
+    gitignore: { maxChars: 65536,  maxLines: 300,  maxSegments: 4000,  maxLineLength: 1024,  maxFieldLength: 1024,  lineTerminators: 'any' },
+    paths:     { maxChars: 524288, maxLines: 3000, maxSegments: 6000,  maxLineLength: 1024,  maxFieldLength: 1024,  lineTerminators: 'any' }
+  };
+  var LABEL = { pkg: 'package.json', npmignore: '.npmignore', gitignore: '.gitignore', paths: 'the file list' };
+  var OUT_CAP = 900000;   /* output is bounded by construction, not by a budget */
+  var ROW_CAP = 800;      /* rows drawn; the count is always reported in full */
+  var BUDGET_STEPS = 60000000;
+  var BUDGET_MS = 2500;
+
+  function refuse(which, v) {
+    var L = LIMITS[which], name = LABEL[which];
+    if (v.kind === 'chars')    return name + ' is ' + v.length.toLocaleString() + ' characters; the limit is ' + v.limit.toLocaleString() + '.';
+    /* BOTH of these say "more than", and that is not a style choice. lib/door.js
+       BAILS at the first violation, so at the moment it refuses it has counted
+       limit+1 and knows nothing about the true total — a box of 600 lines and a
+       box of 60,000 both report 301. Printing "has 301 non-blank lines" would be a
+       measurement the door never made. (The segments message was already phrased
+       this way; its sibling here was not, found by driving the real page
+       2026-08-07 — the sibling-sweep rule from lib/checks/door-limits.json.) */
+    if (v.kind === 'lines')    return name + ' has more than ' + v.limit.toLocaleString() + ' non-blank lines; that is the limit.';
+    if (v.kind === 'segments') return name + ' has more than ' + v.limit.toLocaleString() + ' lines counting blank ones; that is the limit.';
+    if (v.kind === 'line')     return 'line ' + v.line + ' of ' + name + ' is ' + v.length.toLocaleString() + ' characters; the limit is ' + v.limit.toLocaleString() + '.';
+    /* 'field' is the awkward one: door.js reports an EXACT length when the field
+       closed normally, but bails mid-field with limit+1 when the field is huge —
+       and the caller cannot tell the two apart from the return value. "more than"
+       is true in both cases, so it is the only phrasing that is never a lie. */
+    if (v.kind === 'field')    return 'line ' + v.line + ' of ' + name + ' has an unbroken run of more than ' + v.limit.toLocaleString() + ' characters with no space; that is the limit.';
+    return name + ' is too large.';
+  }
+
+  function pill(text, cls) { return '<span class="badge' + (cls ? ' ' + cls : '') + '">' + esc(text) + '</span>'; }
+
+  function render(res, ms, truncatedInput) {
+    var b = door.buffer(OUT_CAP), s = res.summary, i, r, n;
+
+    /* ORDER IS A CORRECTNESS PROPERTY HERE, not a layout preference. An earlier
+       build drew the summary first, so a run that stopped part-way showed a
+       confident "PUBLISHED 2361 / LEFT OUT 0" above the words explaining it was
+       incomplete — and "left out 0" is exactly the reassurance a half-finished
+       resolution must never give. On an incomplete run the banner goes FIRST and
+       every count is relabelled as partial. */
+    if (res.exceeded) {
+      b.push('<div class="alarm"><b>Answer incomplete — do not act on these numbers.</b> This input passed ',
+             'the size limits but still cost more work than the page will spend on one click, so it stopped ',
+             'part-way. The counts below cover only the files it got to; the rest were never resolved and are ',
+             'neither published nor left out. Narrow the file list or simplify the ignore patterns and run it again.</div>');
+    }
+
+    b.push('<div class="card"><div class="sum">');
+    b.push('<div><span class="k">', res.exceeded ? 'published so far' : 'published',
+           '</span><b style="color:var(--in)">', String(s.included), res.exceeded ? '<span style="font-size:.7rem;color:var(--warn)"> partial</span>' : '', '</b></div>');
+    b.push('<div><span class="k">', res.exceeded ? 'left out so far' : 'left out',
+           '</span><b>', String(s.excluded), res.exceeded ? '<span style="font-size:.7rem;color:var(--warn)"> partial</span>' : '', '</b></div>');
+    if (res.exceeded) b.push('<div><span class="k">not resolved</span><b style="color:var(--warn)">', String(Math.max(0, res.attempted - res.rows.length)), '</b></div>');
+    b.push('<div><span class="k">deciding source</span><b style="font-size:.9rem">', esc(s.mode), '</b></div>');
+    if (s.ignoredIgnoreFile) b.push('<div><span class="k">not consulted</span><b style="font-size:.9rem;color:var(--warn)">', esc(s.ignoredIgnoreFile), '</b></div>');
+    b.push('</div></div>');
+    if (truncatedInput) {
+      b.push('<div class="alarm warn"><b>', esc(truncatedInput), '</b></div>');
+    }
+    if (s.secrets.length) {
+      b.push('<div class="alarm"><b>', String(s.secrets.length), ' file', s.secrets.length === 1 ? '' : 's',
+             ' that look like credentials would be published.</b>');
+      for (i = 0; i < s.secrets.length && i < 40; i++) b.push('<code>', esc(s.secrets[i]), '</code> ');
+      if (s.secrets.length > 40) b.push(' and ', String(s.secrets.length - 40), ' more.');
+      b.push('<br>This is a name-shape heuristic, not an npm rule — but a published version is immutable, ',
+             'so check before you publish, not after.</div>');
+    }
+    if (s.missingTargets.length) {
+      b.push('<div class="alarm"><b>An entry point is not in the tarball.</b> ');
+      for (i = 0; i < s.missingTargets.length && i < 20; i++)
+        b.push('<code>', esc(s.missingTargets[i].field), '</code> points at <code>',
+               esc(s.missingTargets[i].target), '</code>, which is not in your file list. ');
+      b.push('npm force-includes these, so if the file exists on disk it will still ship — but if the path ',
+             'is wrong, the published package cannot be required.</div>');
+    }
+    for (i = 0; i < res.notes.length; i++)
+      b.push('<div class="alarm ', esc(res.notes[i].level), '">', esc(res.notes[i].text), '</div>');
+
+    if (s.userRuleErrors && s.userRuleErrors.length) {
+      b.push('<div class="alarm warn"><b>', String(s.userRuleErrors.length), ' line',
+             s.userRuleErrors.length === 1 ? '' : 's', ' in your ignore file could not be read as a pattern.</b> ');
+      for (i = 0; i < s.userRuleErrors.length && i < 10; i++)
+        b.push('line ', String(s.userRuleErrors[i].line), ': ', esc(s.userRuleErrors[i].error), '. ');
+      b.push('</div>');
+    }
+
+    n = res.rows.length;
+    b.push('<h2>Every file, and the rule that decided it</h2>');
+    b.push('<table><thead><tr><th>file</th><th>verdict</th><th>decided by</th></tr></thead><tbody>');
+    for (i = 0; i < n && i < ROW_CAP; i++) {
+      r = res.rows[i];
+      if (!b.push('<tr class="', r.included ? 'in' : 'out', '">')) break;
+      b.push('<td class="p">', r.secret && r.included ? pill('credential-shaped', 'sec') : '', esc(door.clip(r.path, 300)), '</td>');
+      b.push('<td class="v ', r.included ? 'in' : 'out', '">', r.included ? 'PUBLISHED' : 'left out', '</td>');
+      b.push('<td class="r">', pill(r.source));
+      if (r.detail) b.push('<code>', esc(door.clip(r.detail, 200)), '</code>');
+      if (r.line) b.push(' <span style="color:var(--faint)">line ', String(r.line), '</span>');
+      b.push('<br>', esc(door.clip(r.why || '', 400)), '</td></tr>');
+    }
+    b.push('</tbody></table>');
+    if (n > ROW_CAP) b.push('<p style="color:var(--faint);font-size:.78rem">Showing the first ',
+      String(ROW_CAP), ' of ', String(n), ' files. The counts above cover all ', String(n), '.</p>');
+    if (b.capped()) b.push('<p style="color:var(--warn);font-size:.78rem">Output reached its size limit and was cut here.</p>');
+
+    b.push('<p style="color:var(--faint);font-size:.75rem;margin-top:.8rem">Resolved ', String(n),
+           ' path', n === 1 ? '' : 's', ' in ', String(Math.round(ms)), ' ms on this machine, this run. ',
+           'That is a measurement, not a promise — cost depends on your rules, your paths and your device.</p>');
+
+    $('result').innerHTML = b.toString();
+  }
+
+  function run() {
+    var boxes = { pkg: $('pkg').value, npmignore: $('npmignore').value,
+                  gitignore: $('gitignore').value, paths: $('paths').value };
+    var k, v, msg;
+
+    /* THE DOOR — every box, before any split, parse or trim. */
+    for (k in LIMITS) if (Object.prototype.hasOwnProperty.call(LIMITS, k)) {
+      v = door.scan(boxes[k], LIMITS[k]);
+      if (!v.ok) {
+        $('result').innerHTML = '<div class="alarm"><b>Too big to answer.</b> ' + esc(refuse(k, v)) +
+          ' Nothing was parsed — this page refuses at the door rather than freezing your tab.</div>';
+        $('status').textContent = 'refused at the door';
+        return;
+      }
+    }
+
+    var pkg = null, pkgErr = null;
+    if (boxes.pkg.trim() !== '') {
+      try { pkg = JSON.parse(boxes.pkg); }
+      catch (e) { pkgErr = 'package.json is not valid JSON (' + String(e && e.message || e) + ')'; }
+      if (pkg !== null && (typeof pkg !== 'object' || Array.isArray(pkg))) {
+        pkgErr = 'package.json must be a JSON object'; pkg = null;
+      }
+    }
+
+    var raw = boxes.paths.split(/\r\n|\r|\n/), paths = [], i, t;
+    for (i = 0; i < raw.length; i++) {
+      t = raw[i].trim();
+      if (t === '' || t.charAt(0) === '#') continue;
+      if (t.charAt(t.length - 1) === '/') continue;   /* directory line — the walker only reports files */
+      paths.push(t);
+    }
+
+    if (!paths.length) {
+      $('result').innerHTML = '<div class="alarm info"><b>No file list yet.</b> Paste the output of ' +
+        '<code>git ls-files</code> (or <code>find . -type f</code>) into the file-list box — that is the ' +
+        'set this page resolves. Everything else is optional.' +
+        (pkgErr ? ' Also: ' + esc(pkgErr) + '.' : '') + '</div>';
+      $('status').textContent = 'nothing to resolve';
+      return;
+    }
+
+    var t0 = Date.now();
+    var budget = { left: BUDGET_STEPS, deadline: t0 + BUDGET_MS };
+    var res;
+    try {
+      res = npmpack.resolve({
+        pkg: pkg,
+        npmignore: { present: $('npmignore-present').checked, text: boxes.npmignore },
+        gitignore: { present: $('gitignore-present').checked, text: boxes.gitignore },
+        paths: paths,
+        budget: budget
+      });
+    } catch (e) {
+      $('result').innerHTML = '<div class="alarm"><b>Could not resolve that input.</b> ' +
+        esc(String(e && e.message || e)) + '</div>';
+      $('status').textContent = 'failed';
+      return;
+    }
+    var ms = Date.now() - t0;
+
+    msg = pkgErr ? pkgErr + ' — resolved without it, so files[], main and bin were not applied.' : null;
+    render(res, ms, msg);
+    $('status').textContent = res.exceeded ? 'stopped early — see the note above' : 'done';
+  }
+
+  $('go').addEventListener('click', run);
+
+  $('clear').addEventListener('click', function () {
+    $('pkg').value = ''; $('npmignore').value = ''; $('gitignore').value = ''; $('paths').value = '';
+    $('npmignore-present').checked = false; $('gitignore-present').checked = false;
+    $('result').innerHTML = ''; $('status').textContent = 'cleared';
+  });
+
+  $('example').addEventListener('click', function () {
+    $('pkg').value = '{\n  "name": "my-pkg",\n  "version": "1.4.0",\n  "main": "lib/index.js",\n  "bin": { "my-pkg": "bin/cli.js" }\n}';
+    $('npmignore').value = '';
+    $('npmignore-present').checked = false;
+    $('gitignore').value = 'node_modules/\ncoverage/\n*.log\n';
+    $('gitignore-present').checked = true;
+    $('paths').value = [
+      'package.json', 'README.md', 'LICENSE',
+      'lib/index.js', 'lib/util.js', 'bin/cli.js',
+      'src/index.ts', 'test/index.test.js',
+      '.env', '.env.production', 'deploy/id_rsa',
+      'coverage/lcov.info', 'debug.log',
+      'node_modules/left-pad/index.js',
+      'package-lock.json', '.npmrc', '.DS_Store'
+    ].join('\n');
+    $('status').textContent = 'example loaded — press Resolve. It publishes .env, and nothing in this setup stops it.';
+    $('result').innerHTML = '';
+  });
+})();
+</script>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+</body>
+</html>

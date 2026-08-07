@@ -1,0 +1,396 @@
+<!doctype html>
+<!-- public/006-npm-publish-preflight/page.src.html — SOURCE. Do not edit index.html by hand.
+     Build:  node lib/inline.js public/006-npm-publish-preflight/page.src.html public/006-npm-publish-preflight/index.html
+     Verify: node lib/inline.js public/006-npm-publish-preflight/page.src.html /tmp/o && diff /tmp/o public/006-npm-publish-preflight/index.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>npm publish preflight — what npm will actually upload · foundry day 006</title>
+<meta name="description" content="Paste your package.json, .npmignore, .gitignore and file list. See the exact set of files npm publish will put in the tarball, and the one rule that decided each file. Runs entirely in your browser.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--faint:#4b535c;--line:#1c2128;--panel:#111418;
+      --in:#3fb950;--out:#8b949e;--warn:#d29922;--bad:#f85149;--accent:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+     font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{max-width:60rem;margin:0 auto;padding:2.5rem 1.1rem}
+h1{font-size:1.35rem;margin:0 0 .35rem;letter-spacing:-.01em}
+h2{font-size:.95rem;margin:2rem 0 .6rem;color:var(--fg)}
+.sub{color:var(--dim);margin:0 0 .4rem}
+.priv{color:var(--faint);font-size:.8rem;margin:0 0 1.6rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.6rem .7rem}
+.box label{display:block;font-size:.8rem;color:var(--dim);margin-bottom:.35rem}
+.box .hint{font-size:.72rem;color:var(--faint);font-weight:400}
+textarea{width:100%;min-height:8.5rem;resize:vertical;background:#0b0d10;color:var(--fg);
+         border:1px solid var(--line);border-radius:4px;padding:.5rem;
+         font:12.5px/1.55 ui-monospace,Menlo,monospace}
+textarea:focus{outline:1px solid var(--accent);outline-offset:0}
+.chk{font-size:.74rem;color:var(--dim);margin-top:.4rem;display:flex;align-items:center;gap:.4rem}
+.chk input{accent-color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:.55rem;margin:1.1rem 0 .3rem;align-items:center}
+button{font:inherit;font-size:.85rem;padding:.5rem .95rem;border-radius:5px;cursor:pointer;
+       background:#1f6feb;color:#fff;border:1px solid #1f6feb}
+button.ghost{background:transparent;color:var(--dim);border-color:var(--line)}
+button:hover{filter:brightness(1.12)}
+#status{font-size:.78rem;color:var(--faint);min-height:1.2rem;margin:.4rem 0 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.85rem 1rem;margin:.8rem 0}
+.sum{display:flex;flex-wrap:wrap;gap:1.4rem;font-size:.85rem}
+.sum b{font-size:1.1rem;font-weight:600}
+.sum .k{color:var(--faint);font-size:.72rem;display:block;text-transform:uppercase;letter-spacing:.04em}
+.alarm{border-left:3px solid var(--bad);background:#17110f;padding:.6rem .8rem;margin:.55rem 0;border-radius:0 4px 4px 0;font-size:.85rem}
+.alarm.warn{border-left-color:var(--warn);background:#161208}
+.alarm.info{border-left-color:var(--accent);background:#0d1218}
+.alarm b{display:block;margin-bottom:.15rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:.5rem}
+th{text-align:left;color:var(--faint);font-weight:400;font-size:.7rem;text-transform:uppercase;
+   letter-spacing:.05em;border-bottom:1px solid var(--line);padding:.35rem .4rem}
+td{padding:.34rem .4rem;border-bottom:1px solid #14181d;vertical-align:top}
+tr.out td.p{color:var(--out)}
+td.v{white-space:nowrap;font-weight:600}
+td.v.in{color:var(--in)} td.v.out{color:var(--out)}
+td.p{word-break:break-all}
+td.r{color:var(--dim)}
+td.r code{color:var(--fg);background:#0b0d10;border:1px solid var(--line);border-radius:3px;padding:0 .25rem}
+.badge{display:inline-block;font-size:.66rem;padding:.05rem .35rem;border:1px solid var(--line);
+       border-radius:3px;color:var(--faint);margin-right:.3rem;white-space:nowrap}
+.badge.sec{color:var(--bad);border-color:#5a2725}
+@media(max-width:640px){
+  table,thead,tbody,tr,th,td{display:block}
+  thead{display:none}
+  tr{border-bottom:1px solid var(--line);padding:.4rem 0}
+  td{border:0;padding:.1rem .1rem}
+  td.v{font-size:.75rem}
+}
+details{margin:1.6rem 0 0;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+summary{cursor:pointer;padding:.6rem .8rem;font-size:.85rem;color:var(--dim)}
+details .body{padding:0 .9rem .9rem;font-size:.82rem;color:var(--dim)}
+details .body ul{padding-left:1.1rem}
+details .body code{color:var(--fg)}
+a{color:var(--accent)}
+footer{margin-top:3rem;color:var(--faint);font-size:.8rem}
+footer a{color:var(--faint)}
+</style>
+</head>
+<body>
+<main>
+  <h1>npm publish preflight</h1>
+  <p class="sub">Paste your <code>package.json</code>, your ignore files and your file list. Get the exact
+  set of files <code>npm publish</code> would upload — and for every file, the <em>one rule that decided it</em>.</p>
+  <p class="priv">Runs entirely in this page. Nothing is uploaded, stored or sent anywhere — your file
+  list never leaves the browser. Every rule below is traceable to npm's own documentation; the sources
+  are listed at the bottom.</p>
+
+  <div class="grid">
+    <div class="box">
+      <label for="pkg">package.json <span class="hint">— <code>files</code>, <code>main</code> and <code>bin</code> are what matter here</span></label>
+      <textarea id="pkg" spellcheck="false" placeholder='{ "name": "my-pkg", "main": "lib/index.js" }'></textarea>
+    </div>
+    <div class="box">
+      <label for="paths">file list <span class="hint">— one relative path per line (<code>git ls-files</code> or <code>find . -type f</code>)</span></label>
+      <textarea id="paths" spellcheck="false" placeholder="src/index.js&#10;dist/bundle.js&#10;.env"></textarea>
+    </div>
+    <div class="box">
+      <label for="npmignore">.npmignore</label>
+      <textarea id="npmignore" spellcheck="false" placeholder="test/&#10;*.log"></textarea>
+      <div class="chk"><input type="checkbox" id="npmignore-present"><label for="npmignore-present" style="margin:0">this file exists (tick even if it is empty — an empty .npmignore switches .gitignore off)</label></div>
+    </div>
+    <div class="box">
+      <label for="gitignore">.gitignore</label>
+      <textarea id="gitignore" spellcheck="false" placeholder="node_modules/&#10;dist/"></textarea>
+      <div class="chk"><input type="checkbox" id="gitignore-present"><label for="gitignore-present" style="margin:0">this file exists</label></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="go">Resolve the publish set</button>
+    <button id="example" class="ghost">Load an example</button>
+    <button id="clear" class="ghost">Clear</button>
+  </div>
+  <p id="status">Paste a file list and press Resolve — or load the example to see the classic accident.</p>
+
+  <div id="result"></div>
+
+  <details>
+    <summary>The rules this page applies, and where each one comes from</summary>
+    <div class="body">
+      <p><b>Always included</b>, whatever your <code>files</code> array or ignore files say:
+      <code>package.json</code>, <code>README</code> and <code>LICENSE</code>/<code>LICENCE</code> at
+      the package root in any case and any extension, the file named by <code>main</code>, and the
+      file(s) named by <code>bin</code>.</p>
+      <p><b>Always ignored:</b> <code>*.orig</code>, <code>.*.swp</code>, <code>.DS_Store</code>,
+      <code>._*</code>, <code>.git</code>, <code>.hg</code>, <code>.lock-wscript</code>,
+      <code>.npmrc</code>, <code>.svn</code>, <code>.wafpickle-*</code>, <code>CVS</code>,
+      <code>config.gypi</code>, <code>node_modules</code>, <code>npm-debug.log</code>,
+      <code>package-lock.json</code>, <code>pnpm-lock.yaml</code>, <code>yarn.lock</code>,
+      <code>bun.lockb</code> — plus <code>.gitignore</code> and <code>.npmignore</code> themselves.</p>
+      <p><b>Cannot be re-included even if you name them explicitly:</b> <code>.git</code>,
+      <code>.npmrc</code>, <code>node_modules</code>, <code>package-lock.json</code>,
+      <code>pnpm-lock.yaml</code>, <code>yarn.lock</code>, <code>bun.lockb</code>.</p>
+      <p><b>.npmignore replaces .gitignore — it does not merge with it.</b> If <code>.npmignore</code>
+      is missing, <code>.gitignore</code>'s contents are used <em>instead</em>. So an <em>empty</em>
+      <code>.npmignore</code> is a real idiom: it turns <code>.gitignore</code> off entirely and
+      publishes everything.</p>
+      <p><b>files[] currently wins over .npmignore.</b> npm's own wiki says entries matched by
+      <code>files</code> are included regardless of <code>.npmignore</code> — and flags that as its
+      open issue #11669 rather than intended design. This page follows the documented behaviour and
+      says so on every affected row.</p>
+      <p><b>Two places npm's docs are silent, and what this page does</b> — named rather than
+      resolved quietly:</p>
+      <ul>
+        <li>Do npm's default ignores still apply <em>inside</em> a directory named by
+        <code>files</code>? The docs are explicit only about the hard-core list. This page takes the
+        conservative reading — they do apply — and labels any file it drops that way
+        <code>npm-default-ignore</code>, so you can see it and disagree.</li>
+        <li>Are <code>README</code>/<code>LICENSE</code> honoured at any depth or only at the package
+        root? The docs say "any case and extension" and nothing about depth. npm's own packlist
+        anchors them to the root, so this page does too.</li>
+      </ul>
+      <p><b>A pattern rule that is not about patterns:</b> npm's walker never descends into an
+      excluded directory, so a <code>!</code> deeper in the file never gets to run. This page tests
+      every ancestor directory and treats the first excluded one as final — which is why
+      <code>build/</code> followed by <code>!build/keep.js</code> still leaves
+      <code>build/keep.js</code> out.</p>
+      <p><b>Sources.</b>
+      <a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json" rel="noopener noreferrer" target="_blank">package.json &rarr; files</a> ·
+      <a href="https://docs.npmjs.com/cli/v11/using-npm/developers/" rel="noopener noreferrer" target="_blank">npm developers guide</a> ·
+      <a href="https://github.com/npm/cli/wiki/Files-&amp;-Ignores" rel="noopener noreferrer" target="_blank">npm/cli wiki: Files &amp; Ignores</a> ·
+      pattern syntax follows <code>gitignore(5)</code>, which npm states its ignore files match.</p>
+      <p><b>What this is not.</b> It is not <code>npm pack --dry-run</code>: it never reads your disk,
+      never resolves <code>bundleDependencies</code>, and does not know about workspaces. It answers
+      the question <code>--dry-run</code> does not — <em>which rule decided this file</em>.
+      The credential alarm is this page's own heuristic on file <em>names</em>, not an npm rule, and it
+      never changes a verdict.</p>
+    </div>
+  </details>
+
+  <footer>built by <a href="../">foundry</a> · day 006 · verified before ship</footer>
+</main>
+
+<!-- inline:lib/esc.js -->
+<!-- inline:lib/door.js -->
+<!-- inline:lib/gitignore.js -->
+<!-- inline:lib/npmpack.js -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── DOOR LIMITS ──────────────────────────────────────────────────────────
+     Called BEFORE any split/parse on every box. maxSegments is the cap that
+     matters for a paste of pure newlines: lib/gitignore.js and the path reader
+     both split on /\r\n|\r|\n/, so lineTerminators is 'any' for all four boxes
+     — the door must count lines the same way the caller later splits them. */
+  var LIMITS = {
+    pkg:       { maxChars: 131072, maxLines: 6000, maxSegments: 12000, maxLineLength: 8192,  maxFieldLength: 8192,  lineTerminators: 'any' },
+    npmignore: { maxChars: 65536,  maxLines: 300,  maxSegments: 4000,  maxLineLength: 1024,  maxFieldLength: 1024,  lineTerminators: 'any' },
+    gitignore: { maxChars: 65536,  maxLines: 300,  maxSegments: 4000,  maxLineLength: 1024,  maxFieldLength: 1024,  lineTerminators: 'any' },
+    paths:     { maxChars: 524288, maxLines: 3000, maxSegments: 6000,  maxLineLength: 1024,  maxFieldLength: 1024,  lineTerminators: 'any' }
+  };
+  var LABEL = { pkg: 'package.json', npmignore: '.npmignore', gitignore: '.gitignore', paths: 'the file list' };
+  var OUT_CAP = 900000;   /* output is bounded by construction, not by a budget */
+  var ROW_CAP = 800;      /* rows drawn; the count is always reported in full */
+  var BUDGET_STEPS = 60000000;
+  var BUDGET_MS = 2500;
+
+  function refuse(which, v) {
+    var L = LIMITS[which], name = LABEL[which];
+    if (v.kind === 'chars')    return name + ' is ' + v.length.toLocaleString() + ' characters; the limit is ' + v.limit.toLocaleString() + '.';
+    /* BOTH of these say "more than", and that is not a style choice. lib/door.js
+       BAILS at the first violation, so at the moment it refuses it has counted
+       limit+1 and knows nothing about the true total — a box of 600 lines and a
+       box of 60,000 both report 301. Printing "has 301 non-blank lines" would be a
+       measurement the door never made. (The segments message was already phrased
+       this way; its sibling here was not, found by driving the real page
+       2026-08-07 — the sibling-sweep rule from lib/checks/door-limits.json.) */
+    if (v.kind === 'lines')    return name + ' has more than ' + v.limit.toLocaleString() + ' non-blank lines; that is the limit.';
+    if (v.kind === 'segments') return name + ' has more than ' + v.limit.toLocaleString() + ' lines counting blank ones; that is the limit.';
+    if (v.kind === 'line')     return 'line ' + v.line + ' of ' + name + ' is ' + v.length.toLocaleString() + ' characters; the limit is ' + v.limit.toLocaleString() + '.';
+    /* 'field' is the awkward one: door.js reports an EXACT length when the field
+       closed normally, but bails mid-field with limit+1 when the field is huge —
+       and the caller cannot tell the two apart from the return value. "more than"
+       is true in both cases, so it is the only phrasing that is never a lie. */
+    if (v.kind === 'field')    return 'line ' + v.line + ' of ' + name + ' has an unbroken run of more than ' + v.limit.toLocaleString() + ' characters with no space; that is the limit.';
+    return name + ' is too large.';
+  }
+
+  function pill(text, cls) { return '<span class="badge' + (cls ? ' ' + cls : '') + '">' + esc(text) + '</span>'; }
+
+  function render(res, ms, truncatedInput) {
+    var b = door.buffer(OUT_CAP), s = res.summary, i, r, n;
+
+    /* ORDER IS A CORRECTNESS PROPERTY HERE, not a layout preference. An earlier
+       build drew the summary first, so a run that stopped part-way showed a
+       confident "PUBLISHED 2361 / LEFT OUT 0" above the words explaining it was
+       incomplete — and "left out 0" is exactly the reassurance a half-finished
+       resolution must never give. On an incomplete run the banner goes FIRST and
+       every count is relabelled as partial. */
+    if (res.exceeded) {
+      b.push('<div class="alarm"><b>Answer incomplete — do not act on these numbers.</b> This input passed ',
+             'the size limits but still cost more work than the page will spend on one click, so it stopped ',
+             'part-way. The counts below cover only the files it got to; the rest were never resolved and are ',
+             'neither published nor left out. Narrow the file list or simplify the ignore patterns and run it again.</div>');
+    }
+
+    b.push('<div class="card"><div class="sum">');
+    b.push('<div><span class="k">', res.exceeded ? 'published so far' : 'published',
+           '</span><b style="color:var(--in)">', String(s.included), res.exceeded ? '<span style="font-size:.7rem;color:var(--warn)"> partial</span>' : '', '</b></div>');
+    b.push('<div><span class="k">', res.exceeded ? 'left out so far' : 'left out',
+           '</span><b>', String(s.excluded), res.exceeded ? '<span style="font-size:.7rem;color:var(--warn)"> partial</span>' : '', '</b></div>');
+    if (res.exceeded) b.push('<div><span class="k">not resolved</span><b style="color:var(--warn)">', String(Math.max(0, res.attempted - res.rows.length)), '</b></div>');
+    b.push('<div><span class="k">deciding source</span><b style="font-size:.9rem">', esc(s.mode), '</b></div>');
+    if (s.ignoredIgnoreFile) b.push('<div><span class="k">not consulted</span><b style="font-size:.9rem;color:var(--warn)">', esc(s.ignoredIgnoreFile), '</b></div>');
+    b.push('</div></div>');
+    if (truncatedInput) {
+      b.push('<div class="alarm warn"><b>', esc(truncatedInput), '</b></div>');
+    }
+    if (s.secrets.length) {
+      b.push('<div class="alarm"><b>', String(s.secrets.length), ' file', s.secrets.length === 1 ? '' : 's',
+             ' that look like credentials would be published.</b>');
+      for (i = 0; i < s.secrets.length && i < 40; i++) b.push('<code>', esc(s.secrets[i]), '</code> ');
+      if (s.secrets.length > 40) b.push(' and ', String(s.secrets.length - 40), ' more.');
+      b.push('<br>This is a name-shape heuristic, not an npm rule — but a published version is immutable, ',
+             'so check before you publish, not after.</div>');
+    }
+    if (s.missingTargets.length) {
+      b.push('<div class="alarm"><b>An entry point is not in the tarball.</b> ');
+      for (i = 0; i < s.missingTargets.length && i < 20; i++)
+        b.push('<code>', esc(s.missingTargets[i].field), '</code> points at <code>',
+               esc(s.missingTargets[i].target), '</code>, which is not in your file list. ');
+      b.push('npm force-includes these, so if the file exists on disk it will still ship — but if the path ',
+             'is wrong, the published package cannot be required.</div>');
+    }
+    for (i = 0; i < res.notes.length; i++)
+      b.push('<div class="alarm ', esc(res.notes[i].level), '">', esc(res.notes[i].text), '</div>');
+
+    if (s.userRuleErrors && s.userRuleErrors.length) {
+      b.push('<div class="alarm warn"><b>', String(s.userRuleErrors.length), ' line',
+             s.userRuleErrors.length === 1 ? '' : 's', ' in your ignore file could not be read as a pattern.</b> ');
+      for (i = 0; i < s.userRuleErrors.length && i < 10; i++)
+        b.push('line ', String(s.userRuleErrors[i].line), ': ', esc(s.userRuleErrors[i].error), '. ');
+      b.push('</div>');
+    }
+
+    n = res.rows.length;
+    b.push('<h2>Every file, and the rule that decided it</h2>');
+    b.push('<table><thead><tr><th>file</th><th>verdict</th><th>decided by</th></tr></thead><tbody>');
+    for (i = 0; i < n && i < ROW_CAP; i++) {
+      r = res.rows[i];
+      if (!b.push('<tr class="', r.included ? 'in' : 'out', '">')) break;
+      b.push('<td class="p">', r.secret && r.included ? pill('credential-shaped', 'sec') : '', esc(door.clip(r.path, 300)), '</td>');
+      b.push('<td class="v ', r.included ? 'in' : 'out', '">', r.included ? 'PUBLISHED' : 'left out', '</td>');
+      b.push('<td class="r">', pill(r.source));
+      if (r.detail) b.push('<code>', esc(door.clip(r.detail, 200)), '</code>');
+      if (r.line) b.push(' <span style="color:var(--faint)">line ', String(r.line), '</span>');
+      b.push('<br>', esc(door.clip(r.why || '', 400)), '</td></tr>');
+    }
+    b.push('</tbody></table>');
+    if (n > ROW_CAP) b.push('<p style="color:var(--faint);font-size:.78rem">Showing the first ',
+      String(ROW_CAP), ' of ', String(n), ' files. The counts above cover all ', String(n), '.</p>');
+    if (b.capped()) b.push('<p style="color:var(--warn);font-size:.78rem">Output reached its size limit and was cut here.</p>');
+
+    b.push('<p style="color:var(--faint);font-size:.75rem;margin-top:.8rem">Resolved ', String(n),
+           ' path', n === 1 ? '' : 's', ' in ', String(Math.round(ms)), ' ms on this machine, this run. ',
+           'That is a measurement, not a promise — cost depends on your rules, your paths and your device.</p>');
+
+    $('result').innerHTML = b.toString();
+  }
+
+  function run() {
+    var boxes = { pkg: $('pkg').value, npmignore: $('npmignore').value,
+                  gitignore: $('gitignore').value, paths: $('paths').value };
+    var k, v, msg;
+
+    /* THE DOOR — every box, before any split, parse or trim. */
+    for (k in LIMITS) if (Object.prototype.hasOwnProperty.call(LIMITS, k)) {
+      v = door.scan(boxes[k], LIMITS[k]);
+      if (!v.ok) {
+        $('result').innerHTML = '<div class="alarm"><b>Too big to answer.</b> ' + esc(refuse(k, v)) +
+          ' Nothing was parsed — this page refuses at the door rather than freezing your tab.</div>';
+        $('status').textContent = 'refused at the door';
+        return;
+      }
+    }
+
+    var pkg = null, pkgErr = null;
+    if (boxes.pkg.trim() !== '') {
+      try { pkg = JSON.parse(boxes.pkg); }
+      catch (e) { pkgErr = 'package.json is not valid JSON (' + String(e && e.message || e) + ')'; }
+      if (pkg !== null && (typeof pkg !== 'object' || Array.isArray(pkg))) {
+        pkgErr = 'package.json must be a JSON object'; pkg = null;
+      }
+    }
+
+    var raw = boxes.paths.split(/\r\n|\r|\n/), paths = [], i, t;
+    for (i = 0; i < raw.length; i++) {
+      t = raw[i].trim();
+      if (t === '' || t.charAt(0) === '#') continue;
+      if (t.charAt(t.length - 1) === '/') continue;   /* directory line — the walker only reports files */
+      paths.push(t);
+    }
+
+    if (!paths.length) {
+      $('result').innerHTML = '<div class="alarm info"><b>No file list yet.</b> Paste the output of ' +
+        '<code>git ls-files</code> (or <code>find . -type f</code>) into the file-list box — that is the ' +
+        'set this page resolves. Everything else is optional.' +
+        (pkgErr ? ' Also: ' + esc(pkgErr) + '.' : '') + '</div>';
+      $('status').textContent = 'nothing to resolve';
+      return;
+    }
+
+    var t0 = Date.now();
+    var budget = { left: BUDGET_STEPS, deadline: t0 + BUDGET_MS };
+    var res;
+    try {
+      res = npmpack.resolve({
+        pkg: pkg,
+        npmignore: { present: $('npmignore-present').checked, text: boxes.npmignore },
+        gitignore: { present: $('gitignore-present').checked, text: boxes.gitignore },
+        paths: paths,
+        budget: budget
+      });
+    } catch (e) {
+      $('result').innerHTML = '<div class="alarm"><b>Could not resolve that input.</b> ' +
+        esc(String(e && e.message || e)) + '</div>';
+      $('status').textContent = 'failed';
+      return;
+    }
+    var ms = Date.now() - t0;
+
+    msg = pkgErr ? pkgErr + ' — resolved without it, so files[], main and bin were not applied.' : null;
+    render(res, ms, msg);
+    $('status').textContent = res.exceeded ? 'stopped early — see the note above' : 'done';
+  }
+
+  $('go').addEventListener('click', run);
+
+  $('clear').addEventListener('click', function () {
+    $('pkg').value = ''; $('npmignore').value = ''; $('gitignore').value = ''; $('paths').value = '';
+    $('npmignore-present').checked = false; $('gitignore-present').checked = false;
+    $('result').innerHTML = ''; $('status').textContent = 'cleared';
+  });
+
+  $('example').addEventListener('click', function () {
+    $('pkg').value = '{\n  "name": "my-pkg",\n  "version": "1.4.0",\n  "main": "lib/index.js",\n  "bin": { "my-pkg": "bin/cli.js" }\n}';
+    $('npmignore').value = '';
+    $('npmignore-present').checked = false;
+    $('gitignore').value = 'node_modules/\ncoverage/\n*.log\n';
+    $('gitignore-present').checked = true;
+    $('paths').value = [
+      'package.json', 'README.md', 'LICENSE',
+      'lib/index.js', 'lib/util.js', 'bin/cli.js',
+      'src/index.ts', 'test/index.test.js',
+      '.env', '.env.production', 'deploy/id_rsa',
+      'coverage/lcov.info', 'debug.log',
+      'node_modules/left-pad/index.js',
+      'package-lock.json', '.npmrc', '.DS_Store'
+    ].join('\n');
+    $('status').textContent = 'example loaded — press Resolve. It publishes .env, and nothing in this setup stops it.';
+    $('result').innerHTML = '';
+  });
+})();
+</script>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+</body>
+</html>
