@@ -1,242 +1,811 @@
 {
-  "_about": "Reference cases for lib/npmpack.js + lib/gitignore.js, contributed by ship 006 (npm-publish-preflight, 2026-08-07). Every case cites the npm doc clause or the gitignore(5) PATTERN FORMAT clause it pins. A case here is a CLAIM ABOUT npm, not about this code — if npm's behaviour and a case disagree, the case is what gets fixed.",
+  "_about": "Reference cases for lib/npmpack.js + lib/gitignore.js, contributed by ship 006 (npm-publish-preflight, 2026-08-07). Every case cites the npm doc clause or the gitignore(5) PATTERN FORMAT clause it pins. A case here is a CLAIM ABOUT npm, not about this code \u2014 if npm's behaviour and a case disagree, the case is what gets fixed. ROUND-2 ADDITIONS (2026-08-07): cases 24-31 were written AFTER two independent checkers refuted the first 23, and every one of them was verified against a real `npm pack --dry-run` on npm 10.9.7 in a scratch fixture rather than against the maker's belief. That distinction is the whole lesson of round 1: an oracle written by the maker can only prove the code agrees with the maker.",
   "_sources": {
     "A": "https://docs.npmjs.com/cli/v11/configuring-npm/package-json",
     "B": "https://docs.npmjs.com/cli/v11/using-npm/developers/",
     "C": "https://github.com/npm/cli/wiki/Files-&-Ignores",
-    "G": "gitignore(5) PATTERN FORMAT"
+    "G": "gitignore(5) PATTERN FORMAT",
+    "N": "npm 10.9.7, `npm pack --dry-run --json` on scratch fixtures (2026-08-07)"
   },
   "cases": [
     {
-      "name": "no files[], no ignore files — everything but npm's defaults ships",
+      "name": "no files[], no ignore files \u2014 everything but npm's defaults ships",
       "cites": "A",
-      "pkg": { "name": "x", "version": "1.0.0" },
+      "pkg": {
+        "name": "x",
+        "version": "1.0.0"
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["package.json", "index.js", "src/a.js", "node_modules/dep/i.js", ".DS_Store", "package-lock.json", "yarn.lock", ".npmrc", "x.orig"],
-      "expect_in": ["package.json", "index.js", "src/a.js"],
-      "expect_out": ["node_modules/dep/i.js", ".DS_Store", "package-lock.json", "yarn.lock", ".npmrc", "x.orig"]
+      "paths": [
+        "package.json",
+        "index.js",
+        "src/a.js",
+        "node_modules/dep/i.js",
+        ".DS_Store",
+        "package-lock.json",
+        "yarn.lock",
+        ".npmrc",
+        "x.orig"
+      ],
+      "expect_in": [
+        "package.json",
+        "index.js",
+        "src/a.js"
+      ],
+      "expect_out": [
+        "node_modules/dep/i.js",
+        ".DS_Store",
+        "package-lock.json",
+        "yarn.lock",
+        ".npmrc",
+        "x.orig"
+      ]
     },
     {
       "name": ".gitignore is used when .npmignore is missing",
       "cites": "A",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": null,
       "gitignore": "dist/\n*.log\n",
-      "paths": ["index.js", "dist/bundle.js", "debug.log", "src/keep.js"],
-      "expect_in": ["index.js", "src/keep.js"],
-      "expect_out": ["dist/bundle.js", "debug.log"]
+      "paths": [
+        "index.js",
+        "dist/bundle.js",
+        "debug.log",
+        "src/keep.js"
+      ],
+      "expect_in": [
+        "index.js",
+        "src/keep.js"
+      ],
+      "expect_out": [
+        "dist/bundle.js",
+        "debug.log"
+      ]
     },
     {
-      "name": ".npmignore REPLACES .gitignore entirely — it does not merge",
+      "name": ".npmignore REPLACES .gitignore entirely \u2014 it does not merge",
       "cites": "A,B,C",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "secret.txt\n",
       "gitignore": "dist/\n*.log\n",
-      "paths": ["dist/bundle.js", "debug.log", "secret.txt", "index.js"],
-      "expect_in": ["dist/bundle.js", "debug.log", "index.js"],
-      "expect_out": ["secret.txt"]
+      "paths": [
+        "dist/bundle.js",
+        "debug.log",
+        "secret.txt",
+        "index.js"
+      ],
+      "expect_in": [
+        "dist/bundle.js",
+        "debug.log",
+        "index.js"
+      ],
+      "expect_out": [
+        "secret.txt"
+      ]
     },
     {
       "name": "an EMPTY but PRESENT .npmignore switches .gitignore off",
       "cites": "B",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "",
       "gitignore": "dist/\n",
-      "paths": ["dist/bundle.js", "index.js"],
-      "expect_in": ["dist/bundle.js", "index.js"],
+      "paths": [
+        "dist/bundle.js",
+        "index.js"
+      ],
+      "expect_in": [
+        "dist/bundle.js",
+        "index.js"
+      ],
       "expect_out": []
     },
     {
       "name": "files[] is an allow-list and a directory entry is recursive",
       "cites": "A,C",
-      "pkg": { "name": "x", "files": ["dist"] },
+      "pkg": {
+        "name": "x",
+        "files": [
+          "dist"
+        ]
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["dist/bundle.js", "dist/deep/inner.js", "src/a.js", "index.js"],
-      "expect_in": ["dist/bundle.js", "dist/deep/inner.js"],
-      "expect_out": ["src/a.js", "index.js"]
+      "paths": [
+        "dist/bundle.js",
+        "dist/deep/inner.js",
+        "src/a.js",
+        "index.js"
+      ],
+      "expect_in": [
+        "dist/bundle.js",
+        "dist/deep/inner.js"
+      ],
+      "expect_out": [
+        "src/a.js",
+        "index.js"
+      ]
     },
     {
       "name": "always-included survive files[] and .npmignore alike",
       "cites": "A",
-      "pkg": { "name": "x", "files": ["dist"], "main": "lib/entry.js", "bin": { "x": "bin/cli.js" } },
+      "pkg": {
+        "name": "x",
+        "files": [
+          "dist"
+        ],
+        "main": "lib/entry.js",
+        "bin": {
+          "x": "bin/cli.js"
+        }
+      },
       "npmignore": "README.md\nLICENSE\nlib/\nbin/\n",
       "gitignore": null,
-      "paths": ["package.json", "README.md", "LICENSE", "lib/entry.js", "bin/cli.js", "lib/other.js"],
-      "expect_in": ["package.json", "README.md", "LICENSE", "lib/entry.js", "bin/cli.js"],
-      "expect_out": ["lib/other.js"]
+      "paths": [
+        "package.json",
+        "README.md",
+        "LICENSE",
+        "lib/entry.js",
+        "bin/cli.js",
+        "lib/other.js"
+      ],
+      "expect_in": [
+        "package.json",
+        "README.md",
+        "LICENSE",
+        "lib/entry.js",
+        "bin/cli.js"
+      ],
+      "expect_out": [
+        "lib/other.js"
+      ]
     },
     {
       "name": "README/LICENSE are root-only and case/extension-insensitive",
       "cites": "A",
-      "pkg": { "name": "x", "files": ["dist"] },
+      "pkg": {
+        "name": "x",
+        "files": [
+          "dist"
+        ]
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["readme.markdown", "LICENCE.txt", "docs/README.md", "dist/a.js"],
-      "expect_in": ["readme.markdown", "LICENCE.txt", "dist/a.js"],
-      "expect_out": ["docs/README.md"]
+      "paths": [
+        "readme.markdown",
+        "LICENCE.txt",
+        "docs/README.md",
+        "dist/a.js"
+      ],
+      "expect_in": [
+        "readme.markdown",
+        "LICENCE.txt",
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "docs/README.md"
+      ]
     },
     {
       "name": "the hard core cannot be re-included even when named in files[]",
       "cites": "A",
-      "pkg": { "name": "x", "files": ["node_modules", ".npmrc", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "src"] },
+      "pkg": {
+        "name": "x",
+        "files": [
+          "node_modules",
+          ".npmrc",
+          "package-lock.json",
+          "yarn.lock",
+          "pnpm-lock.yaml",
+          "bun.lockb",
+          "src"
+        ]
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["node_modules/d/i.js", ".npmrc", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "src/a.js"],
-      "expect_in": ["src/a.js"],
-      "expect_out": ["node_modules/d/i.js", ".npmrc", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb"]
+      "paths": [
+        "node_modules/d/i.js",
+        ".npmrc",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "bun.lockb",
+        "src/a.js"
+      ],
+      "expect_in": [
+        "src/a.js"
+      ],
+      "expect_out": [
+        "node_modules/d/i.js",
+        ".npmrc",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "bun.lockb"
+      ]
     },
     {
-      "name": "last matching rule wins — a later ! re-includes",
+      "name": "last matching rule wins \u2014 a later ! re-includes",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "*.txt\n!keep.txt\n",
       "gitignore": null,
-      "paths": ["a.txt", "keep.txt", "sub/keep.txt"],
-      "expect_in": ["keep.txt", "sub/keep.txt"],
-      "expect_out": ["a.txt"]
+      "paths": [
+        "a.txt",
+        "keep.txt",
+        "sub/keep.txt"
+      ],
+      "expect_in": [
+        "keep.txt",
+        "sub/keep.txt"
+      ],
+      "expect_out": [
+        "a.txt"
+      ]
     },
     {
       "name": "a ! cannot resurrect a file under an excluded DIRECTORY",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "build/\n!build/keep.js\n",
       "gitignore": null,
-      "paths": ["build/keep.js", "build/other.js", "index.js"],
-      "expect_in": ["index.js"],
-      "expect_out": ["build/keep.js", "build/other.js"]
+      "paths": [
+        "build/keep.js",
+        "build/other.js",
+        "index.js"
+      ],
+      "expect_in": [
+        "index.js"
+      ],
+      "expect_out": [
+        "build/keep.js",
+        "build/other.js"
+      ]
     },
     {
       "name": "a trailing slash makes a pattern match directories only",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "logs/\n",
       "gitignore": null,
-      "paths": ["logs", "logs/a.txt", "src/logs/b.txt"],
-      "expect_in": ["logs"],
-      "expect_out": ["logs/a.txt", "src/logs/b.txt"]
+      "paths": [
+        "logs",
+        "logs/a.txt",
+        "src/logs/b.txt"
+      ],
+      "expect_in": [
+        "logs"
+      ],
+      "expect_out": [
+        "logs/a.txt",
+        "src/logs/b.txt"
+      ]
     },
     {
       "name": "a slash at the start anchors; no slash matches at any depth",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "/root-only.js\nanywhere.js\n",
       "gitignore": null,
-      "paths": ["root-only.js", "sub/root-only.js", "anywhere.js", "sub/deep/anywhere.js"],
-      "expect_in": ["sub/root-only.js"],
-      "expect_out": ["root-only.js", "anywhere.js", "sub/deep/anywhere.js"]
+      "paths": [
+        "root-only.js",
+        "sub/root-only.js",
+        "anywhere.js",
+        "sub/deep/anywhere.js"
+      ],
+      "expect_in": [
+        "sub/root-only.js"
+      ],
+      "expect_out": [
+        "root-only.js",
+        "anywhere.js",
+        "sub/deep/anywhere.js"
+      ]
     },
     {
       "name": "a slash in the MIDDLE anchors too",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "doc/notes.md\n",
       "gitignore": null,
-      "paths": ["doc/notes.md", "sub/doc/notes.md"],
-      "expect_in": ["sub/doc/notes.md"],
-      "expect_out": ["doc/notes.md"]
+      "paths": [
+        "doc/notes.md",
+        "sub/doc/notes.md"
+      ],
+      "expect_in": [
+        "sub/doc/notes.md"
+      ],
+      "expect_out": [
+        "doc/notes.md"
+      ]
     },
     {
       "name": "** spans zero or more directories",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "docs/**/*.md\n",
       "gitignore": null,
-      "paths": ["docs/a.md", "docs/x/y/b.md", "docs/a.txt", "other/a.md"],
-      "expect_in": ["docs/a.txt", "other/a.md"],
-      "expect_out": ["docs/a.md", "docs/x/y/b.md"]
+      "paths": [
+        "docs/a.md",
+        "docs/x/y/b.md",
+        "docs/a.txt",
+        "other/a.md"
+      ],
+      "expect_in": [
+        "docs/a.txt",
+        "other/a.md"
+      ],
+      "expect_out": [
+        "docs/a.md",
+        "docs/x/y/b.md"
+      ]
     },
     {
       "name": "a TRAILING /** matches everything inside, but not the directory itself",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "vendor/**\n",
       "gitignore": null,
-      "paths": ["vendor", "vendor/a.js", "vendor/deep/b.js"],
-      "expect_in": ["vendor"],
-      "expect_out": ["vendor/a.js", "vendor/deep/b.js"]
+      "paths": [
+        "vendor",
+        "vendor/a.js",
+        "vendor/deep/b.js"
+      ],
+      "expect_in": [
+        "vendor"
+      ],
+      "expect_out": [
+        "vendor/a.js",
+        "vendor/deep/b.js"
+      ]
     },
     {
       "name": "* and ? never cross a slash",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "a/*.js\nq?.js\n",
       "gitignore": null,
-      "paths": ["a/one.js", "a/deep/two.js", "q1.js", "qxy.js"],
-      "expect_in": ["a/deep/two.js", "qxy.js"],
-      "expect_out": ["a/one.js", "q1.js"]
+      "paths": [
+        "a/one.js",
+        "a/deep/two.js",
+        "q1.js",
+        "qxy.js"
+      ],
+      "expect_in": [
+        "a/deep/two.js",
+        "qxy.js"
+      ],
+      "expect_out": [
+        "a/one.js",
+        "q1.js"
+      ]
     },
     {
       "name": "character classes, ranges and negated classes",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "f[0-2].js\ng[!a].js\n",
       "gitignore": null,
-      "paths": ["f0.js", "f3.js", "ga.js", "gb.js"],
-      "expect_in": ["f3.js", "ga.js"],
-      "expect_out": ["f0.js", "gb.js"]
+      "paths": [
+        "f0.js",
+        "f3.js",
+        "ga.js",
+        "gb.js"
+      ],
+      "expect_in": [
+        "f3.js",
+        "ga.js"
+      ],
+      "expect_out": [
+        "f0.js",
+        "gb.js"
+      ]
     },
     {
       "name": "comments, blank lines, escaped # and escaped !",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "# a comment\n\n\\#hash.js\n\\!bang.js\n",
       "gitignore": null,
-      "paths": ["#hash.js", "!bang.js", "a comment", "plain.js"],
-      "expect_in": ["a comment", "plain.js"],
-      "expect_out": ["#hash.js", "!bang.js"]
+      "paths": [
+        "#hash.js",
+        "!bang.js",
+        "a comment",
+        "plain.js"
+      ],
+      "expect_in": [
+        "a comment",
+        "plain.js"
+      ],
+      "expect_out": [
+        "#hash.js",
+        "!bang.js"
+      ]
     },
     {
       "name": "trailing spaces are stripped unless escaped",
       "cites": "G",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": "sp.js   \ntrail\\ .js\n",
       "gitignore": null,
-      "paths": ["sp.js", "trail .js", "trail.js"],
-      "expect_in": ["trail.js"],
-      "expect_out": ["sp.js", "trail .js"]
+      "paths": [
+        "sp.js",
+        "trail .js",
+        "trail.js"
+      ],
+      "expect_in": [
+        "trail.js"
+      ],
+      "expect_out": [
+        "sp.js",
+        "trail .js"
+      ]
     },
     {
       "name": "npm's default ignores still apply inside a files[] directory (conservative reading, disclosed)",
       "cites": "A",
-      "pkg": { "name": "x", "files": ["dist"] },
+      "pkg": {
+        "name": "x",
+        "files": [
+          "dist"
+        ]
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["dist/a.js", "dist/.DS_Store", "dist/sub/._resource"],
-      "expect_in": ["dist/a.js"],
-      "expect_out": ["dist/.DS_Store", "dist/sub/._resource"]
+      "paths": [
+        "dist/a.js",
+        "dist/.DS_Store",
+        "dist/sub/._resource"
+      ],
+      "expect_in": [
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "dist/.DS_Store",
+        "dist/sub/._resource"
+      ]
     },
     {
       "name": "files[] accepts globs, not only directory names",
       "cites": "A",
-      "pkg": { "name": "x", "files": ["dist/**/*.js", "types/*.d.ts"] },
+      "pkg": {
+        "name": "x",
+        "files": [
+          "dist/**/*.js",
+          "types/*.d.ts"
+        ]
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["dist/a.js", "dist/deep/b.js", "dist/a.css", "types/x.d.ts", "types/sub/y.d.ts"],
-      "expect_in": ["dist/a.js", "dist/deep/b.js", "types/x.d.ts"],
-      "expect_out": ["dist/a.css", "types/sub/y.d.ts"]
+      "paths": [
+        "dist/a.js",
+        "dist/deep/b.js",
+        "dist/a.css",
+        "types/x.d.ts",
+        "types/sub/y.d.ts"
+      ],
+      "expect_in": [
+        "dist/a.js",
+        "dist/deep/b.js",
+        "types/x.d.ts"
+      ],
+      "expect_out": [
+        "dist/a.css",
+        "types/sub/y.d.ts"
+      ]
     },
     {
       "name": "bin as a bare string is an always-include too",
       "cites": "A",
-      "pkg": { "name": "x", "bin": "./cli/run.js", "files": ["dist"] },
+      "pkg": {
+        "name": "x",
+        "bin": "./cli/run.js",
+        "files": [
+          "dist"
+        ]
+      },
       "npmignore": null,
       "gitignore": null,
-      "paths": ["cli/run.js", "cli/other.js", "dist/a.js"],
-      "expect_in": ["cli/run.js", "dist/a.js"],
-      "expect_out": ["cli/other.js"]
+      "paths": [
+        "cli/run.js",
+        "cli/other.js",
+        "dist/a.js"
+      ],
+      "expect_in": [
+        "cli/run.js",
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "cli/other.js"
+      ]
     },
     {
-      "name": "the classic accident — no files[], .gitignore does not mention .env",
+      "name": "the classic accident \u2014 no files[], .gitignore does not mention .env",
       "cites": "A",
-      "pkg": { "name": "x" },
+      "pkg": {
+        "name": "x"
+      },
       "npmignore": null,
       "gitignore": "node_modules/\n",
-      "paths": [".env", ".env.production", "id_rsa", "src/a.js"],
-      "expect_in": [".env", ".env.production", "id_rsa", "src/a.js"],
+      "paths": [
+        ".env",
+        ".env.production",
+        "id_rsa",
+        "src/a.js"
+      ],
+      "expect_in": [
+        ".env",
+        ".env.production",
+        "id_rsa",
+        "src/a.js"
+      ],
       "expect_out": [],
-      "expect_secret_alarm": [".env", ".env.production", "id_rsa"]
+      "expect_secret_alarm": [
+        ".env",
+        ".env.production",
+        "id_rsa"
+      ]
+    },
+    {
+      "name": "npm matches CASE-INSENSITIVELY \u2014 user rules (verified vs npm 10.9.7)",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "version": "1.0.0"
+      },
+      "npmignore": "dist/\n*.log\n",
+      "gitignore": null,
+      "paths": [
+        "Dist/inside.js",
+        "DEBUG.LOG",
+        "keep.js",
+        "README.md",
+        "package.json"
+      ],
+      "expect_in": [
+        "keep.js",
+        "README.md",
+        "package.json"
+      ],
+      "expect_out": [
+        "Dist/inside.js",
+        "DEBUG.LOG"
+      ]
+    },
+    {
+      "name": "case-insensitivity applies to npm's DEFAULT ignores too",
+      "cites": "N",
+      "pkg": {
+        "name": "t"
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "NODE_MODULES/dep/i.js",
+        "Node_Modules/dep/j.js",
+        "node_modules/dep/k.js",
+        "Package-Lock.json",
+        "src/a.js"
+      ],
+      "expect_in": [
+        "src/a.js"
+      ],
+      "expect_out": [
+        "NODE_MODULES/dep/i.js",
+        "Node_Modules/dep/j.js",
+        "node_modules/dep/k.js",
+        "Package-Lock.json"
+      ]
+    },
+    {
+      "name": "a backslash is an ordinary filename character, not a separator (verified vs npm 10.9.7)",
+      "cites": "N",
+      "pkg": {
+        "name": "t"
+      },
+      "npmignore": "weird/\n",
+      "gitignore": null,
+      "paths": [
+        "weird\\file.js",
+        "weird/real.js",
+        "keep.js"
+      ],
+      "expect_in": [
+        "weird\\file.js",
+        "keep.js"
+      ],
+      "expect_out": [
+        "weird/real.js"
+      ]
+    },
+    {
+      "name": "every files[] entry is anchored to the package root \u2014 bare, ./ and / alike",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "files": [
+          "dist"
+        ]
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "dist/a.js",
+        "sub/dist/b.js",
+        "index.js"
+      ],
+      "expect_in": [
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "sub/dist/b.js",
+        "index.js"
+      ]
+    },
+    {
+      "name": "files:['./dist'] anchors identically",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "files": [
+          "./dist"
+        ]
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "dist/a.js",
+        "sub/dist/b.js"
+      ],
+      "expect_in": [
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "sub/dist/b.js"
+      ]
+    },
+    {
+      "name": "files:['/dist'] anchors identically",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "files": [
+          "/dist"
+        ]
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "dist/a.js",
+        "sub/dist/b.js"
+      ],
+      "expect_in": [
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "sub/dist/b.js"
+      ]
+    },
+    {
+      "name": "files as a STRING: npm iterates its characters and publishes almost nothing",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "files": "dist"
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "dist/a.js",
+        "index.js",
+        "README.md",
+        "package.json"
+      ],
+      "expect_in": [
+        "README.md",
+        "package.json"
+      ],
+      "expect_out": [
+        "dist/a.js",
+        "index.js"
+      ]
+    },
+    {
+      "name": "the browser field is force-included like main and bin",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "browser": "b/br.js",
+        "files": [
+          "nothing"
+        ]
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "b/br.js",
+        "other.js",
+        "README.md"
+      ],
+      "expect_in": [
+        "b/br.js",
+        "README.md"
+      ],
+      "expect_out": [
+        "other.js"
+      ]
+    },
+    {
+      "name": "a negated class folds case BEFORE negating: [!A-Z] rejects letters of either case",
+      "cites": "N",
+      "pkg": {
+        "name": "t"
+      },
+      "npmignore": "g[!A-Z].js\n",
+      "gitignore": null,
+      "paths": [
+        "ga.js",
+        "gA.js",
+        "g1.js"
+      ],
+      "expect_in": [
+        "ga.js",
+        "gA.js"
+      ],
+      "expect_out": [
+        "g1.js"
+      ]
+    },
+    {
+      "name": "an all-space files[] entry must not cost unmetered work (regression, finding B1)",
+      "cites": "N",
+      "pkg": {
+        "name": "t",
+        "files": [
+          "          ",
+          "dist"
+        ]
+      },
+      "npmignore": null,
+      "gitignore": null,
+      "paths": [
+        "dist/a.js",
+        "index.js"
+      ],
+      "expect_in": [
+        "dist/a.js"
+      ],
+      "expect_out": [
+        "index.js"
+      ]
     }
   ]
 }

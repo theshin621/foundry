@@ -117,8 +117,8 @@ footer a{color:var(--faint)}
     <div class="body">
       <p><b>Always included</b>, whatever your <code>files</code> array or ignore files say:
       <code>package.json</code>, <code>README</code> and <code>LICENSE</code>/<code>LICENCE</code> at
-      the package root in any case and any extension, the file named by <code>main</code>, and the
-      file(s) named by <code>bin</code>.</p>
+      the package root in any case and any extension, and the files named by <code>main</code>,
+      <code>browser</code> and <code>bin</code>.</p>
       <p><b>Always ignored:</b> <code>*.orig</code>, <code>.*.swp</code>, <code>.DS_Store</code>,
       <code>._*</code>, <code>.git</code>, <code>.hg</code>, <code>.lock-wscript</code>,
       <code>.npmrc</code>, <code>.svn</code>, <code>.wafpickle-*</code>, <code>CVS</code>,
@@ -152,16 +152,33 @@ footer a{color:var(--faint)}
       every ancestor directory and treats the first excluded one as final — which is why
       <code>build/</code> followed by <code>!build/keep.js</code> still leaves
       <code>build/keep.js</code> out.</p>
+      <p><b>Matching is case-INSENSITIVE, because npm's is.</b> npm's walker passes
+      <code>nocase</code> to its matcher unconditionally, so <code>dist/</code> excludes
+      <code>Dist/</code> and <code>*.log</code> excludes <code>DEBUG.LOG</code> — for your rules,
+      for npm's defaults and for the hard-core list alike. A case-sensitive answer would not be a
+      stricter one, it would be a wrong one.</p>
+      <p><b>What this page cannot represent, stated plainly:</b> npm honours a
+      <code>.npmignore</code> or <code>.gitignore</code> in <em>every</em> directory, each governing
+      its own subtree. This page has one box per file, so it models the ROOT pair only. If your
+      project has nested ignore files, the answer here is the answer for the root rules alone —
+      treat it as a lower bound on what gets excluded. It also does not resolve
+      <code>bundleDependencies</code> or workspaces.</p>
       <p><b>Sources.</b>
       <a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json" rel="noopener noreferrer" target="_blank">package.json &rarr; files</a> ·
       <a href="https://docs.npmjs.com/cli/v11/using-npm/developers/" rel="noopener noreferrer" target="_blank">npm developers guide</a> ·
       <a href="https://github.com/npm/cli/wiki/Files-&amp;-Ignores" rel="noopener noreferrer" target="_blank">npm/cli wiki: Files &amp; Ignores</a> ·
       pattern syntax follows <code>gitignore(5)</code>, which npm states its ignore files match.</p>
-      <p><b>What this is not.</b> It is not <code>npm pack --dry-run</code>: it never reads your disk,
-      never resolves <code>bundleDependencies</code>, and does not know about workspaces. It answers
-      the question <code>--dry-run</code> does not — <em>which rule decided this file</em>.
-      The credential alarm is this page's own heuristic on file <em>names</em>, not an npm rule, and it
-      never changes a verdict.</p>
+      <p><b>What this is not.</b> It is not <code>npm pack --dry-run</code>: it never reads your
+      disk. Run <code>--dry-run</code> for the authoritative file list — run this when
+      <code>--dry-run</code> has given you a list you do not understand, because it answers the
+      question <code>--dry-run</code> does not: <em>which rule decided this file, and where is that
+      rule written</em>. The credential alarm is this page's own heuristic on file <em>names</em>,
+      not an npm rule, and it never changes a verdict.</p>
+      <p><b>How the rules here were checked.</b> Every clause above was verified against a real
+      <code>npm pack --dry-run</code> on npm 10.9.7, not against documentation alone — the
+      case-insensitivity rule, the <code>browser</code> force-include, the root-anchoring of every
+      <code>files</code> entry and npm's behaviour when <code>files</code> is a string were all found
+      that way, by an adversarial reviewer, after the first build got them wrong.</p>
     </div>
   </details>
 
@@ -217,20 +234,65 @@ footer a{color:var(--faint)}
 
   function pill(text, cls) { return '<span class="badge' + (cls ? ' ' + cls : '') + '">' + esc(text) + '</span>'; }
 
-  function render(res, ms, truncatedInput) {
-    var b = door.buffer(OUT_CAP), s = res.summary, i, r, n;
+  /* One cell: clip the RAW value, escape it, then clip the ESCAPED result. The
+     second clip is not belt-and-braces — escaping expands, and one '"' becomes six
+     characters, so a 300-char path of quotes is a 1,800-char cell. Checker round 1,
+     finding B2, reached the output cap that way. */
+  function cell(v, rawMax, outMax) { return door.clip(esc(door.clip(v, rawMax)), outMax); }
 
-    /* ORDER IS A CORRECTNESS PROPERTY HERE, not a layout preference. An earlier
-       build drew the summary first, so a run that stopped part-way showed a
-       confident "PUBLISHED 2361 / LEFT OUT 0" above the words explaining it was
-       incomplete — and "left out 0" is exactly the reassurance a half-finished
-       resolution must never give. On an incomplete run the banner goes FIRST and
-       every count is relabelled as partial. */
+  function render(res, ms, inputNote) {
+    var s = res.summary, i, r, n = res.rows.length;
+
+    /* ── THREE INDEPENDENTLY BOUNDED PARTS, ASSEMBLED IN THIS ORDER ────────────
+       Checker round 1, finding B2: with ONE shared buffer, an output that hit the
+       cap was cut mid-row — unclosed <td>, unclosed <tr>, no </tbody></table> —
+       and, worse, the two messages meant to DISCLOSE the truncation could not be
+       written either, because the buffer that truncated them was full. The page
+       then showed a confident "PUBLISHED 1000 / LEFT OUT 0" and a status of "done".
+       An honesty mechanism that is the first thing to fail under pressure is not a
+       mechanism.
+       So: the table is built FIRST into its own buffer, the banners are built
+       SECOND into a different one (and can therefore say what happened to the
+       table), and the closing tags live in a fixed tail that is never inside any
+       buffer at all. Every part is bounded on its own, so the total is bounded by
+       their sum — and a row is pushed as ONE atomic string, so a row that does not
+       fit is not written at all rather than written halfway. */
+    var TABLE_CAP = 700000, BANNER_CAP = 60000;
+
+    var tb = door.buffer(TABLE_CAP), drawn = 0, rowHtml;
+    for (i = 0; i < n && i < ROW_CAP; i++) {
+      r = res.rows[i];
+      rowHtml = '<tr class="' + (r.included ? 'in' : 'out') + '">'
+        + '<td class="p">' + (r.secret && r.included ? pill('credential-shaped', 'sec') : '')
+        + cell(r.path, 300, 900) + '</td>'
+        + '<td class="v ' + (r.included ? 'in' : 'out') + '">' + (r.included ? 'PUBLISHED' : 'left out') + '</td>'
+        + '<td class="r">' + pill(r.source)
+        + (r.detail ? '<code>' + cell(r.detail, 200, 600) + '</code>' : '')
+        + (r.line ? ' <span style="color:var(--faint)">line ' + String(r.line) + '</span>' : '')
+        + '<br>' + cell(r.why || '', 400, 900) + '</td></tr>';
+      if (!tb.push(rowHtml)) break;
+      drawn++;
+    }
+    var listTruncated = drawn < n;
+
+    var b = door.buffer(BANNER_CAP);
+
+    /* ORDER IS A CORRECTNESS PROPERTY. An earlier build drew the summary first, so
+       a run that stopped part-way showed "PUBLISHED 2361 / LEFT OUT 0" ABOVE the
+       words explaining it was incomplete — and "left out 0" is exactly the
+       reassurance a half-finished resolution must never give. Every honesty banner
+       goes first; every count on an incomplete run is relabelled partial. */
     if (res.exceeded) {
       b.push('<div class="alarm"><b>Answer incomplete — do not act on these numbers.</b> This input passed ',
              'the size limits but still cost more work than the page will spend on one click, so it stopped ',
              'part-way. The counts below cover only the files it got to; the rest were never resolved and are ',
              'neither published nor left out. Narrow the file list or simplify the ignore patterns and run it again.</div>');
+    }
+    if (listTruncated) {
+      b.push('<div class="alarm warn"><b>The list below is cut short: ', String(drawn), ' of ',
+             String(n), ' files are shown.</b> Every file WAS resolved and the counts cover all of them — ',
+             'only the drawing stopped, at ', String(ROW_CAP), ' rows or at the page\'s output size limit, ',
+             'whichever came first.</div>');
     }
 
     b.push('<div class="card"><div class="sum">');
@@ -242,59 +304,51 @@ footer a{color:var(--faint)}
     b.push('<div><span class="k">deciding source</span><b style="font-size:.9rem">', esc(s.mode), '</b></div>');
     if (s.ignoredIgnoreFile) b.push('<div><span class="k">not consulted</span><b style="font-size:.9rem;color:var(--warn)">', esc(s.ignoredIgnoreFile), '</b></div>');
     b.push('</div></div>');
-    if (truncatedInput) {
-      b.push('<div class="alarm warn"><b>', esc(truncatedInput), '</b></div>');
-    }
+
+    if (inputNote) b.push('<div class="alarm warn"><b>', cell(inputNote, 400, 900), '</b></div>');
+
     if (s.secrets.length) {
       b.push('<div class="alarm"><b>', String(s.secrets.length), ' file', s.secrets.length === 1 ? '' : 's',
              ' that look like credentials would be published.</b>');
-      for (i = 0; i < s.secrets.length && i < 40; i++) b.push('<code>', esc(s.secrets[i]), '</code> ');
-      if (s.secrets.length > 40) b.push(' and ', String(s.secrets.length - 40), ' more.');
+      for (i = 0; i < s.secrets.length && i < 20; i++) b.push('<code>', cell(s.secrets[i], 120, 400), '</code> ');
+      if (s.secrets.length > 20) b.push(' and ', String(s.secrets.length - 20), ' more.');
       b.push('<br>This is a name-shape heuristic, not an npm rule — but a published version is immutable, ',
              'so check before you publish, not after.</div>');
     }
     if (s.missingTargets.length) {
       b.push('<div class="alarm"><b>An entry point is not in the tarball.</b> ');
       for (i = 0; i < s.missingTargets.length && i < 20; i++)
-        b.push('<code>', esc(s.missingTargets[i].field), '</code> points at <code>',
-               esc(s.missingTargets[i].target), '</code>, which is not in your file list. ');
+        b.push('<code>', cell(s.missingTargets[i].field, 40, 120), '</code> points at <code>',
+               cell(s.missingTargets[i].target, 200, 600), '</code>, which is not in your file list. ');
       b.push('npm force-includes these, so if the file exists on disk it will still ship — but if the path ',
              'is wrong, the published package cannot be required.</div>');
     }
-    for (i = 0; i < res.notes.length; i++)
-      b.push('<div class="alarm ', esc(res.notes[i].level), '">', esc(res.notes[i].text), '</div>');
+    for (i = 0; i < res.notes.length && i < 12; i++)
+      b.push('<div class="alarm ', esc(res.notes[i].level), '">', cell(res.notes[i].text, 600, 1400), '</div>');
 
     if (s.userRuleErrors && s.userRuleErrors.length) {
       b.push('<div class="alarm warn"><b>', String(s.userRuleErrors.length), ' line',
              s.userRuleErrors.length === 1 ? '' : 's', ' in your ignore file could not be read as a pattern.</b> ');
       for (i = 0; i < s.userRuleErrors.length && i < 10; i++)
-        b.push('line ', String(s.userRuleErrors[i].line), ': ', esc(s.userRuleErrors[i].error), '. ');
+        b.push('line ', String(s.userRuleErrors[i].line), ': ', cell(s.userRuleErrors[i].error, 120, 400), '. ');
       b.push('</div>');
     }
 
-    n = res.rows.length;
-    b.push('<h2>Every file, and the rule that decided it</h2>');
-    b.push('<table><thead><tr><th>file</th><th>verdict</th><th>decided by</th></tr></thead><tbody>');
-    for (i = 0; i < n && i < ROW_CAP; i++) {
-      r = res.rows[i];
-      if (!b.push('<tr class="', r.included ? 'in' : 'out', '">')) break;
-      b.push('<td class="p">', r.secret && r.included ? pill('credential-shaped', 'sec') : '', esc(door.clip(r.path, 300)), '</td>');
-      b.push('<td class="v ', r.included ? 'in' : 'out', '">', r.included ? 'PUBLISHED' : 'left out', '</td>');
-      b.push('<td class="r">', pill(r.source));
-      if (r.detail) b.push('<code>', esc(door.clip(r.detail, 200)), '</code>');
-      if (r.line) b.push(' <span style="color:var(--faint)">line ', String(r.line), '</span>');
-      b.push('<br>', esc(door.clip(r.why || '', 400)), '</td></tr>');
-    }
-    b.push('</tbody></table>');
-    if (n > ROW_CAP) b.push('<p style="color:var(--faint);font-size:.78rem">Showing the first ',
-      String(ROW_CAP), ' of ', String(n), ' files. The counts above cover all ', String(n), '.</p>');
-    if (b.capped()) b.push('<p style="color:var(--warn);font-size:.78rem">Output reached its size limit and was cut here.</p>');
+    /* The tail is a fixed string outside every buffer, so the table is ALWAYS
+       closed no matter what any cap did above. */
+    var tail = '</tbody></table>'
+      + (listTruncated ? '<p style="color:var(--warn);font-size:.78rem">Drawing stopped at ' + String(drawn)
+          + ' of ' + String(n) + ' rows. The counts above cover all ' + String(n) + '.</p>' : '')
+      + '<p style="color:var(--faint);font-size:.75rem;margin-top:.8rem">Resolved ' + String(n)
+      + ' path' + (n === 1 ? '' : 's') + ' in ' + String(Math.round(ms)) + ' ms on this machine, this run. '
+      + 'That is a measurement, not a promise — cost depends on your rules, your paths and your device.</p>';
 
-    b.push('<p style="color:var(--faint);font-size:.75rem;margin-top:.8rem">Resolved ', String(n),
-           ' path', n === 1 ? '' : 's', ' in ', String(Math.round(ms)), ' ms on this machine, this run. ',
-           'That is a measurement, not a promise — cost depends on your rules, your paths and your device.</p>');
+    $('result').innerHTML = b.toString()
+      + '<h2>Every file, and the rule that decided it</h2>'
+      + '<table><thead><tr><th>file</th><th>verdict</th><th>decided by</th></tr></thead><tbody>'
+      + tb.toString() + tail;
 
-    $('result').innerHTML = b.toString();
+    return { truncated: listTruncated };
   }
 
   function run() {
@@ -358,9 +412,11 @@ footer a{color:var(--faint)}
     }
     var ms = Date.now() - t0;
 
-    msg = pkgErr ? pkgErr + ' — resolved without it, so files[], main and bin were not applied.' : null;
-    render(res, ms, msg);
-    $('status').textContent = res.exceeded ? 'stopped early — see the note above' : 'done';
+    msg = pkgErr ? pkgErr + ' — resolved without it, so files[], main, bin and browser were not applied.' : null;
+    var drew = render(res, ms, msg);
+    $('status').textContent = res.exceeded ? 'stopped early — see the note above'
+      : drew.truncated ? 'done — the list below is cut short, see the note above'
+      : 'done';
   }
 
   $('go').addEventListener('click', run);

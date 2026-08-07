@@ -21,7 +21,7 @@ Every build checks here FIRST and contributes one reusable piece back. Ship #001
 | `nfa.js` | ship 003 | **the linear-time matcher core, extracted** — Thompson NFA + Pike VM over bytes, with a work budget. Build a pattern language on top of it and it cannot backtrack. |
 | `codeowners.js` | ship 003 | CODEOWNERS parser + matcher (hmarr/codeowners semantics, executed on `nfa.js`) |
 | `inline.js` | ship 003 | assembles a self-contained ship page from a source file plus lib/ modules, so the inlined copy can be **proven** identical to lib/ instead of drifting silently |
-| `gitignore.js` | ship 006 | **gitignore-syntax pattern sets** — parse + match, no regex and no NFA. Two bottom-up DPs (segment, then path) plus four exact necessary-condition short-circuits. Reusable by anything with gitignore-shaped rules: npm, `.dockerignore`, `.eslintignore`. |
+| `gitignore.js` | ship 006 | **gitignore-syntax pattern sets** — parse + match, no regex and no NFA. Two bottom-up DPs (segment, then path), four exact necessary-condition short-circuits, and an optional `nocase` mode that folds at compile time. `compileOne`/`testRule` for one-pattern-many-paths. Reusable by anything with gitignore-shaped rules: npm, `.dockerignore`, `.eslintignore`. |
 | `npmpack.js` | ship 006 | npm's publish-set resolution on top of `gitignore.js` — the always-in / always-out / hard-core tables, `.npmignore`-replaces-`.gitignore`, the `files[]` allow-list, ancestor-directory pruning, and the *reason* for every file. |
 
 `gha-glob.js` still carries its own copy of the VM rather than importing `nfa.js`: it is live
@@ -101,3 +101,32 @@ of 60,000 both report 301. Phrase all three as **"more than N"**. Ship 006 shipp
 only found it by driving the real page. That is the sibling-sweep rule (2026-08-06) failing
 at authoring time rather than at fix time — apply it to code you are WRITING, not only to
 code you are patching.
+
+## Two rules from ship 006's checker round 1 (2026-08-07) — both cost a FAIL
+
+**1. A maker's own oracle proves only that the code agrees with the maker.** Ship 006
+shipped 23 hand-written reference cases and passed all 23. An independent checker then
+installed **real npm** and diffed the page against `npm pack --dry-run`, and found that
+npm's walker matches **case-insensitively** (`ignore-walk`, `nocase: true`, unconditional)
+while the page was case-sensitive throughout — so on any repo containing a `Dist/` or a
+`DEBUG.LOG` the core answer was simply wrong. Four more disagreements came out of the same
+method (a backslash in a filename being rewritten to a separator and then *cited* as a
+directory that did not exist; `files[]` entries not anchored to the package root; `files`
+as a string, which npm iterates character by character; the `browser` field, which npm
+force-includes like `main`). **Where a real implementation exists, diff against it.** The
+oracle now carries the npm version it was verified against, case by case.
+
+**2. A metered function must charge for the work it does on the way to the meter.** The
+old `matchOne()` parsed its pattern before it ticked the budget, and a `files[]` entry of
+8,180 spaces is stripped to `''` by the trailing-whitespace rule and returns early — so
+48,000 calls burned 2,941 ms of main thread with `budget.left` still at exactly 60,000,000.
+That is ship 003's cause of death recurring one call site over: **a loop between the door
+and the budget that the budget cannot see.** Two fixes, both required — tick before parse,
+and give callers `compileOne`/`testRule` so a pattern matched against many paths is parsed
+once and the parse leaves the inner loop entirely.
+
+**Corollary for `door.buffer()`:** do not assemble an output whose honesty depends on text
+appended LAST. Ship 006's truncation notice could not be written because the buffer that
+truncated the table was already full, so a cut-off answer rendered as a confident one. Build
+independently bounded parts and concatenate — banners that describe the table must not live
+in the same buffer as the table.
