@@ -217,6 +217,66 @@
     "solves": "reclaims dev-Mac gigabytes without the terror \u2014 quarantine not delete, manifest, full undo, purge double-gated",
     "money": "free-first per foundry rules; donation/pro-features candidate at Sunday triage once signal exists"
    }
+  },
+  {
+   "date": "2026-08-07",
+   "lane": "EVERGREEN",
+   "slug": "npm-publish-preflight",
+   "outcome": "PICKED as ship 006 \u2014 occupant hunt re-run fresh today (3 searches), still empty at the web-tool layer",
+   "note": "Rules pinned to three primary sources rather than memory: docs.npmjs.com/cli/v11/configuring-npm/package-json (always-included: package.json, README, LICENSE/LICENCE, main, bin; always-ignored list incl. package-lock/yarn.lock/pnpm-lock/bun.lockb; the hard core that cannot be re-included), docs.npmjs.com/cli/v11/using-npm/developers/ and github.com/npm/cli/wiki/Files-&-Ignores (.npmignore REPLACES .gitignore, not merged; empty .npmignore turns .gitignore off; files[] currently wins over .npmignore, npm's own open issue #11669). Existing answers are all prose or CLI: npm docs, the Files-&-Ignores wiki, npm's 2017 'Publishing what you mean to publish', the 'don't use .npmignore' essay, npm pack --dry-run, pure-publish, the npmignore package. None resolves the four inputs to a per-file reason. Matcher borrowed from lib/nfa.js rather than hand-rolled; door.js on every box before any split.",
+   "plain": {
+    "what": "Paste package.json, .npmignore, .gitignore and your file list \u2014 see exactly what npm publish will upload and the one rule that decided each file.",
+    "solves": "People publish .env or node_modules by accident, or ship a package with dist/ missing, and the version is immutable once it lands.",
+    "money": "Free first. Paid layer if it earns visits: a CI check that fails the build when the published set changes unexpectedly."
+   }
+  },
+  {
+   "date": "2026-08-07",
+   "lane": "EVERGREEN",
+   "slug": "rsync-filter-sim",
+   "outcome": "recorded \u2014 viable, ranked #3, not built",
+   "note": "Occupant hunt run 2026-08-07: empty at the tool layer. Seven results, all prose (Linuxize, phoenixNAP, Baeldung, monovm, two linuxvox how-tos, 0ink.net). The volume of explainer posts IS the demand signal \u2014 first-match-wins ordering plus directory traversal is the most-asked thing about rsync. Ranked #3 because the semantics (per-directory traversal, /*** idioms) are the hairiest of the three, i.e. the least day-VERIFIABLE, which is the bar that killed ship 003.",
+   "plain": {
+    "what": "Paste rsync --include/--exclude/--filter rules and a file tree \u2014 see what actually transfers.",
+    "solves": "rsync filter ordering is famously counter-intuitive and gets backups silently wrong.",
+    "money": "Free; no paid layer identified."
+   }
+  },
+  {
+   "date": "2026-08-07",
+   "lane": "ORIGINAL",
+   "slug": "llm-deprecation-preflight",
+   "outcome": "REJECTED \u2014 occupied by six named occupants across three layers",
+   "note": "Why-now was real and 2 days old: 2026-08-05 claude-opus-4-1-20250805 retired, all requests now error (platform.claude.com release notes). Rejected on occupancy anyway: llmstatus.ai, presenc.ai/research/ai-model-deprecation-tracker-2026, benchr.org/deprecations, hidekazu-konishi.com lifecycle calendar, quora/model-deprecation-tracker, and an LLM Model Deprecation Check action on the GitHub Marketplace. Same slot as the already-dropped llm-status-aggregator, approached from the deprecation angle, and MORE occupied than when it was first dropped. NO REVISIT.",
+   "plain": {
+    "what": "Would have warned you when a model you call is being retired.",
+    "solves": "Vendors retire model IDs and your calls start erroring.",
+    "money": "None \u2014 rejected. At least six things already do this, including a free GitHub Action."
+   }
+  },
+  {
+   "date": "2026-08-07",
+   "lane": "ORIGINAL",
+   "slug": "anthropic-request-preflight",
+   "outcome": "REJECTED \u2014 the incumbent is the vendor's own endpoint",
+   "note": "Why-nows all dated and inside 14 days: 2026-07-24 thinking:{type:disabled} became a 400 at effort xhigh/max; speed:'fast' now errors on claude-opus-4-7; 2026-08-05 opus-4-1 retired; new beta headers required for mid-conversation tool changes and server-side fallback. Rejected on the cleanest possible ground: the API validates the request itself, free, instantly and authoritatively, and a static page holding a copy of a vendor rule table can only ever be a staler version of the error you already get for nothing. Nearest adjacent occupant for the record: hidekazu-konishi's Anthropic tool-use schema builder/validator. NO REVISIT TRIGGER \u2014 'the vendor's own endpoint answers it in one call' does not expire.",
+   "plain": {
+    "what": "Would have checked an Anthropic API request for parameters that now error.",
+    "solves": "The API's rules changed twice in two weeks.",
+    "money": "None \u2014 rejected. Sending the request tells you for free and is never out of date."
+   }
+  },
+  {
+   "date": "2026-08-07",
+   "lane": "CLONE",
+   "slug": "(lane empty \u2014 4th consecutive run)",
+   "outcome": "no candidate entered the screen",
+   "note": "One honest sweep for a paid dev utility with corroborated CURRENT revenue plus a structural gap. Everything surfaced was the marketing shape the lane rules exclude by construction: '$14.2k monthly', '$10k+/month with simple apps', '0 to $300 per month' \u2014 first-person claims with no marketplace data or independent corroboration. ESCALATED TO SUNDAY TRIAGE for the second time: three of the four empties trace to one structural fact (no inference key, by design) and the fourth to the corroboration bar. Lane-design question, not a scouting-effort question \u2014 redefine the edge or retire the lane.",
+   "plain": {
+    "what": "n/a \u2014 the whole lane came up empty again.",
+    "solves": "n/a",
+    "money": "n/a"
+   }
   }
  ],
  "dropped_on_occupancy": [
