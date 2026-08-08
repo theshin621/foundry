@@ -1435,5 +1435,22 @@ footer a{color:var(--faint)}
 })();
 </script>
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+<!-- first-party cookieless beacon (lib/beacon-firstparty.html) -->
+<script> below immediately before </body>, in addition to
+     lib/beacon.html, until one of the two is retired. -->
+<script>
+(function(){
+  try{
+    if(navigator.webdriver) return;                 // automated browser, don't count
+    var p = location.pathname + location.search;    // search kept ONLY so ?self=1 is visible
+    var body = JSON.stringify({ path: p, self: /(^|[?&])self=1([&#]|$)/.test(location.search) });
+    if(navigator.sendBeacon){
+      navigator.sendBeacon('/_b', new Blob([body], {type:'text/plain'}));
+    } else {
+      fetch('/_b', {method:'POST', body:body, keepalive:true, headers:{'content-type':'text/plain'}}).catch(function(){});
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>

@@ -1,7 +1,24 @@
 {
   // Fable Foundry — static assets served by a git-connected Workers Build.
   // Deploys on every push to main via `npx wrangler deploy`. Ships live under public/NNN-slug/.
+
+  // ─── BRANCH infra/beacon-firstparty — DO NOT MERGE AS-IS ───────────────────────────
+  // `id` below is a PLACEHOLDER. A deploy with it fails on an unknown KV namespace, and
+  // because `main` is now set, a failed deploy would take the WHOLE SITE with it, not
+  // just the beacon. Merging this file before step 2 breaks foundry.theshin-naidu.workers.dev.
+  //
+  // Theshin, once, in the Cloudflare dashboard (the loop holds no Cloudflare credential
+  // by design — PLAYBOOK Amendment 2026-08-02 §2, "the runtime secret surface stays one PAT"):
+  //   1. Workers & Pages → KV → Create namespace → name it `foundry-beacon`
+  //   2. paste its ID over PLACEHOLDER-CREATE-KV-NAMESPACE-FIRST below
+  //   3. then this branch is mergeable and /_b + /_b/stats come up with it
+  // ───────────────────────────────────────────────────────────────────────────────────
+
   "name": "foundry",
   "compatibility_date": "2026-07-01",
-  "assets": { "directory": "./public" }
+  "main": "src/worker.js",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "kv_namespaces": [
+    { "binding": "BEACON", "id": "PLACEHOLDER-CREATE-KV-NAMESPACE-FIRST" }
+  ]
 }
