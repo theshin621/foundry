@@ -22,6 +22,9 @@ textarea{min-height:15rem}
 textarea:focus,input:focus{outline:none;border-color:var(--acc)}
 .row{display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end;margin:.9rem 0 0}
 .row>div{flex:1 1 12rem;min-width:0}
+.row>div.fix{flex:1 1 11rem}
+.row>div.btns{flex:1 1 auto;display:flex;gap:.5rem;flex-wrap:wrap}
+.row>div.btns button{flex:1 1 auto}
 button{background:var(--acc);color:#06121f;border:0;border-radius:6px;padding:.62rem 1.15rem;font:600 13px/1.2 ui-monospace,Menlo,monospace;cursor:pointer}
 button.ghost{background:transparent;color:var(--dim);border:1px solid var(--line)}
 button:hover{filter:brightness(1.1)}
@@ -68,11 +71,11 @@ is uploaded, nothing is stored.</p>
     <label for="target">the target you type after <code>ssh</code> — <code>host</code> or <code>user@host</code></label>
     <input id="target" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="deploy@web1.example.com">
   </div>
-  <div style="flex:0 0 auto">
+  <div class="fix">
     <label for="localuser">your local username (for <code>Match localuser</code>)</label>
-    <input id="localuser" spellcheck="false" style="width:11rem" placeholder="e.g. you">
+    <input id="localuser" spellcheck="false" placeholder="e.g. you">
   </div>
-  <div style="flex:0 0 auto">
+  <div class="btns">
     <button id="go">Resolve</button>
     <button id="demo" class="ghost">Load an example</button>
   </div>
@@ -90,8 +93,9 @@ is uploaded, nothing is stored.</p>
 <details>
 <summary>What this tool is sure about, and what it is not — read this before trusting it</summary>
 <p><strong>How it knows.</strong> The resolver was not written from the man page. It was written against
-<code>ssh -G</code> — OpenSSH's own resolver — and then diffed against it on <strong>5,493 randomly generated
-configs across four seeds, with zero mismatches</strong>. The diff is a replay: the tool's answer is written
+<code>ssh -G</code> — OpenSSH's own resolver — and then diffed against it on <strong>8,990 generated configs
+across six seeds, with zero mismatches</strong>, of which <strong>1,998 were malformed files where the only
+correct answer is a refusal</strong>. The diff is a replay: the tool's answer is written
 back out as a minimal config, run through the real <code>ssh</code>, and every one of the ~80 options it prints
 must come out identical. That catches a dropped directive and an invented one, not just a wrong value.</p>
 <p><strong>Things it deliberately refuses instead of guessing</strong> — each one is named on the page when your
@@ -105,7 +109,20 @@ file uses it, rather than silently mis-answered:</p>
 <li>Keywords outside its probed OpenSSH 9.6p1 table are reported as <em>not recognised by this tool</em> —
 a weaker claim than <em>invalid</em>, and deliberately so.</li>
 </ul>
-<p><strong>One real gap worth knowing:</strong> OpenSSH <em>derives</em> a few options from others — <code>BatchMode yes</code>
+<p><strong>What that number does and does not cover.</strong> An earlier version of the harness emitted only
+well-formed configs, so it was evidence about <em>resolution</em> and silent about <em>rejection</em>. Two
+independent checkers attacked exactly that blind spot on 2026-08-08 and found four ways to make this page
+answer confidently where real ssh refuses the file outright. All four are fixed and the harness now
+generates malformed files too, requiring the page to refuse precisely when <code>ssh</code> refuses — in both
+directions, since refusing a good file is as wrong as accepting a bad one. The boundary that remains:
+a fuzzer only tests what its grammar can produce, and this one exercises about 30 of the 134 keywords
+in the table.</p>
+<p><strong>It does not check option VALUES, or whether the result would connect.</strong> <code>Port 99999</code> and
+<code>Compression maybe</code> are rejected by real ssh and accepted here, and a <code>ProxyJump</code> that points at the
+host you are connecting to makes ssh exit with "jumphost loop" while this page happily reports which line
+set it. The question answered here is "which line wins", not "is this value legal" and not "will this
+connect".</p>
+<p><strong>One more gap worth knowing:</strong> OpenSSH <em>derives</em> a few options from others — <code>BatchMode yes</code>
 silently sets <code>ServerAliveInterval 300</code>. This page reports what your <em>file</em> sets, so a derived value
 appears in <code>ssh -G</code> and not here. That is the intended difference, not a bug: no line in your file set it.</p>
 <p>Verified against <strong>OpenSSH_9.6p1</strong>. Other versions differ in details; the surprises below have been
@@ -166,6 +183,10 @@ negations (<code>Host !foo</code>) matches nothing at all.</li>
     return { user: s.slice(0, at), host: s.slice(at + 1) };
   }
 
+  function unsure(e) {
+    return e.uncertainAfter ? '<span class="tag und" title="a block on line ' + e.uncertainAfter +
+      ' could not be decided and might have set this first">uncertain — see line ' + e.uncertainAfter + '</span>' : '';
+  }
   function renderEffective(r) {
     var rows = [], out = D.buffer(400000);
     if (!r.order.length) return '<p class="muted">No block in this file applies to that host — every option would take its OpenSSH default.</p>';
@@ -189,10 +210,10 @@ negations (<code>Host !foo</code>) matches nothing at all.</li>
       if (e.accumulates) {
         var vals = [], lns = [];
         for (var a = 0; a < e.entries.length; a++) { vals.push(D.clip(e.entries[a].value, 400)); lns.push(e.entries[a].line); }
-        out.push('<tr><td>' + E(k) + '<span class="tag">accumulates</span></td><td class="v">' +
+        out.push('<tr><td>' + E(k) + '<span class="tag">accumulates</span>' + unsure(e) + '</td><td class="v">' +
           E(vals.join('\n')) + '</td><td class="ln">' + E(lns.join(', ')) + '</td><td class="ln shadow">' + E(lost.join('; ')) + '</td></tr>');
       } else {
-        out.push('<tr><td>' + E(k) + (e.expands ? '<span class="tag und">%/~ not expanded</span>' : '') +
+        out.push('<tr><td>' + E(k) + (e.expands ? '<span class="tag und">%/~ not expanded</span>' : '') + unsure(e) +
           '</td><td class="v">' + E(D.clip(e.value, 400)) + '</td><td class="ln">' + E(String(e.line)) +
           '</td><td class="ln shadow">' + E(lost.join('; ')) + '</td></tr>');
       }
@@ -242,6 +263,24 @@ negations (<code>Host !foo</code>) matches nothing at all.</li>
     var localuser = String($('localuser').value || '').trim();
 
     var parsed = S.parse(cfg);
+    /* OpenSSH refuses a malformed file WHOLESALE and prints nothing. So does this
+       page: no table, no trace, just the refusal and the offending lines. Showing a
+       confident table for a file ssh would never load is the exact failure two
+       independent checkers found on 2026-08-08. */
+    if (parsed.fatal.length) {
+      var lst = [], fmax = Math.min(parsed.fatal.length, 25);
+      for (var f = 0; f < fmax; f++) {
+        lst.push('<div class="note err">line ' + E(String(parsed.fatal[f].line)) + ': ' +
+                 E(D.clip(parsed.fatal[f].message, 500)) + '</div>');
+      }
+      if (parsed.fatal.length > fmax) lst.push('<div class="note err">… and ' +
+        (parsed.fatal.length - fmax) + ' more problem(s) on later lines.</div>');
+      $('out').className = 'hidden';
+      $('fatal').innerHTML = '<div class="note err"><strong>OpenSSH would refuse this file outright.</strong> ' +
+        'It does not warn and carry on — it exits and starts no connection at all, so there are no ' +
+        'effective options to show. Fix the line(s) below and resolve again.</div>' + lst.join('');
+      return;
+    }
     var budget = N.makeBudget(20000000, 750);
     var t0 = (window.performance && performance.now) ? performance.now() : 0;
     var r = S.resolve(parsed, { host: tgt.host, user: tgt.user, localuser: localuser }, budget);
