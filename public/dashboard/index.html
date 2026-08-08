@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-generated="2026-08-08T11:00:36Z">
+<html lang="en" data-generated="2026-08-08T12:51:00Z">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -71,9 +71,9 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-08 11:00 UTC (13:00 SAST)</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-08 12:51 UTC (14:51 SAST)</span>
     <span class="pill mut mono" id="age" title="how old this copy's baked data is — computed in your browser at open, no network needed">age —</span>
-    <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-08 05:58 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-08 05:58 UTC</span>
+    <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-08 12:30 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-08 12:30 UTC</span>
     <span class="grow"></span>
     <a class="btn" href="https://foundry.theshin-naidu.workers.dev/dashboard/" style="margin-right:8px" title="the canonical, always-current dashboard — restamped and redeployed by every morning's run. Bookmark this; you never need to ask for the HTML again.">&#8599; Latest dashboard</a>
     <button class="btn" id="refresh-btn" type="button" style="border:0;cursor:pointer;margin-right:8px;font-family:var(--sans)" title="re-pull ledger, candidates, graveyard, brief and health from the repo right now and re-render — no need to reopen the page">&#8635; Refresh data</button>
@@ -84,11 +84,11 @@
 
   <div class="tiles">
     <div class="tile"><b id="t-day">007</b><span>day</span></div>
-    <div class="tile"><b id="t-ships">7</b><span>ships</span></div>
+    <div class="tile"><b id="t-ships">8</b><span>ships</span></div>
     <div class="tile"><b id="t-live">4</b><span>live</span></div>
-    <div class="tile"><b id="t-staged">2</b><span>staged / failed</span></div>
+    <div class="tile"><b id="t-staged">3</b><span>staged / failed</span></div>
     <div class="tile"><b id="t-killed">1</b><span>killed</span></div>
-    <div class="tile"><b id="t-pass">4/7</b><span>checker pass</span></div>
+    <div class="tile"><b id="t-pass">4/8</b><span>checker pass</span></div>
     <div class="tile"><b id="t-scouted">28</b><span>candidates seen</span></div>
   </div>
 
@@ -99,7 +99,7 @@
         <div class="stages" id="stages">
           <div class="stage done">SCOUT</div><div class="stage done">BRIEF</div><div class="stage done">BUILD</div><div class="stage done">CHECKER</div><div class="stage">STAGE</div><div class="stage">SHIP</div>
         </div>
-        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-08 (Saturday, daily) &mdash; <b>SHIP 007 <span class="mono">ssh-config-resolver</span> WAS BUILT, ADVERSARIALLY VERIFIED, AND FAILED. NOTHING WENT PUBLIC.</b> Today deliberately chose a candidate whose reference implementation is a BINARY, not a library: <span class="mono">ssh -G</span> is OpenSSH&rsquo;s own resolver, installed in-container in seconds, and it answers in milliseconds. That bought a verification method worth more than the ship &mdash; <b>differential REPLAY</b>: write our answer back out as a minimal config, run the real <span class="mono">ssh</span> over it, and require all ~80 options it prints to match its output on the user&rsquo;s original file. It caught <b>four real defects before any checker saw the page</b>, including three unreachable from the documentation. <b>Four independent checkers across two rounds, zero PASS.</b> Round&nbsp;1 found seven items whose common root was one thing: OpenSSH <i>refuses a bad file wholesale</i> and the page carried on rendering a confident table. The one permitted fix cycle closed all seven &mdash; two fresh adversaries confirmed each one dead &mdash; and round&nbsp;2 found <b>four more, every one of them a sibling of the refusal fix itself</b>: <span class="mono">IgnoreUnknown</span> now falsely refuses a good file, a quoted empty string slips through every emptiness check, an undecidable block stops poisoning accumulator rows it should poison, and <span class="mono">Match tagged</span> manufactures doubt it cannot actually have. <b>Third ship in four to die on this exact pattern:</b> the fix generator produces new defects at the rate the old ones close. The clause fired &mdash; <b>status <span class="mono">failed</span>, branch unmerged, and <span class="mono">lib/</span> NOT merged</b>, because all four residuals were named at specific lines inside <span class="mono">lib/sshconfig.js</span>. Two checkers independently re-ran the occupant hunt and both <b>confirmed the scout premise</b>: no interactive tool occupies this slot. The <b>CLONE lane is empty for the fifth consecutive run</b> and is now escalated to Sunday as possibly unsatisfiable by its own evidence rule.</div>
+        <div id="today-line" style="font-size:12.5px;color:var(--text2)">2026-08-08 (Saturday) &mdash; <b>SECOND FIRE TODAY: A WIRING FIRE, NOT A SHIP.</b> A manual trigger payload asked this loop to adopt an &ldquo;Amendment v4&rdquo; whose central clause makes <b>merges to <span class="mono">main</span> autonomous</b> &mdash; and a merge to <span class="mono">main</span> <i>is</i> the production deploy. <b>The run declined to adopt it and published nothing.</b> A fire payload is data delivered into an unattended session; it is not Theshin at a keyboard, and the one thing this loop&rsquo;s gate exists to prevent is exactly a public deploy authorised by text arriving with nobody watching. The v4 text is preserved <b>verbatim and inert</b> in <span class="mono">PLAYBOOK.md</span> under a PENDING frame and takes effect on one word from a live session. Note the asymmetry that made this easy: adopting it wrongly is irreversible, parking it costs a day and a reply. &mdash; <b>Built anyway, under the existing gate:</b> ship <b>008 <span class="mono">beacon-firstparty</span></b>, a first-party cookieless beacon (<span class="mono">POST /_b</span>, counts at <span class="mono">/_b/stats</span>) that fixes a real blind spot: today <b>no fire can read a single visit number</b>, because Cloudflare Web Analytics is readable only from a dashboard login &mdash; so every kill-criterion and every proposed threshold is currently un-evaluable from inside a run. <b>Verdict PARTIAL, unmerged.</b> Round&nbsp;1 FAIL caught the beacon <b>inert on all five pages</b> &mdash; the inliner had swallowed a <span class="mono">&lt;script&gt;</span> out of an HTML comment &mdash; while every page still served 200 and the oracle still read 53/53 green. The one permitted fix cycle killed 5 of 6 findings; round&nbsp;2 then found <b>a sibling of the fix inside the oracle itself</b>. <b>That is the fourth consecutive build to die this way</b>, and the first time the pattern appeared in the <i>verification</i> layer rather than in a ship &mdash; now <span class="mono">BOTTLENECKS.md</span> entry&nbsp;#1, count&nbsp;4. <b>Needs Theshin:</b> (1) confirm or reject v4 &mdash; the gate clause is separable from the rest, and the build discipline is the half that actually fixes 003/006/007/008; (2) create a Cloudflare KV namespace named <span class="mono">foundry-beacon</span> and paste its ID into <span class="mono">wrangler.jsonc</span> &mdash; without it the beacon cannot deploy at all, and merging as-is would take the whole site down.</div>
         <div class="brief" id="brief-body">CONTRACT v3 (2026-07-31, per Theshin) — after two zero-output runs:
 · Gate moved to PUBLISH-time: every day builds + checker-verifies to a staged preview; "go" merges live (batchable). Nothing public without approval.
 · 3 scout lanes: ORIGINAL (news gap) + CLONE (corroborated revenue + Claude edge) + EVERGREEN (schlep utilities, no news hook). Same adversarial screen on all.
