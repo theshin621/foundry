@@ -9,3 +9,7 @@ config.json
 node_modules/
 package.json
 package-lock.json
+
+# local wrangler/miniflare dev state — created by `wrangler dev --local` during checker runs.
+# Committed by accident on infra/beacon-firstparty 2026-08-08; caught by the round-2 checker.
+.wrangler/
