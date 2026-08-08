@@ -1,36 +1,38 @@
-<!-- lib/beacon-firstparty.html — FIRST-PARTY cookieless beacon. NOT YET LIVE.
-     Branch infra/beacon-firstparty, unmerged, unverified. See src/worker.js for the
-     Cloudflare provisioning step that must happen before this can deploy at all.
+<!-- lib/beacon-firstparty.html — DOCUMENTATION ONLY. NOT the thing that gets inlined.
 
-     WHY A SECOND BEACON. lib/beacon.html is Cloudflare Web Analytics — third-party
+     THE INLINABLE ARTIFACT IS lib/beacon-firstparty.snippet.html — a bare, comment-free
+     <script> element and nothing else. Inline THAT file byte-for-byte, immediately before
+     </body>. oracles/beacon/run.mjs asserts every page contains it verbatim.
+
+     WHY THE SPLIT (2026-08-08, checker finding 1 — read this before "simplifying" it back).
+     This file used to hold both the prose and the script. The prose contained the literal
+     word "<script>" in a sentence, and the inliner extracted from the FIRST "<script>" it
+     saw — which was the one in the comment. Per the HTML5 script raw-text content model
+     the result collapsed into a single broken element whose body was English, not
+     JavaScript, so the beacon was INERT on all five pages while every page still returned
+     HTTP 200 and the module-level oracle still went 53/53 green. Splitting the artifact
+     from its documentation removes the vector entirely: the file that gets inlined has no
+     prose in it to capture.
+
+     WHY A SECOND BEACON AT ALL. lib/beacon.html is Cloudflare Web Analytics — third-party
      (static.cloudflareinsights.com), pageview-only, and readable only by logging into
-     Cloudflare's dashboard, which a scheduled fire cannot do. So the loop can be
+     Cloudflare's dashboard, which a scheduled fire cannot do. The loop can therefore be
      measured but cannot READ its own measurement, which makes every kill-criterion and
      every stop-condition threshold un-evaluable from inside a run. This beacon fixes
      exactly that: first-party POST, counts readable at /_b/stats by anyone including a
-     fire. The two can run side by side; neither sets a cookie.
+     fire. The two run side by side; neither sets a cookie.
 
-     PRIVACY (binding, PLAYBOOK §4 — POPIA-safe by construction):
+     PRIVACY (binding, PLAYBOOK section 4 — POPIA-safe by construction):
        * no cookies, no localStorage, no sessionStorage, no fingerprinting
-       * the payload is {path} and nothing else — no referrer, no screen size, no UA,
-         no timing, no id of any kind
+       * the payload is {path, self} and nothing else — no referrer, no screen size, no
+         user-agent, no timing, no id of any kind
        * the server stores one integer per (UTC date, path). No IP is stored or hashed.
-       * ?self=1 on the URL marks Theshin's own traffic and is dropped server-side
+       * ?self=1 marks Theshin's own traffic and is dropped server-side
        * fire-and-forget: it never blocks paint and never retries
 
-     EVERY ship inlines the <script> below immediately before </body>, in addition to
-     lib/beacon.html, until one of the two is retired. -->
-<script>
-(function(){
-  try{
-    if(navigator.webdriver) return;                 // automated browser, don't count
-    var p = location.pathname + location.search;    // search kept ONLY so ?self=1 is visible
-    var body = JSON.stringify({ path: p, self: /(^|[?&])self=1([&#]|$)/.test(location.search) });
-    if(navigator.sendBeacon){
-      navigator.sendBeacon('/_b', new Blob([body], {type:'text/plain'}));
-    } else {
-      fetch('/_b', {method:'POST', body:body, keepalive:true, headers:{'content-type':'text/plain'}}).catch(function(){});
-    }
-  }catch(e){}
-})();
-</script>
+     COUNTED PATHS ARE AN ALLOWLIST, not a shape test — see COUNTABLE in src/beacon-core.js.
+     Every new ship adds one line there in the same commit that creates public/NNN-slug/,
+     or the oracle fails. This is what stops a scripted client minting unbounded KV keys.
+
+     STATUS: branch infra/beacon-firstparty, UNMERGED. The KV namespace is unprovisioned
+     (see wrangler.jsonc) and the Worker half is unverified against a real deployment. -->

@@ -29,8 +29,15 @@ export default {
       if (request.method !== 'POST') return new Response(null, { status: 405 });
       // Same-origin only. No CORS headers are ever returned, so a cross-origin page
       // cannot read the response, and this check stops it writing either.
+      // FIXED 2026-08-08 (checker finding 2): `Origin: null` is browser-legal — sandboxed
+      // iframes and some redirected/private-mode requests send it — and `new URL('null')`
+      // throws, which turned the documented "always 204" into an uncaught 500.
       const origin = request.headers.get('origin');
-      if (origin && new URL(origin).host !== url.host) return new Response(null, { status: 204 });
+      if (origin) {
+        let sameOrigin = false;
+        try { sameOrigin = new URL(origin).host === url.host; } catch { sameOrigin = false; }
+        if (!sameOrigin) return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
+      }
 
       let payload = null;
       try {
@@ -65,22 +72,32 @@ export default {
     // Public and read-only: it exposes integers the ledger publishes anyway.
     if (url.pathname === '/_b/stats') {
       if (!env.BEACON) return new Response(JSON.stringify({ error: 'kv-unbound' }), { status: 503, headers: JSON_HEADERS });
+      // FIXED 2026-08-08 (checker finding 4): both loops were uncapped. With the
+      // allowlist in beacon-core the keyspace is now bounded by |COUNTABLE| x days,
+      // but "bounded by an invariant elsewhere" is not a limit — Workers has a hard
+      // subrequest ceiling and an unbounded Promise.all walks straight into it. So:
+      // an explicit page cap, and gets issued in fixed-size batches.
+      const MAX_PAGES = 20, BATCH = 40;
       const out = {};
-      let cursor;
+      const names = [];
+      let cursor, pages = 0, truncated = false;
       do {
         const page = await env.BEACON.list({ prefix: 'v1:', cursor, limit: 1000 });
-        for (const k of page.keys) {
-          const [, date, ...rest] = k.name.split(':');
-          const path = rest.join(':');
-          (out[path] ||= {})[date] = 0;
-        }
+        for (const k of page.keys) names.push(k.name);
         cursor = page.list_complete ? undefined : page.cursor;
+        if (++pages >= MAX_PAGES && cursor) { truncated = true; cursor = undefined; }
       } while (cursor);
-      // Second pass for values (list() does not return them).
-      await Promise.all(Object.entries(out).flatMap(([path, days]) =>
-        Object.keys(days).map(async (date) => {
-          days[date] = parseInt((await env.BEACON.get(`v1:${date}:${path}`)) || '0', 10) || 0;
-        })));
+
+      for (let i = 0; i < names.length; i += BATCH) {
+        const slice = names.slice(i, i + BATCH);
+        const vals = await Promise.all(slice.map((n) => env.BEACON.get(n)));
+        slice.forEach((n, j) => {
+          const [, date, ...rest] = n.split(':');
+          const path = rest.join(':');
+          (out[path] ||= {})[date] = parseInt(vals[j] || '0', 10) || 0;
+        });
+      }
+      if (truncated) out['_truncated'] = { note: `stopped after ${MAX_PAGES} list pages` };
       return new Response(JSON.stringify({ generated: new Date().toISOString(), paths: out }, null, 1), { headers: JSON_HEADERS });
     }
 
