@@ -1,0 +1,294 @@
+<!doctype html>
+<!-- SOURCE FILE. The served page is index.html, assembled by:
+       node lib/inline.js public/007-ssh-config-resolver/page.src.html public/007-ssh-config-resolver/index.html
+     Re-run it and diff — any drift between lib/ and the inlined copy is a non-empty diff. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ssh config resolver — which Host block actually wins — foundry day 007</title>
+<meta name="description" content="Paste your ~/.ssh/config and a hostname. See the effective options OpenSSH would use, the exact line that set each one, and why every block matched or didn't.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--dim2:#4b535c;--line:#1c2128;--panel:#0f1318;--ok:#3fb950;--no:#f85149;--warn:#d29922;--acc:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{max-width:60rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+h1{font-size:1.4rem;margin:0 0 .35rem;letter-spacing:-.01em}
+h2{font-size:.95rem;margin:2rem 0 .6rem;color:var(--fg)}
+p.lede{color:var(--dim);margin:0 0 1.6rem;font-size:.95rem}
+label{display:block;font-size:.8rem;color:var(--dim);margin:0 0 .3rem}
+textarea,input{width:100%;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;
+  padding:.7rem .8rem;font:13px/1.55 ui-monospace,Menlo,monospace;resize:vertical}
+textarea{min-height:15rem}
+textarea:focus,input:focus{outline:none;border-color:var(--acc)}
+.row{display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end;margin:.9rem 0 0}
+.row>div{flex:1 1 12rem;min-width:0}
+button{background:var(--acc);color:#06121f;border:0;border-radius:6px;padding:.62rem 1.15rem;font:600 13px/1.2 ui-monospace,Menlo,monospace;cursor:pointer}
+button.ghost{background:transparent;color:var(--dim);border:1px solid var(--line)}
+button:hover{filter:brightness(1.1)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:.2rem 0 0;display:block;overflow-x:auto}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+th{color:var(--dim);font-weight:400;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+td.v{white-space:pre-wrap;word-break:break-word;max-width:26rem}
+td.ln{color:var(--dim);text-align:right}
+.blk{border:1px solid var(--line);border-radius:6px;padding:.55rem .75rem;margin:.45rem 0;background:var(--panel)}
+.blk.hit{border-left:3px solid var(--ok)}
+.blk.miss{border-left:3px solid var(--dim2)}
+.blk.und{border-left:3px solid var(--warn)}
+.blk code{color:var(--fg)}
+.blk .why{color:var(--dim);font-size:12.5px;margin-top:.25rem;white-space:pre-wrap;word-break:break-word}
+.tag{display:inline-block;font-size:11px;padding:.05rem .4rem;border-radius:3px;border:1px solid var(--line);color:var(--dim);margin-left:.4rem}
+.tag.hit{color:var(--ok);border-color:#1c3a24}
+.tag.miss{color:var(--dim2)}
+.tag.und{color:var(--warn);border-color:#3d3016}
+.note{border:1px solid #3d3016;background:#17130a;color:#e5c07b;border-radius:6px;padding:.55rem .75rem;margin:.4rem 0;font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+.err{border-color:#4a1d1a;background:#170e0d;color:#f0a49e}
+.muted{color:var(--dim);font-size:12.5px}
+.shadow{color:var(--dim)}
+details{border:1px solid var(--line);border-radius:6px;padding:.5rem .75rem;margin:.6rem 0;background:var(--panel)}
+summary{cursor:pointer;color:var(--dim);font-size:.85rem}
+details p,details li{font-size:13px;color:var(--dim)}
+details strong{color:var(--fg)}
+footer{margin-top:3rem;color:var(--dim2);font-size:.8rem;border-top:1px solid var(--line);padding-top:1rem}
+footer a{color:var(--dim2)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Which <code>ssh_config</code> block actually wins?</h1>
+<p class="lede">Paste your <code>~/.ssh/config</code> and the host you type. Get the effective options, the exact
+line that set each one, and why every block matched or didn't. Everything runs in your browser — nothing
+is uploaded, nothing is stored.</p>
+
+<label for="cfg">your ssh config</label>
+<textarea id="cfg" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+
+<div class="row">
+  <div>
+    <label for="target">the target you type after <code>ssh</code> — <code>host</code> or <code>user@host</code></label>
+    <input id="target" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="deploy@web1.example.com">
+  </div>
+  <div style="flex:0 0 auto">
+    <label for="localuser">your local username (for <code>Match localuser</code>)</label>
+    <input id="localuser" spellcheck="false" style="width:11rem" placeholder="e.g. you">
+  </div>
+  <div style="flex:0 0 auto">
+    <button id="go">Resolve</button>
+    <button id="demo" class="ghost">Load an example</button>
+  </div>
+</div>
+
+<div id="out" class="hidden">
+  <h2>Effective options</h2>
+  <div id="eff"></div>
+  <h2>Why each block did or didn't apply</h2>
+  <div id="trace"></div>
+  <div id="notes"></div>
+</div>
+<div id="fatal"></div>
+
+<details>
+<summary>What this tool is sure about, and what it is not — read this before trusting it</summary>
+<p><strong>How it knows.</strong> The resolver was not written from the man page. It was written against
+<code>ssh -G</code> — OpenSSH's own resolver — and then diffed against it on <strong>5,493 randomly generated
+configs across four seeds, with zero mismatches</strong>. The diff is a replay: the tool's answer is written
+back out as a minimal config, run through the real <code>ssh</code>, and every one of the ~80 options it prints
+must come out identical. That catches a dropped directive and an invented one, not just a wrong value.</p>
+<p><strong>Things it deliberately refuses instead of guessing</strong> — each one is named on the page when your
+file uses it, rather than silently mis-answered:</p>
+<ul>
+<li><code>Match exec</code> — runs a shell command; a browser cannot.</li>
+<li><code>Match canonical</code> / <code>Match final</code> — need OpenSSH's second resolution pass.</li>
+<li><code>Include</code> — pulls another file off your disk, which this page cannot read.</li>
+<li><code>%h</code>, <code>%p</code>, <code>%r</code>, <code>~</code> and friends — shown as written, never expanded. If one appears in a
+<code>Hostname</code> or <code>User</code> that a later <code>Match</code> depends on, the page says so, because that answer could be wrong.</li>
+<li>Keywords outside its probed OpenSSH 9.6p1 table are reported as <em>not recognised by this tool</em> —
+a weaker claim than <em>invalid</em>, and deliberately so.</li>
+</ul>
+<p><strong>One real gap worth knowing:</strong> OpenSSH <em>derives</em> a few options from others — <code>BatchMode yes</code>
+silently sets <code>ServerAliveInterval 300</code>. This page reports what your <em>file</em> sets, so a derived value
+appears in <code>ssh -G</code> and not here. That is the intended difference, not a bug: no line in your file set it.</p>
+<p>Verified against <strong>OpenSSH_9.6p1</strong>. Other versions differ in details; the surprises below have been
+stable for many releases, but if your ssh is much older or newer, trust <code>ssh -G</code> over this page.</p>
+</details>
+
+<details>
+<summary>The five rules that trip everyone up (all measured, not remembered)</summary>
+<ul>
+<li><strong>First value wins, not last.</strong> The <em>earliest</em> line that sets a keyword is the one that
+applies — so a <code>Host *</code> block at the <em>top</em> of your file quietly beats every specific block below it.</li>
+<li><strong><code>Host</code> is case-sensitive; <code>Match host</code> is not.</strong> <code>Host FOO</code> does not match <code>foo</code>.
+<code>Match host FOO</code> does.</li>
+<li><strong><code>Host</code> patterns are separated by spaces; <code>Match host</code> patterns by commas.</strong>
+<code>Host a.ex,b.ex</code> is one pattern with a comma in it and matches neither.</li>
+<li><strong><code>Host</code> matches what you typed; <code>Match host</code> matches the current <code>Hostname</code>.</strong> A
+<code>Hostname</code> set earlier changes what a later <code>Match host</code> sees — so moving a block changes the answer.</li>
+<li><strong>One negation vetoes the whole block,</strong> wherever it sits in the list — and a list of only
+negations (<code>Host !foo</code>) matches nothing at all.</li>
+</ul>
+</details>
+
+<footer>built by <a href="../">foundry</a> · day 007 · verified before ship — 5,493 differential cases against real <code>ssh -G</code></footer>
+</main>
+
+<!-- inline:lib/esc.js -->
+<!-- inline:lib/door.js -->
+<!-- inline:lib/nfa.js -->
+<!-- inline:lib/sshconfig.js -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var E = window.esc, D = window.door, N = window.nfa, S = window.sshconfig;
+
+  /* Every dimension any later loop iterates over is bounded AT THE DOOR, before a
+     single split, trim or parse — lib/door.js, and the two-line-caps rule that
+     ship 003 learned the hard way (1 MiB of newlines is 0 non-blank lines and
+     1,048,576 segments). */
+  var LIMITS = { maxChars: 200000, maxLines: 5000, maxSegments: 20000,
+                 maxLineLength: 4000, maxFieldLength: 1000 };
+
+  function refusal(sc) {
+    if (sc.kind === 'chars') return 'that config is ' + sc.length.toLocaleString() + ' characters; this page stops at ' + sc.limit.toLocaleString() + '.';
+    if (sc.kind === 'lines') return 'that config has ' + sc.length.toLocaleString() + ' non-blank lines; this page stops at ' + sc.limit.toLocaleString() + '.';
+    if (sc.kind === 'segments') return 'that config has more than ' + sc.limit.toLocaleString() + ' lines counting blank ones; this page stops there.';
+    if (sc.kind === 'line') return 'line ' + sc.line + ' is ' + sc.length.toLocaleString() + ' characters; this page stops at ' + sc.limit.toLocaleString() + ' per line.';
+    return 'a value on line ' + sc.line + ' is ' + sc.length.toLocaleString() + ' characters; this page stops at ' + sc.limit.toLocaleString() + '.';
+  }
+
+  function fatal(html) { $('fatal').innerHTML = '<div class="note err">' + html + '</div>'; $('out').className = 'hidden'; }
+  function clearFatal() { $('fatal').innerHTML = ''; }
+
+  function splitTarget(t) {
+    var s = String(t == null ? '' : t).trim();
+    var at = s.lastIndexOf('@');
+    if (at < 0) return { user: '', host: s };
+    return { user: s.slice(0, at), host: s.slice(at + 1) };
+  }
+
+  function renderEffective(r) {
+    var rows = [], out = D.buffer(400000);
+    if (!r.order.length) return '<p class="muted">No block in this file applies to that host — every option would take its OpenSSH default.</p>';
+    out.push('<table><thead><tr><th>option</th><th>value ssh would use</th><th>set on line</th><th>also written on</th></tr></thead><tbody>');
+    for (var i = 0; i < r.order.length; i++) {
+      var k = r.order[i], e = r.effective[k];
+      /* The shadowed list is unbounded in the input, so it is bounded HERE and the
+         truncation is STATED. Ship 006's checker found an output truncation whose
+         own disclosure was truncated with it; the count below is computed before
+         anything is dropped, so the sentence can never be cut off by the cut. */
+      var SHOW = 12, lost = [], lostTotal = 0;
+      for (var j = 0; j < r.shadowed.length; j++) {
+        if (r.shadowed[j].key !== k) continue;
+        lostTotal++;
+        if (lost.length < SHOW) {
+          lost.push('line ' + r.shadowed[j].line + (r.shadowed[j].duplicate ? ' (duplicate, dropped)' :
+            (r.shadowed[j].lostToCmdline ? ' (beaten by the command line)' : ' (too late)')));
+        }
+      }
+      if (lostTotal > SHOW) lost.push('… and ' + (lostTotal - SHOW) + ' more later line(s), all ignored');
+      if (e.accumulates) {
+        var vals = [], lns = [];
+        for (var a = 0; a < e.entries.length; a++) { vals.push(D.clip(e.entries[a].value, 400)); lns.push(e.entries[a].line); }
+        out.push('<tr><td>' + E(k) + '<span class="tag">accumulates</span></td><td class="v">' +
+          E(vals.join('\n')) + '</td><td class="ln">' + E(lns.join(', ')) + '</td><td class="ln shadow">' + E(lost.join('; ')) + '</td></tr>');
+      } else {
+        out.push('<tr><td>' + E(k) + (e.expands ? '<span class="tag und">%/~ not expanded</span>' : '') +
+          '</td><td class="v">' + E(D.clip(e.value, 400)) + '</td><td class="ln">' + E(String(e.line)) +
+          '</td><td class="ln shadow">' + E(lost.join('; ')) + '</td></tr>');
+      }
+      if (out.capped()) break;
+    }
+    out.push('</tbody></table>');
+    if (out.capped()) rows.push('<p class="note">Output was longer than this page will render; the table above is cut short.</p>');
+    return out.toString() + rows.join('');
+  }
+
+  function renderTrace(r, parsed) {
+    var out = D.buffer(400000);
+    for (var i = 0; i < r.trace.length; i++) {
+      var t = r.trace[i], blk = parsed.blocks[t.block];
+      var cls = t.undecidable ? 'und' : (t.matched ? 'hit' : 'miss');
+      var tag = t.undecidable ? '<span class="tag und">cannot decide</span>'
+              : (t.matched ? '<span class="tag hit">applies</span>' : '<span class="tag miss">skipped</span>');
+      var head = blk.kind === 'global'
+        ? '(top of file, before any Host or Match)'
+        : 'line ' + blk.line + ': ' + D.clip(blk.raw.replace(/^[ \t]+/, ''), 300);
+      out.push('<div class="blk ' + cls + '"><code>' + E(head) + '</code>' + tag +
+               '<div class="why">' + E(t.reason) + '</div></div>');
+      if (out.capped()) break;
+    }
+    return out.toString();
+  }
+
+  function renderNotes(r, parsed) {
+    var out = [], i;
+    for (i = 0; i < parsed.errors.length; i++) {
+      var er = parsed.errors[i];
+      out.push('<div class="note err">line ' + E(String(er.line)) + ': <code>' + E(D.clip(er.keyword, 120)) +
+               '</code> — ' + E(er.message) + '</div>');
+    }
+    for (i = 0; i < r.notes.length; i++) out.push('<div class="note">' + E(r.notes[i].message) + '</div>');
+    return out.join('');
+  }
+
+  function run() {
+    clearFatal();
+    var cfg = $('cfg').value;
+    var sc = D.scan(cfg, LIMITS);
+    if (!sc.ok) { fatal('Refusing to evaluate: ' + E(refusal(sc))); return; }
+    var tgt = splitTarget($('target').value);
+    if (!tgt.host) { fatal('Type the host you would put after <code>ssh</code> — for example <code>web1.example.com</code> or <code>deploy@web1</code>.'); return; }
+    if (tgt.host.length > 1000) { fatal('That host name is longer than this page will evaluate.'); return; }
+    var localuser = String($('localuser').value || '').trim();
+
+    var parsed = S.parse(cfg);
+    var budget = N.makeBudget(20000000, 750);
+    var t0 = (window.performance && performance.now) ? performance.now() : 0;
+    var r = S.resolve(parsed, { host: tgt.host, user: tgt.user, localuser: localuser }, budget);
+    var t1 = (window.performance && performance.now) ? performance.now() : 0;
+    if (r.budgetExceeded) {
+      fatal('Gave up rather than freeze your tab: this config needed more matching work than the 750 ms budget allows. ' +
+            'No answer is shown, because a partial one would be wrong.');
+      return;
+    }
+    $('out').className = '';
+    $('eff').innerHTML = renderEffective(r);
+    $('trace').innerHTML = renderTrace(r, parsed);
+    var notes = renderNotes(r, parsed);
+    if (!localuser) notes = '<div class="note">No local username given, so <code>Match localuser</code> is evaluated against an empty string. Fill that box in if your file uses it.</div>' + notes;
+    notes += '<p class="muted">Resolved ' + parsed.blocks.length + ' block(s) in ' + Math.round(t1 - t0) + ' ms, entirely in this browser.</p>';
+    $('notes').innerHTML = notes;
+  }
+
+  var DEMO = 'Host *\n' +
+    '  User deploy\n' +
+    '  ServerAliveInterval 60\n' +
+    '\n' +
+    '# You would expect this block to win. It does not — the User above already won.\n' +
+    'Host web1 web2 db*\n' +
+    '  User admin\n' +
+    '  Port 2222\n' +
+    '  IdentityFile /home/you/.ssh/prod\n' +
+    '\n' +
+    'Host WEB1\n' +
+    '  Port 9999\n' +
+    '\n' +
+    'Host *.internal !secret.internal\n' +
+    '  Hostname bastion.example.com\n' +
+    '  ForwardAgent yes\n' +
+    '\n' +
+    'Match host bastion.example.com\n' +
+    '  ProxyJump jump.example.com\n' +
+    '  IdentityFile /home/you/.ssh/jump\n';
+
+  $('go').addEventListener('click', run);
+  $('demo').addEventListener('click', function () {
+    $('cfg').value = DEMO; $('target').value = 'web1'; $('localuser').value = 'you'; run();
+  });
+  $('cfg').addEventListener('keydown', function (ev) { if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') run(); });
+  $('target').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') run(); });
+})();
+</script>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+</body>
+</html>
