@@ -12,7 +12,8 @@
    "distribution": {
     "registry_pr": "n/a (not an MCP server)",
     "hub": "self",
-    "x_draft": "drafted in briefs/2026-07-30.md"
+    "x_draft": "drafted in briefs/2026-07-30.md",
+    "posted_on": null
    },
    "signal": {},
    "status": "live",
@@ -34,7 +35,8 @@
    "distribution": {
     "registry_pr": "n/a (not an MCP server)",
     "hub": "inherits from public/ledger.json once merged",
-    "x_draft": "drafted in briefs/2026-08-03.md — never posted"
+    "x_draft": "drafted in briefs/2026-08-03.md — never posted",
+    "posted_on": null
    },
    "signal": {},
    "status": "live",
@@ -56,7 +58,8 @@
    "distribution": {
     "registry_pr": "n/a (not an MCP server)",
     "hub": "not listed - never staged, never public",
-    "x_draft": "none - the build-in-public draft is a stage-gate deliverable and the stage gate was not reached"
+    "x_draft": "none - the build-in-public draft is a stage-gate deliverable and the stage gate was not reached",
+    "posted_on": null
    },
    "signal": {},
    "status": "killed",
@@ -85,7 +88,8 @@
    "distribution": {
     "registry_pr": "n/a",
     "hub": true,
-    "x_draft": "briefs/2026-08-06.md"
+    "x_draft": "briefs/2026-08-06.md",
+    "posted_on": null
    },
    "signal": {
     "d7_visits": null,
@@ -110,7 +114,8 @@
    "distribution": {
     "registry_pr": "n/a",
     "hub": true,
-    "x_draft": "briefs/2026-08-06.md"
+    "x_draft": "briefs/2026-08-06.md",
+    "posted_on": null
    },
    "signal": {
     "d7_visits": null,
@@ -135,7 +140,8 @@
    "distribution": {
     "registry_pr": null,
     "hub": false,
-    "x_draft": false
+    "x_draft": false,
+    "posted_on": null
    },
    "signal": {
     "d7_visits": null,
@@ -173,7 +179,8 @@
    "distribution": {
     "registry_pr": "n/a",
     "hub": false,
-    "x_draft": "not drafted - the X post is a stage-gate deliverable and the gate was not reached"
+    "x_draft": "not drafted - the X post is a stage-gate deliverable and the gate was not reached",
+    "posted_on": null
    },
    "signal": {
     "d7_visits": null,
@@ -207,7 +214,8 @@
    "distribution": {
     "registry_pr": "n/a (infrastructure, not a product)",
     "hub": "n/a",
-    "x_draft": "none — an X draft is a stage-gate deliverable and the gate was not reached"
+    "x_draft": "none — an X draft is a stage-gate deliverable and the gate was not reached",
+    "posted_on": null
    },
    "signal": {
     "d7_visits": null,
