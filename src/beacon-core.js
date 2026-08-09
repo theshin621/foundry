@@ -96,8 +96,13 @@ export function isBotUA(ua) {
 export function isSelfTraffic(payload, rawPath) {
   if (payload && payload.self === true) return true;
   if (typeof rawPath === 'string') {
-    const q = rawPath.split('?')[1];
-    if (q && /(^|&)self=1(&|$)/.test(q.split('#')[0])) return true;
+    // FIXED 2026-08-09 (rebuild checker finding 7): this used to be a NARROWER regex
+    // than the client snippet's, so `?a=?self=1` was self to the browser but counted
+    // by the server. Both sides now run the SAME test on the same string shape (the
+    // query portion from the first '?', fragment stripped) — the server marker is
+    // belt-and-braces behind the client flag, so it must never be looser OR tighter.
+    const qi = rawPath.indexOf('?');
+    if (qi > -1 && /(^|[?&])self=1([&#]|$)/.test(rawPath.slice(qi).split('#')[0])) return true;
   }
   return false;
 }

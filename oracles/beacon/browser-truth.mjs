@@ -40,6 +40,20 @@
 // Provenance note (v4 checker clause): authored 2026-08-09 by the live fix session as
 // ARCHITECT. The checker must still drive it cold and attempt independent breaks — an
 // oracle is trusted only after the probe, never on authorship.
+//
+// DEPENDENCY PINNING (rebuild checker finding 9): the repo rule forbids committing
+// package.json/lockfiles, so the Playwright version FLOATS on a fresh clone. The
+// 2026-08-09 verdicts were produced with playwright@1.62.1 driving the pre-installed
+// Chromium at /opt/pw-browsers. If a future run sees unexplained divergence, pin first
+// (`npm install playwright@1.62.1`) before debugging anything else.
+//
+// KNOWN LIMITATIONS, recorded not hidden (rebuild checker finding 5 — both vectors
+// adversary-with-write only; no fleet page has either, grepped 2026-08-09): the settle
+// window measures ~1s after load, so a page that RE-fires on a timer (meta-refresh,
+// setInterval) reads as one POST though a real visitor emits many; and a page that
+// registers a service worker answering /_b reads LIVE though every RETURNING visit
+// reports nothing. Single-engine truth: Chromium only — Firefox/WebKit/content-blocker
+// behaviour is outside what any local oracle here can observe.
 
 import http from 'node:http';
 import fs from 'node:fs';
