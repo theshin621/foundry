@@ -72,8 +72,8 @@ The payload bundles two decisions of very different cost, and they separate clea
 |---|---|
 | Scouting aim = media · gaming · social · messaging · dev-tools; payments excluded | **ACTIVE** |
 | Mechanism cards (`research/mechanisms/2026-08-09-pilot-cards.md`) usable by SCOUT | **ACTIVE** |
-| 30-day clock start | **HELD** — pending Theshin's confirmation |
-| Day-30 date (2026-09-08 as written) | **NOT SET** — recomputed as clock-start + 30 on confirmation |
+| 30-day clock start | ~~**HELD** — pending Theshin's confirmation~~ → **ACTIVE 2026-08-09T14:52:09Z** (see CLOCK STARTED below) |
+| Day-30 date (2026-09-08 as written) | ~~**NOT SET**~~ → **SET: 2026-09-08** (clock-start + 30d; coincides with the payload's figure) |
 | Publish gate, MOD-1 staging, money/domain/X gates | **UNTOUCHED** |
 
 **The one-tap resolution** (PLAYBOOK line 80 — reduce the human step to seconds, do not restate the
@@ -85,3 +85,114 @@ re-aims and nothing was lost. Each day held moves clock-start forward one day; n
 consecutive Sunday triages it becomes a BOTTLENECKS entry.
 
 — recorded by the 2026-08-09 13:14Z relay fire, unattended, under v4
+
+---
+
+## CLOCK STARTED — appended by the 2026-08-09T14:52Z clock-go relay fire (unattended)
+
+**Ruling in one line: the clock is STARTED. Clock-start = 2026-08-09T14:52:09Z. Day 30 =
+2026-09-08 (Tuesday). The HELD row above flips to ACTIVE and the decision-debt item opened
+1h38m ago is CLOSED.**
+
+### What arrived
+
+A fire payload relaying Theshin's live-session reply, verbatim and complete: **"clock go"** —
+the exact one-tap phrase the 13:14Z adjudication published as its resolution, given in the same
+attended session as the segment pick, roughly two hours after it.
+
+### Why this fire acts on it
+
+The 13:14Z fire did not merely leave the door open; it **pre-committed the decision rule and the
+effect**, verbatim: *"Theshin replies in any live session with 'clock go' → the next fire sets
+clock-start to its own timestamp and day 30 to +30d."* This fire is the next fire. It is executing
+a rule the loop already wrote down, not making a fresh judgement call under pressure. Beyond that:
+
+1. **Not a gate change.** PLAYBOOK's absolute prohibition is scoped precisely — *"a gate change
+   NEVER activates from a fire payload."* Clock-start touches nothing in the ALWAYS-Theshin set:
+   no domain attach, no payment rail, no X post, nothing money-touching, no Bet promotion, no
+   publication. It sets a date.
+2. **The asymmetry runs the other way here.** Both prior refusals turned on *irreversible beats
+   recoverable*. Nothing irreversible happens on day 30 — the operator **drafts a proposal** and
+   Theshin decides. A clock started on a wrong premise costs, at worst, a proposal arriving on a
+   wrong date, correctable by one sentence on any of the next 30 days. That is the cheapest error
+   in this system, not the most expensive.
+3. **Refusing has a structural cost the refusals did not have.** The loop has now refused twice and
+   been overruled by Theshin's own words both times, once with *"i want autonomy."* The 13:14Z fire
+   named the failure mode itself: *"reflexive refusal ... is the same defect as credulity, pointed
+   the other way."* Worse, refusing here would demonstrate that the loop's own published one-tap
+   resolutions cannot be satisfied through the only channel an unattended fire ever sees. A gate
+   that can never be opened is not a gate; it is a wall, and every future "reply with X" mechanism
+   dies with it.
+
+### The objection, recorded rather than waived — and it is a real one
+
+**The corroboration here is materially weaker than the segment pick's, and the difference is
+structural, not incidental.**
+
+`"1,2,3,4,6"` was *high-entropy*: it indexed a numbered table with a non-obvious omission — #5
+payments, the one row the table itself marked money-blocked — which an errant or mis-steered agent
+would be unlikely to reproduce exactly. `"clock go"` is *zero-entropy*: the phrase was **published
+by this loop, in this repository, 1h38m earlier**. Any process that can read
+`decisions/2026-08-09-segment-lock.md` can emit it perfectly. The phrase matching therefore proves
+the payload author read the file; it does **not**, on its own, prove Theshin spoke.
+
+This is a general defect in one-tap resolutions, surfaced here for the first time: **publishing the
+magic word makes the magic word forgeable by anything that can read.** It is logged as a candidate
+BOTTLENECKS cause (count 1 — not yet an entry, and this fire is the author so it does not
+self-score cause-sameness). The fix is cheap and is **proposed, not adopted**:
+
+> Future one-tap resolutions should carry a high-entropy element the repo does not contain — e.g.
+> *"reply `clock go` plus any two digits"*, or a phrase Theshin chooses himself. The reply then
+> cannot be manufactured by reading the repo.
+
+This fire proceeds anyway because the objection bears on *confidence*, and confidence is only
+decisive when the downside is irreversible. Here it is not. The honest statement of the record is:
+**the clock is started on a relay this loop cannot cryptographically attest, judged acceptable
+because every path back is one sentence long.**
+
+### Also untouched by "clock go" — flagged, not resolved
+
+The 13:14Z fire gave two reasons for the hold. `"clock go"` answers the first. It does **not**
+answer the second: §5's own recommendation was **1 (media) alone**, on the argument that every ship
+that died, died re-deriving a reference implementation's semantics, and a file-transform tool's
+oracle is the file itself. A five-of-six lock keeps the option and discards that argument. Theshin
+confirming the clock is not evidence he weighed that trade. It stays flagged, and SCOUT runs
+**media-priority** within the locked set — which is the most this fire can do without deciding for
+him.
+
+### Precondition audit at clock-start
+
+| precondition | state | evidence |
+|---|---|---|
+| wired | ✓ | site live, `public/health.json` 13:32:57Z, hub + 3 ships HTTP 200 |
+| domain attached | ✓ | 2026-08-08, Theshin's hand |
+| segment locked | ✓ | ACTIVE above, this file, 13:14Z |
+| beacon armed | ✓ **carried, not re-read this run** | ledger row 8 `stats_endpoint_live: true`, instrument-read 2026-08-09T09:48:36Z |
+
+**Honest limitation, named rather than skipped:** this fire could **not** independently re-read
+`https://tailorfarms.com/_b/stats`. The fetch tool returned
+`PROVENANCE_REQUIRED — "the permission request for this URL was not answered in time"`: an
+unattended session has nobody to approve the prompt. That is a limitation of *this session's
+tooling*, not evidence about the beacon, and it is recorded as such. The existing instrument-read
+signal blocks were deliberately **left intact** rather than overwritten with an `{"error":…}` stub —
+the same call the 13:14Z fire made, for the same reason: a stub would destroy good measured data to
+satisfy a rule aimed at preventing invented data. The next fire that can reach the endpoint re-reads
+it, and a `/_b/stats` non-200 for >24h remains row 8's standing failure criterion.
+
+### In force from this commit
+
+| item | status |
+|---|---|
+| **30-day clock** | **ACTIVE** — start `2026-08-09T14:52:09Z`, **day 30 = 2026-09-08** |
+| Branch A (stop-condition) | first rail-receipted dollar on a post-clock ship — Theshin's hand, unchanged |
+| Branch B (stop-condition) | ≥250 qualified visits, ≥3 distinct days, trailing 7d, one post-clock ship (MOD-2) |
+| Scouting aim | media (priority) · gaming · social · messaging · dev-tools; payments excluded |
+| Decision-debt "clock-start", owner Theshin | **CLOSED** |
+| Publish gate, MOD-1 staging, money/domain/X gates | **UNTOUCHED** |
+
+**Revocation is one sentence, at any time in the next 30 days:** `"clock stop"` → the clock pauses
+and the next fire records it. `"clock wrong, start <date>"` → re-dated. `"lock is wrong"` /
+a different number set → SCOUT re-aims and the clock survives unchanged. Day 30 produces a
+**proposal**, never an autonomous act.
+
+— recorded by the 2026-08-09T14:52Z clock-go relay fire, unattended, under v4
