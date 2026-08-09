@@ -22,7 +22,7 @@ the same shape passed without the cause recurring).
   N defects, the one permitted fix cycle closes all N, and the re-check finds fresh siblings of the
   fixes — usually one line away from what was just repaired. The loop cannot currently tell a
   *converging* ship from a *grinding* one, so the anti-grind clause kills both.
-- **count:** 5
+- **count:** 5 confirmed, **+1 unadjudicated** (see incident #9 below — the fix author may not judge whether it is this cause, so it is logged and left for Theshin)
 - **incidents:**
   - **#003 codeowners** (2026-08-06) — 3 builds, 7 independent verdicts, 0 PASS. Killed →
     `graveyard.md`.
@@ -113,6 +113,42 @@ the same shape passed without the cause recurring).
   clause needs a clean PASS): the queued /_b/stats window fix is the next validation candidate.
   Until a PASS lands, MOD-1 keeps ship merges on Theshin's one-click go — staged autonomy working
   as designed, not a failure of it.
+
+  **Unadjudicated incident — #009 html-structure-oracle (2026-08-09, the 02:10Z scheduled fire).**
+  Logged, deliberately NOT counted by its own author. This entry's rule says *the fix author may
+  not judge whether a later failure is the same cause — ties go to Theshin*, and this fire both
+  wrote the artifact and would be scoring it, so it scores nothing.
+
+  What happened: the fire picked incident #4's named lesson ("do not hand-roll a parser for a
+  language that has a spec-defined tokenizer") as its Sunday iteration target and rebuilt the
+  `<script>` boundary check on Python's stdlib `html.parser` in `lib/checks/html_structure.py`,
+  adding a third verdict `CANNOT-CERTIFY` so an oracle can decline to bless a page it cannot read.
+  Round 1: **FAIL**, 2 severe — the module counted `<script type="application/json">` and scripts
+  inside `<template>`/`<noscript>` as executing, i.e. it reproduced #008's own failure shape
+  (markup present, browser inert, oracle green) through a mechanism the tokenizer question cannot
+  see. One fix cycle closed all of it (checker-confirmed; self-test 17→36). Round 2: **FAIL**, and
+  the two new defects were **siblings of that fix, one line away** — `str.strip()` strips Unicode
+  whitespace where HTML strips only ASCII, and `dict(attrs)` is last-wins where the spec is
+  first-wins. Both one-liners. Neither was fixed; the anti-grind clause binds. Branch unmerged,
+  ledger row 9 `failed`, two verdicts verbatim.
+
+  **Why it may not belong to this entry at all, and why that matters.** This artifact was designed
+  before the third clause above landed, and it is precisely the thing that clause deletes: a
+  hand-written parse-and-match band asserting a liveness-of-markup claim. Every defect across both
+  rounds was static analysis predicting browser behaviour and getting it wrong, and the checker's
+  standing residual in *both* rounds was that it had no browser to ground-truth against. So this is
+  arguably not a fresh instance of the cause but **independent confirmation of the shipped fix,
+  arrived at from the opposite direction** — someone rebuilt the static approach carefully, with a
+  real tokenizer and an honest CANNOT-CERTIFY verdict, and it still regenerated siblings inside one
+  cycle. That reading is also the less flattering one for the artifact's author, which is part of
+  why the author should not be the one to choose it.
+
+  It is offered as a counterweight to the converging-trajectory note above: that note reads one
+  artifact's improvement (9→1) as the entry turning a corner. This incident is a *different*
+  artifact, built the same day against the same entry, that did not converge. Two data points
+  pointing opposite ways is a reason to keep `checker-validated: pending` rather than to relax it.
+  Salvage: the 36-case corpus (9 of them present-but-inert pages with known expected liveness) is
+  reusable as *input* to the browser-truth oracle, and Chromium is available in the sandbox.
 
   **And #008 is evidence the proposed fix is necessary but not sufficient.** #008 *had* an oracle
   before the code — the v4 rule was followed voluntarily — and the pattern recurred anyway, one
