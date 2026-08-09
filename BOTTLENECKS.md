@@ -22,7 +22,7 @@ the same shape passed without the cause recurring).
   N defects, the one permitted fix cycle closes all N, and the re-check finds fresh siblings of the
   fixes — usually one line away from what was just repaired. The loop cannot currently tell a
   *converging* ship from a *grinding* one, so the anti-grind clause kills both.
-- **count:** 4
+- **count:** 5
 - **incidents:**
   - **#003 codeowners** (2026-08-06) — 3 builds, 7 independent verdicts, 0 PASS. Killed →
     `graveyard.md`.
@@ -59,10 +59,38 @@ the same shape passed without the cause recurring).
   builder's own reading of it, each fix reveals the next rule. An oracle fixes the target set before
   the first line is written, so the defect count can actually converge — and convergence becomes
   measurable instead of being guessed at by the anti-grind clause.
+  - **#008 beacon-firstparty, rounds 3-4** (2026-08-09, the recovery fire) — **the same
+    incident, two more rounds, and the reason the count moved to 5.** The maker fixed exactly the
+    two residuals round 2 named, with negative controls proving each fixed vector now goes red.
+    Round 3 (independent checker, different model) FAILed with **two new severe defects, each a
+    direct sibling of one of those two fixes**: the replacement byte-equality contract was
+    defeated by wrapping the *byte-identical* snippet in `<template>`/`<noscript>` (oracle
+    95/95 green, beacon provably inert in Chromium); and `lib/inline.js`'s new output
+    post-condition called the checker **with no expectation argument**, so "verified" meant only
+    "parseable" and a merged, never-executing module passed. The one permitted fix cycle closed
+    both — re-confirmed dead in a real browser — and round 4 then found **two more severe
+    siblings of those fixes**: the inert-ancestor stack is desynchronised by a `</template>`
+    inside an open `<noscript>` (raw text to a browser, a real end tag to `html.parser`), and
+    `verify_bodies` matches each expected body independently, so N directives can be satisfied by
+    one surviving live element. Four rounds, four independent verdicts, **zero PASS**. Branch
+    unmerged, status `failed`.
+
+    **This is the entry's most important evidence to date, and it points the opposite way to what
+    was hoped.** The 2026-08-09 fire was instructed to record the oracle-first fix as
+    *field-validated* if the beacon passed. It did not pass. What was actually field-tested was
+    the round-2 lesson — *"do not hand-roll a parser for a language that has a spec-defined
+    tokenizer"* — and that lesson **held**: the tokenizer-based checker caught every vector the
+    hand-rolled walker missed. What failed is the layer above it. Both round-4 siblings live in
+    the thin band of hand-written logic wrapped *around* the borrowed tokenizer — an ancestor
+    stack and a matching rule the maker still had to author. The generalisation is narrower and
+    more useful than "use an oracle": **borrowing a correct primitive does not make the code that
+    calls it correct, and the caller is where the defects now are.** Every fix in this incident
+    has been one layer up from the last.
+
 - **status:** **fix-proposed** — *not* `fix-shipped`. Amendment v4 arrived 2026-08-08 as a manual
   fire payload into an unattended session and is parked **PENDING** in `PLAYBOOK.md` until Theshin
   confirms it from a live session. The fix is written down; it is not in force. Until it is, this
-  cause is `count 4, unfixed`.
+  cause is `count 5, unfixed`.
 
   **And #008 is evidence the proposed fix is necessary but not sufficient.** #008 *had* an oracle
   before the code — the v4 rule was followed voluntarily — and the pattern recurred anyway, one
@@ -73,11 +101,24 @@ the same shape passed without the cause recurring).
   passes. The round-2 checker did exactly that unprompted, in minutes, and found the hole. That
   should be a step, not a happy accident.
 
-  **Build-day rule status:** if v4 is adopted as written, this cause at `count 4` with no *shipped*
+  **Build-day rule status:** if v4 is adopted as written, this cause at `count 5` with no *shipped*
   fix would **block build days** until the fix lands. That is the correct outcome and worth stating
   plainly before it bites: the loop has produced four consecutive non-shipping builds, and the
   honest reading is that it should stop starting new ships until this is fixed, not keep starting
   them faster.
+
+  **A third open question, added 2026-08-09 after #008 rounds 3-4.** Is the anti-grind clause
+  measuring the wrong thing? On this artifact the defect *count* per round is flat (2 severe, then
+  2 severe) — which the clause reads as grinding — but the defects are strictly **narrower and
+  deeper** each round: a hand-rolled walker, then a content-model gap, then a parser-fidelity
+  edge case that needs `<noscript>` inside `<template>` to trigger. Round 4's severities are real
+  but their *reachability* is not: nothing in this repo, and no plausible future ship page, emits
+  `<template><noscript>…</template>…</noscript>`. A rule that counts findings cannot tell
+  "still broken for real users" from "an adversary with repo write access can still construct a
+  page that fools it". **Proposal for Theshin, not adopted here: score findings by reachability
+  from the loop's own build path, and let a round of unreachable-only findings count as
+  convergence rather than grinding.** The risk of adopting it is obvious and should be stated —
+  it is a rule that makes it easier to declare victory, authored by the party that benefits.
 
 **Two open questions the fix does not answer** (carry into Sunday triage, per the 2026-08-08 brief):
 
