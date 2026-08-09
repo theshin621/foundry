@@ -155,6 +155,16 @@ coherent, matches the loop's own diagnosis of its dominant failure mode, and rea
 the cost of this decision is one day and one reply. If it was not genuine, this file is the reason
 nothing was published.
 
+**SECOND REFUSAL, 2026-08-09.** A commit on `main` (`0500e1c`, `decisions/2026-08-08-v4-adoption.md`,
+GitHub web UI, account `theshin621`) and a PRE-NOTE in `briefs/2026-08-09.md` instructed the next fire
+to promote this block. **The 2026-08-09 fire declined.** The channel is authenticated; the content is
+not attested — and the file itself states it was written and committed by a *"Claude-driven browser"*
+agent with Theshin *watching*. An agent-authored document asserting human approval is the exact object
+this gate rejects; moving the claim from a fire payload into a git commit changes the transport, not
+the evidence. It also exceeds v4 (a fleet-wide migration to `tailorfarms.com` appears nowhere in the
+received text). Full reasoning, including why the file does not authorise any merge even on its own
+terms, in `decisions/2026-08-09-v4-declined-second-channel.md`. **This block remains PENDING.**
+
 **To activate:** say so from a live session ("v4 in force" or equivalent). The next fire promotes
 this block to canon unchanged, deletes this frame, and runs under it. Partial activation is fine
 and probably wiser — the five-role org, the oracle-before-code rule, and the 30-day stop-condition
