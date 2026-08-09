@@ -1,0 +1,26 @@
+# Mechanism cards — pilot run 2026-08-09 (thesis-derived, file-transform-biased)
+
+## CARD 1 · MEDIA · Diffusion-curve gradient renderer (STRONGEST)
+Source: Sawhney, CMU 2024 (SIGGRAPH 2025 Outstanding Dissertation) — grid-free Monte Carlo PDE solving; per-pixel independent walk-on-spheres = fragment-shader-native. Artifacts: Zombie + fcpw (both MIT) = offline oracle. Derivative: static page — draw/load SVG strokes with left/right colors → WebGPU renders true diffusion-curve gradients progressively → export PNG at ANY resolution + round-trip SVG. Occupancy: 8+ mesh-gradient tools (proven demand) but ALL coarse control-point grids; true diffusion curves exist only in Illustrator desktop. Oracle (triple, self-carried): harmonic mean-value property checkable on the output image itself · variance halves as samples double · Zombie reference render on same input. Demand: "mesh gradient generator" / "freeform gradient online" / "Illustrator freeform gradient free". Kill: <25 exports or exports/render-sessions <5% after 14d + one show-post. $1B note: wedge = a new vector-fill format for design tools; tool itself medium.
+
+## CARD 2 · MESSAGING · Chat Export Redactor
+Source: Utrecht D3I / Boeschoten et al. (CCR 2022) + Port (JOSS 2023, Pyodide-in-browser) — process data-download packages entirely client-side. Derivative: static page — drop WhatsApp .txt/.zip or Telegram result.json → consistent pseudonyms, strip phones/emails/vCards → download sanitized file + local-only mapping.json. Framing: "share a chat with ChatGPT/a researcher without doxxing anyone." Occupancy: stats tools crowded (chatanalytics.app etc.); free client-side REDACTOR empty (nearest: Python CLIs; printchat charges for anonymization). Oracle: deterministic + self-verifying — rescan output for every extracted identifier = 0 hits; bijective mapping; line/timestamp round-trip. Demand: "anonymize whatsapp chat export", "share whatsapp chat with chatgpt safely" (fresh LLM tailwind). Kill: processed <5% of visits or <30 files after 500 visits/14d. Maintenance moat: WhatsApp locale timestamp formats. POPIA-safe by architecture. $1B note: privacy-brand funnel, not a company.
+
+## CARD 3 · MEDIA/AI · Train/test contamination + exact-dedup scanner
+Source: Min, UW (ACM DDA honorable mention; thesis PDF read) — corpora as queryable datastores; suffix-array exact-match machinery (infini-gram lineage). Derivative: static page — drop train.jsonl + test.jsonl → suffix-array scan → every shared n-gram ≥ threshold with byte offsets → cleaned JSONL + contamination CSV. Client-side-only is the feature (sensitive data never leaves). Occupancy: CLIs exist (google-research dedup, semhash); browser-based checker EMPTY. Oracle: the files themselves — every finding re-checkable by independent string search at reported offsets + naive second implementation on samples. Demand: "check train test contamination", "deduplicate jsonl", r/LocalLLaMA. Kill: <40 files or <8 downloads/14d or median file <100KB. $1B note: wedge into training-data provenance/compliance (real legal tailwinds).
+
+## CARD 4 · GAMING · GLB interpenetration/tunneling auditor
+Source: Ferguson, NYU 2023 (SIGGRAPH 2024 Outstanding Dissertation) — provably conservative CCD, zero false negatives. Artifacts: Tight-Inclusion (MIT, small C++→WASM) + published exact-arithmetic ground-truth benchmark dataset. Derivative: drop a GLB/animated clip → WASM sweep → exact primitive pairs + times where limbs/cloth clip, highlighted in viewer. Occupancy: format validators + desktop tools only; web audit tool EMPTY (r/vrchat avatar clipping = chronic pain). Oracle: port validated against the published exact ground-truth dataset; per-file findings re-checkable by rational re-evaluation. Kill: <30 meshes or findings-rate <20%/14d. Risk: WASM port is the day-build stretch. $1B note: studio CI asset-QA wedge.
+
+## CARD 5 · GAMING/MEDIA · Point-cloud scan-confidence report
+Source: Sellán, Toronto 2024 (Eurographics PhD Award 2025) — stochastic Poisson reconstruction = per-point confidence. Artifacts: gpytoolbox (MIT core) + GeoSPSR one-solve variant. Derivative: drop PLY/XYZ → downsampled stochastic reconstruction → variance heat-map + ranked "rescan here" regions + confidence-tagged export. Occupancy: converters exist; uncertainty layer EMPTY. Oracle: statistical self-verification — hold out 10% of the user's points, verify predicted uncertainty bands at stated coverage. Kill: <20 uploads or <5 exports/14d; auto-kill if client compute mis-sized. Heaviest compute of the five. $1B note: scan-QA for surveying/AEC.
+
+REFERENCE (reviewed, not carded): Curtis KCL badge-pack maker (empty niche, deterministic oracle, small ceiling — social bench) · Sharma UW reframe-linter (crowded, CC BY-NC-ND key dataset, weak oracle — bench) · Zhang Michigan (ethnography, no tool surface — excluded) · Tevet/SIGMM diffusion theses (need runtime inference — excluded by design).
+
+---
+
+*Committed verbatim by the 2026-08-09 13:14Z relay fire, as received in the fire payload. Research
+artifact only — no authority claim, no gate touched. A card build still passes the full adversarial
+screen, the day-build gate, ARCHITECT's oracle-before-code + probe-the-oracle, and CHECKER, exactly
+as any scouted candidate does. The CLONE→MECHANISM lane swap remains a **triage proposal, not
+adopted** (briefs/2026-08-09.md §4).*
