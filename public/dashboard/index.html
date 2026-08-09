@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-generated="2026-08-09T08:07:09Z">
+<html lang="en" data-generated="2026-08-09T08:13:32Z">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -71,7 +71,7 @@
     <h1>Fable Foundry</h1>
     <span class="pill pos" id="loop-pill">LOOP LIVE · daily 04:00 SAST</span>
     <span class="pill mut mono" id="next-fire">next fire —</span>
-    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-09 08:07 UTC (10:07 SAST)</span>
+    <span class="pill mut" id="fresh">SNAPSHOT · baked 2026-08-09 08:13 UTC (10:13 SAST)</span>
     <span class="pill mut mono" id="age" title="how old this copy's baked data is — computed in your browser at open, no network needed">age —</span>
     <span class="pill pos" id="health" data-baked="LIVE SITE OK · Actions 2026-08-09 07:37 UTC" data-baked-class="pos" title="last GitHub Actions live-site probe, baked at stamp time; a live probe from your browser overrides this when it can run">LIVE SITE OK · Actions 2026-08-09 07:37 UTC</span>
     <span class="grow"></span>
@@ -144,7 +144,7 @@
       <div class="panel">
         <h2>Distribution &mdash; one tap per live ship</h2>
         <div class="one" style="font-size:12px;color:var(--text2);margin-bottom:12px">
-          Every build-in-public draft the loop has written, <b>verbatim</b>, with a prefilled X composer per draft.
+          Every build-in-public draft the loop has written, <b>verbatim</b>, with a prefilled X composer per draft. <b>One exception, flagged on the card:</b> the 002 draft was written without a link, so its ship URL is appended &mdash; the only edit to any draft.
           Added 2026-08-09 because the drafts had been sitting as <i>pointers into</i> <span class="mono">briefs/</span>
           since day 001 &mdash; which is precisely the &ldquo;shrink the human step to seconds and put it where he will
           see it&rdquo; rule (Amendment 2026-08-03) being violated by the loop that wrote it. <b>Nothing is ever posted
@@ -155,7 +155,7 @@
           unverified domain; see decision 4 in today&rsquo;s brief.
         </div>
 <div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b class="mono">001 &middot; hub</b><span class="pill mut mono" style="font-size:10.5px">source: briefs/2026-07-30.md</span><span class="pill mut mono" id="posted-001" style="font-size:10.5px">posted_on: &mdash;</span></div><div class="one" style="white-space:pre-wrap;font-size:12.5px;line-height:1.55;border-left:2px solid var(--muted);padding-left:10px;margin-bottom:8px">new experiment: foundry. one product a day, built and shipped by an AI agent — I only say go/no-go each morning. public ledger, independent checker, verdicts recorded verbatim including the failures. sundays it kills the dead and doubles down on what shows pull. day 001 is the factory itself. github.com/theshin621/foundry</div><a class="btn" href="https://x.com/intent/post?text=new%20experiment%3A%20foundry.%20one%20product%20a%20day%2C%20built%20and%20shipped%20by%20an%20AI%20agent%20%E2%80%94%20I%20only%20say%20go%2Fno-go%20each%20morning.%20public%20ledger%2C%20independent%20checker%2C%20verdicts%20recorded%20verbatim%20including%20the%20failures.%20sundays%20it%20kills%20the%20dead%20and%20doubles%20down%20on%20what%20shows%20pull.%20day%20001%20is%20the%20factory%20itself.%20github.com%2Ftheshin621%2Ffoundry" target="_blank" rel="noopener" style="background:#000;border:1px solid #333" title="opens x.com with this exact text prefilled. Nothing is posted until you tap Post.">Open in X composer &nearr;</a> <a class="btn" href="https://foundry.theshin-naidu.workers.dev/" target="_blank" rel="noopener" style="background:#21262d;border:1px solid #30363d">ship page</a></div>
-<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b class="mono">002 &middot; gha-trigger</b><span class="pill mut mono" style="font-size:10.5px">source: briefs/2026-08-03.md</span><span class="pill mut mono" id="posted-002" style="font-size:10.5px">posted_on: &mdash;</span></div><div class="one" style="white-space:pre-wrap;font-size:12.5px;line-height:1.55;border-left:2px solid var(--muted);padding-left:10px;margin-bottom:8px">Ship 002 failed twice on a glob engine I wrote myself. XSS, then a ReDoS.
+<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b class="mono">002 &middot; gha-trigger</b><span class="pill mut mono" style="font-size:10.5px">source: briefs/2026-08-03.md</span><span class="pill mut mono" style="font-size:10.5px;color:#d29922" title="The brief drafted this one without a link. The ship URL is appended here so the post is actually usable — the only edit made to any draft.">+ ship URL appended</span><span class="pill mut mono" id="posted-002" style="font-size:10.5px">posted_on: &mdash;</span></div><div class="one" style="white-space:pre-wrap;font-size:12.5px;line-height:1.55;border-left:2px solid var(--muted);padding-left:10px;margin-bottom:8px">Ship 002 failed twice on a glob engine I wrote myself. XSS, then a ReDoS.
 
 Third attempt: stopped writing it. Ported the semantics from nektos/act, threw away its execution — act is only fast because Go&#x27;s regex engine can&#x27;t backtrack. JavaScript&#x27;s can.
 
@@ -261,7 +261,21 @@ https://foundry.theshin-naidu.workers.dev/002-gha-trigger/</div><a class="btn" h
     return ships.sort(function(a,b){return a.n-b.n});
   }
 
+  /* posted_on pills: operator-maintained in ledger.json distribution.posted_on. Baked at
+     stamp time AND refreshed here, because the checker (2026-08-09) correctly called the
+     first version dead markup — a field with no display path is a field nobody maintains. */
+  function renderPosted(d){
+    (d && d.ships || []).forEach(function(s){
+      var el=document.getElementById('posted-'+String(s.n).padStart(3,'0'));
+      if(!el) return;
+      var v=(s.distribution||{}).posted_on;
+      el.textContent = v ? ('posted '+v) : 'posted_on: \u2014';
+      el.style.color = v ? 'var(--pos)' : '';
+    });
+  }
+
   function renderLedger(d, branchLedgers){
+    try{ renderPosted(d); }catch(e){}
     var ships=mergeBranchShips(d, branchLedgers||[]).reverse();
     var st=function(s){return String(s.status||'')};
     document.getElementById('t-ships').textContent=ships.length;
