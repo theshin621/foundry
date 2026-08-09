@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 // oracles/beacon/browser-truth.mjs — LIVENESS oracle for the first-party beacon.
 //
-//   cd oracles/beacon && npm install && node browser-truth.mjs            → 0 all-pass, 1 any fail
-//   node browser-truth.mjs --root /path/to/public                        → override page root
+//   REPO RULE (.gitignore): package.json/node_modules are never committed. To run:
+//     cd oracles/beacon && npm install playwright   (lands gitignored, per convention)
+//     PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node browser-truth.mjs   → 0 all-pass, 1 any fail
+//     node browser-truth.mjs --root /path/to/public                      → override page root
+//   Worker-shell end-to-end (optional, recommended): npm install wrangler, then
+//     npx wrangler dev --local --port 8787   and drive POST /_b + GET /_b/stats cold.
 //
 // WHY THIS FILE EXISTS (BOTTLENECKS #1, five incidents, rounds 2-4 of ship 008):
 // every attempt to prove "the beacon snippet is LIVE on this page" by PARSING the HTML
