@@ -17,3 +17,8 @@ package-lock.json
 # python bytecode from lib/checks/*.py imports
 __pycache__/
 *.pyc
+
+# oracle harness deps (installed per-run; lockfile is committed)
+oracles/beacon/node_modules/
+__pycache__/
+*.pyc
