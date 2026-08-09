@@ -1,12 +1,12 @@
 {
- "checked_utc": "2026-08-09T14:59:49Z",
- "commit": "b35950d",
- "base": "https://foundry.theshin-naidu.workers.dev",
+ "checked_utc": "2026-08-09T15:13:28Z",
+ "commit": "36a1399",
+ "base": "https://tailorfarms.com",
  "hub": {
   "path": "/",
   "http": 200,
   "ok": true,
-  "bytes": 4702,
+  "bytes": 4963,
   "has_beacon": true
  },
  "ships": [
@@ -14,7 +14,7 @@
    "path": "/",
    "http": 200,
    "ok": true,
-   "bytes": 4702,
+   "bytes": 4963,
    "has_beacon": true,
    "n": 1,
    "slug": "hub",
@@ -24,7 +24,7 @@
    "path": "/002-gha-trigger/",
    "http": 200,
    "ok": true,
-   "bytes": 67228,
+   "bytes": 67587,
    "has_beacon": true,
    "n": 2,
    "slug": "gha-trigger",
@@ -34,8 +34,8 @@
    "path": "/004-khanya-school-tutor/",
    "http": 200,
    "ok": true,
-   "bytes": 101950,
-   "has_beacon": false,
+   "bytes": 102273,
+   "has_beacon": true,
    "n": 4,
    "slug": "khanya-school-tutor",
    "status": "live"
@@ -44,8 +44,8 @@
    "path": "/005-maccleaner/",
    "http": 200,
    "ok": true,
-   "bytes": 8335,
-   "has_beacon": false,
+   "bytes": 8609,
+   "has_beacon": true,
    "n": 5,
    "slug": "maccleaner",
    "status": "live"
