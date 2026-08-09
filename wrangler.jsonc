@@ -23,5 +23,6 @@
   "name": "foundry",
   "compatibility_date": "2026-07-01",
   "main": "src/worker.js",
-  "assets": { "directory": "./public", "binding": "ASSETS" }
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "kv_namespaces": [ { "binding": "BEACON", "id": "4849d5cb422843d49e27535fa796644d" } ]
 }
