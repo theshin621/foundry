@@ -47,6 +47,32 @@ is forced to guess on the inputs it understands least, and it will guess green �
 failure this whole file exists to prevent. CANNOT-CERTIFY is not a weakness of this module; it is
 the feature that stops entry #1 from regenerating one layer down.
 
+PRESENT IS NOT EXECUTED (the finding that failed round 1, 2026-08-09)
+=====================================================================
+The first version of this module asked only "is the needle inside a `<script>` element?" An
+independent checker refuted it in one pass: `<script type="application/json">BEACON()</script>`
+returned PASS, and a browser never executes it. That is ship 008's failure reproduced inside its
+own replacement — markup present, code inert, oracle green — reached by a mechanism the tokenizer
+question cannot see. Three such mechanisms are now modelled explicitly:
+
+  * **`type` / `nomodule`** — a script block executes only when `type` is absent, empty, `module`,
+    or a JavaScript MIME type (the closed list in `_JS_MIME_TYPES`). `application/json`,
+    `application/ld+json`, `text/template`, `importmap`, `speculationrules` are inert DATA BLOCKS.
+    `nomodule` is skipped by every module-capable browser.
+  * **`<template>` / `<noscript>`** — contents never execute: a template's children live in an
+    inert DocumentFragment, and with scripting enabled a browser tokenizes `<noscript>` contents
+    as raw text so the nested element is never instantiated at all.
+  * **`<iframe srcdoc>`** — a nested document this module does not parse; a needle found only
+    there is reported as such rather than silently counted or silently missed.
+
+So `assert_inline_contains` reports three distinguishable outcomes — absent, present-but-inert
+(naming the reason), and satisfied — because "the beacon is on the page" was exactly the true
+statement that made ship 008's oracle read green.
+
+Note that this fix does NOT reopen BOTTLENECKS #1's long-tail pattern. The JS MIME list and the
+inert-container pair are **closed enumerations from the spec**, not a growing pile of special
+cases; there is no next sibling to discover because the set is finite and written down.
+
 DELIBERATE IMPRECISION (declared, so a checker disputes it rather than discovers it)
 ===================================================================================
 The double-escape detector is CONSERVATIVE and knowingly over-refuses. It flags a script body
@@ -93,6 +119,40 @@ EXIT = {PASS: 0, FAIL: 1, CANNOT_CERTIFY: 2}
 # TAB LF FF SPACE `/` `>`. Bare `<script` at EOF cannot trigger it (needs the terminator).
 _DOUBLE_ESCAPE_OPEN = re.compile(r"<script[\t\n\f />]", re.IGNORECASE)
 
+# HTML spec, "scripting" §4.12.1: a script block is a CLASSIC script only if its `type` is
+# absent, the empty string, or an ASCII case-insensitive match for a JavaScript MIME type
+# essence (leading/trailing ASCII whitespace stripped). Anything else — application/json,
+# application/ld+json, text/template, importmap, speculationrules — is a DATA BLOCK that the
+# browser never executes. This list is CLOSED and finite, which is why implementing it does not
+# reopen BOTTLENECKS #1: there is no long tail here, only an enumeration.
+_JS_MIME_TYPES = frozenset(
+    {
+        "application/ecmascript",
+        "application/javascript",
+        "application/x-ecmascript",
+        "application/x-javascript",
+        "text/ecmascript",
+        "text/javascript",
+        "text/javascript1.0",
+        "text/javascript1.1",
+        "text/javascript1.2",
+        "text/javascript1.3",
+        "text/javascript1.4",
+        "text/javascript1.5",
+        "text/jscript",
+        "text/livescript",
+        "text/x-ecmascript",
+        "text/x-javascript",
+    }
+)
+
+# Elements whose contents a browser never executes as script:
+#   <template> — contents live in an inert DocumentFragment (§4.12.3); a nested <script> is
+#                not executed unless other JS clones it into the document.
+#   <noscript> — with scripting ENABLED (the normal case) the parser treats the contents as
+#                raw text (§4.12.2), so a nested <script> is never instantiated at all.
+_INERT_CONTAINERS = frozenset({"template", "noscript"})
+
 
 @dataclass
 class ScriptEl:
@@ -102,10 +162,33 @@ class ScriptEl:
     attrs: dict
     body: str = ""
     closed: bool = False
+    inert_reason: Optional[str] = None  # set => present in the markup but never executed
 
     @property
     def is_external(self) -> bool:
         return "src" in self.attrs
+
+    @property
+    def executes(self) -> bool:
+        """True only if a browser would run this element's body as live JavaScript."""
+        return self.inert_reason is None and not self.is_external
+
+
+def _classify_type(attrs: dict) -> Optional[str]:
+    """Return an inert-reason string if the type/nomodule attributes stop this element from
+    executing as a classic or module script, else None."""
+    if "nomodule" in attrs:
+        # Skipped by every browser that supports modules, i.e. every modern browser.
+        return "has the `nomodule` attribute; module-capable browsers skip it"
+    raw = attrs.get("type")
+    if raw is None:
+        return None
+    t = raw.strip().lower()
+    if t == "" or t in _JS_MIME_TYPES:
+        return None
+    if t == "module":
+        return None  # a module script; it does execute
+    return f'type={raw!r} is not a JavaScript MIME type — the browser treats this as an inert data block'
 
 
 @dataclass
@@ -124,13 +207,21 @@ class Report:
     uncertainties: List[Uncertainty] = field(default_factory=list)
     unclosed_script_line: Optional[int] = None
     parse_errors: List[str] = field(default_factory=list)
+    srcdoc_values: List[tuple] = field(default_factory=list)
 
     @property
     def certain(self) -> bool:
         return not self.uncertainties
 
     def inline_bodies(self) -> List[str]:
-        return [s.body for s in self.scripts if not s.is_external]
+        """Bodies of inline scripts a browser actually EXECUTES. Deliberately excludes inert
+        data blocks and anything inside <template>/<noscript> — ship 008 failed because the
+        beacon was present in the markup and inert, and an oracle that cannot tell those apart
+        reproduces that failure."""
+        return [s.body for s in self.scripts if s.executes]
+
+    def inert_bodies(self) -> List[ScriptEl]:
+        return [s for s in self.scripts if s.inert_reason is not None]
 
 
 class _Collector(HTMLParser):
@@ -144,8 +235,24 @@ class _Collector(HTMLParser):
         super().__init__(convert_charrefs=False)
         self.report = Report()
         self._open: Optional[ScriptEl] = None
+        self._inert_depth: List[str] = []  # stack of open <template>/<noscript>
+        self.srcdoc_values: List[tuple] = []  # (line, value) for iframe srcdoc
+
+    def _inert_container_reason(self) -> Optional[str]:
+        if not self._inert_depth:
+            return None
+        tag = self._inert_depth[-1]
+        if tag == "template":
+            return "inside <template>; contents are an inert DocumentFragment and never execute"
+        return "inside <noscript>; with scripting enabled the contents are raw text and never execute"
 
     def handle_starttag(self, tag, attrs):
+        d = dict(attrs)
+        if tag == "iframe" and "srcdoc" in d:
+            self.srcdoc_values.append((self.getpos()[0], d["srcdoc"] or ""))
+        if tag in _INERT_CONTAINERS:
+            self._inert_depth.append(tag)
+            return
         if tag == "script":
             if self._open is not None:
                 # html.parser does not nest CDATA elements; if this ever fires the input
@@ -157,8 +264,10 @@ class _Collector(HTMLParser):
                         "a <script> start tag was reported while another script was still open",
                     )
                 )
-            self._open = ScriptEl(line=self.getpos()[0], attrs=dict(attrs))
-            self.report.scripts.append(self._open)
+            el = ScriptEl(line=self.getpos()[0], attrs=d)
+            el.inert_reason = self._inert_container_reason() or _classify_type(d)
+            self._open = el
+            self.report.scripts.append(el)
 
     def handle_startendtag(self, tag, attrs):
         # `<script/>` is NOT self-closing in HTML (foreign content aside). A browser treats
@@ -173,9 +282,24 @@ class _Collector(HTMLParser):
                 )
             )
             el = ScriptEl(line=self.getpos()[0], attrs=dict(attrs), closed=True)
+            el.inert_reason = self._inert_container_reason() or _classify_type(dict(attrs))
             self.report.scripts.append(el)
+            return
+        # HTMLParser's default handle_startendtag delegates to start+end; this class overrides
+        # the method, so the delegation must be restored explicitly or every self-closing tag
+        # (notably `<iframe srcdoc=... />`) would be invisible to the trackers above.
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
 
     def handle_endtag(self, tag):
+        if tag in _INERT_CONTAINERS:
+            if self._inert_depth and self._inert_depth[-1] == tag:
+                self._inert_depth.pop()
+            elif tag in self._inert_depth:
+                # crossed nesting, e.g. <template><noscript></template></noscript>
+                while self._inert_depth and self._inert_depth.pop() != tag:
+                    pass
+            return
         if tag == "script" and self._open is not None:
             self._open.closed = True
             self._open = None
@@ -204,6 +328,17 @@ def analyze(html: str) -> Report:
         return p.report
 
     rep = p.report
+    rep.srcdoc_values = p.srcdoc_values
+
+    if p._inert_depth:
+        rep.uncertainties.append(
+            Uncertainty(
+                "UNCLOSED_INERT_CONTAINER",
+                0,
+                f"document ends with {p._inert_depth!r} still open; which scripts are inert "
+                "cannot be determined",
+            )
+        )
 
     # THE KNOWN DIVERGENCE. If a script body contains `<!--` and, after it and before any
     # `-->`, a double-escape-opening `<script` — then per spec the element continues past the
@@ -248,11 +383,36 @@ def assert_inline_contains(rep: Report, needle: str) -> List[str]:
     failed because the beacon text was PRESENT on the page and INERT."""
     if any(needle in b for b in rep.inline_bodies()):
         return []
-    where = "nowhere on the page"
-    return [f"{needle!r} does not appear in any inline <script> body ({where} as live code)"]
+
+    # Distinguish ABSENT from PRESENT-BUT-INERT. This distinction is the entire lesson of
+    # ship 008: the beacon markup was on all five pages and executed on none of them.
+    for s in rep.inert_bodies():
+        if needle in s.body:
+            return [
+                f"{needle!r} is PRESENT at line {s.line} but INERT — {s.inert_reason}. "
+                "The markup is on the page; the browser never runs it."
+            ]
+    for s in rep.scripts:
+        if s.is_external and needle in (s.attrs.get("src") or ""):
+            return [
+                f"{needle!r} appears only in the src of an external script at line {s.line}; "
+                "this checker cannot see external script contents"
+            ]
+    for line, val in rep.srcdoc_values:
+        if needle in val:
+            return [
+                f"{needle!r} appears only inside an <iframe srcdoc> at line {line}; that is a "
+                "nested document this checker does not parse"
+            ]
+    return [f"{needle!r} does not appear in any executing inline <script> body"]
 
 
 def assert_inline_absent(rep: Report, needle: str) -> List[str]:
+    """Mirror of the above. NOTE the deliberate asymmetry: `require` counts only EXECUTING
+    scripts, while `forbid` counts every inline script including inert ones. Both directions
+    therefore fail safe — you cannot satisfy a requirement with dead markup, and you cannot
+    hide a forbidden string by parking it in a data block that some later change might
+    re-activate."""
     hits = [s.line for s in rep.scripts if not s.is_external and needle in s.body]
     return [f"{needle!r} appears in an inline <script> body at line {ln}" for ln in hits]
 
@@ -297,6 +457,28 @@ _CORPUS = [
      "<script>/* <!-- <script> --> */BEACON()</script>", CANNOT_CERTIFY, "BEACON"),
     ("plain <!-- in script is fine", "<script>/* <!-- */ BEACON()</script>", PASS, "BEACON"),
     ("self-closing script tag", '<script src="x.js"/><script>BEACON()</script>', CANNOT_CERTIFY, "BEACON"),
+    # --- added 2026-08-09 after checker FAIL: present-but-inert, the ship-008 shape, via
+    # --- mechanisms the first version of this module could not see at all.
+    ("type=application/json is a data block", '<script type="application/json">BEACON()</script>', FAIL, "BEACON"),
+    ("type=application/ld+json is a data block", '<script type="application/ld+json">BEACON()</script>', FAIL, "BEACON"),
+    ("type=text/template is a data block", '<script type="text/template">BEACON()</script>', FAIL, "BEACON"),
+    ("type=importmap is a data block", '<script type="importmap">BEACON()</script>', FAIL, "BEACON"),
+    ("type=speculationrules is a data block", '<script type="speculationrules">BEACON()</script>', FAIL, "BEACON"),
+    ("nomodule is skipped by modern browsers", "<script nomodule>BEACON()</script>", FAIL, "BEACON"),
+    ("inside <template> is inert", "<template><script>BEACON()</script></template>", FAIL, "BEACON"),
+    ("inside <noscript> is inert", "<noscript><script>BEACON()</script></noscript>", FAIL, "BEACON"),
+    ("iframe srcdoc is a nested document", '<iframe srcdoc="<script>BEACON()</script>"></iframe>', FAIL, "BEACON"),
+    # --- and the true positives that must NOT be broken by the fix above
+    ("type absent executes", "<script>BEACON()</script>", PASS, "BEACON"),
+    ("type empty executes", '<script type="">BEACON()</script>', PASS, "BEACON"),
+    ("type=text/javascript executes", '<script type="text/javascript">BEACON()</script>', PASS, "BEACON"),
+    ("type case/space insensitive", '<script type=" text/JavaScript ">BEACON()</script>', PASS, "BEACON"),
+    ("type=module executes", '<script type="module">BEACON()</script>', PASS, "BEACON"),
+    ("type=application/javascript executes", '<script type="application/javascript">BEACON()</script>', PASS, "BEACON"),
+    ("real script after an inert template", "<template><script>x()</script></template><script>BEACON()</script>", PASS, "BEACON"),
+    ("real script after an inert noscript", "<noscript><script>x()</script></noscript><script>BEACON()</script>", PASS, "BEACON"),
+    ("real script after a data block", '<script type="application/json">{}</script><script>BEACON()</script>', PASS, "BEACON"),
+    ("unclosed template ends the document", "<template><script>BEACON()</script>", CANNOT_CERTIFY, "BEACON"),
 ]
 
 
