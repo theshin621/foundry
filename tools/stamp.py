@@ -123,9 +123,12 @@ html = _bake_panels(html)
 led = root / 'ledger.json'
 try:
     ships = json.loads(led.read_text()).get('ships', [])
-    live = sorted([s for s in ships if str(s.get('status', '')).startswith('live')],
+    # kind:infra rows (e.g. 008 beacon) have no public/NNN-slug/ page — linking one
+    # 404s. The "latest ship" button only ever points at a page a visitor can open.
+    live = sorted([s for s in ships if str(s.get('status', '')).startswith('live')
+                   and s.get('kind') != 'infra'],
                   key=lambda s: s.get('n', 0))
-    base = 'https://foundry.theshin-naidu.workers.dev'
+    base = 'https://tailorfarms.com'  # MOD-3 (v4 canon 2026-08-09): the fleet's public domain
     if live:
         s = live[-1]
         path = '/' if (s.get('slug') == 'hub' or s.get('n') == 1) else '/%03d-%s/' % (s['n'], s['slug'])

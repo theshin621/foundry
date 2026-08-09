@@ -102,6 +102,18 @@ the same shape passed without the cause recurring).
   the candidate); until then MOD-1 keeps ship merges on Theshin's one-click go. `closed` still
   requires ≥2 subsequent same-shape builds passing without recurrence.
 
+  **Validation trajectory (2026-08-09, the #008 rebuild under the shipped discipline):**
+  rebuild checker round: PARTIAL, 9 findings, 0 severe (its words: the browser-truth oracle
+  "genuinely survives independent attack… I defeated the static band again and it caught me").
+  One fix cycle. Fresh targeted re-check: PARTIAL — **all 8 fixes HOLD**, exactly 1 new sibling,
+  MEDIUM, fleet-growth reachability only, recorded in the ledger and queued as its own
+  checker-gated commit. Compare the entry's four prior incidents: fixes closed N, re-checks found
+  ~N new SEVERE siblings. This round: 9 → 1, severity falling, reachability receding — **the first
+  converging trajectory in this entry's history.** Checker-validated therefore remains PENDING (the
+  clause needs a clean PASS): the queued /_b/stats window fix is the next validation candidate.
+  Until a PASS lands, MOD-1 keeps ship merges on Theshin's one-click go — staged autonomy working
+  as designed, not a failure of it.
+
   **And #008 is evidence the proposed fix is necessary but not sufficient.** #008 *had* an oracle
   before the code — the v4 rule was followed voluntarily — and the pattern recurred anyway, one
   layer up. An oracle fixes the target set; it does not make the oracle itself correct. The rule
