@@ -1,7 +1,27 @@
 {
-  // Fable Foundry — static assets served by a git-connected Workers Build.
-  // Deploys on every push to main via `npx wrangler deploy`. Ships live under public/NNN-slug/.
+  // Fable Foundry — git-connected Workers Build; deploys on every push to main.
+  // Since infra/beacon-firstparty merged, `main` fronts the site: src/worker.js serves
+  // the beacon routes (/_b, /_b/stats) and falls through to ASSETS for everything else.
+  //
+  // ─── STEP 1 OF THE TWO-STEP BEACON DEPLOY (2026-08-09, rebuild checker finding 4) ──
+  // This file deliberately carries NO kv binding yet. The Worker tolerates the absent
+  // binding by design: POST /_b answers 204 uncounted, GET /_b/stats answers 503
+  // {"error":"kv-unbound"}. Once THIS deploy is verified serving live, STEP 2 is a
+  // one-line commit adding:
+  //   "kv_namespaces": [ { "binding": "BEACON", "id": "4849d5cb422843d49e27535fa796644d" } ]
+  // (namespace `foundry-beacon`, provisioned by Theshin's hand — see
+  // decisions/2026-08-08-v4-adoption.md; corroborated by two independent channels
+  // carrying the same 32 hex digits, byte-identical.)
+  // If step 2's deploy fails on a bad id, the revert is that same single line, and
+  // step 1 keeps serving. Per Cloudflare's documented behaviour a failed script upload
+  // leaves the previous deployment running — documentation, not sandbox-verified fact;
+  // the old comments here asserted BOTH "takes the whole site down" (this file) and
+  // "contained to the branch preview" (src/worker.js), which cannot both be true; the
+  // two-step split exists precisely so neither claim has to be trusted.
+  // ───────────────────────────────────────────────────────────────────────────────────
+
   "name": "foundry",
   "compatibility_date": "2026-07-01",
-  "assets": { "directory": "./public" }
+  "main": "src/worker.js",
+  "assets": { "directory": "./public", "binding": "ASSETS" }
 }

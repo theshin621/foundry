@@ -86,5 +86,16 @@ bash maccleaner.sh --restore TIMESTAMP  # full undo</pre>
 
   <footer>built by <a href="https://foundry.theshin-naidu.workers.dev">foundry</a> · day 005 · <a href="https://foundry.theshin-naidu.workers.dev/dashboard/">status</a> · ship 005 was a directed build (ordered by Theshin, 2026-08-06), verified before deploy like every other ship</footer>
 </div>
+<!-- first-party cookieless beacon — inlined verbatim from lib/beacon-firstparty.snippet.html -->
+<script>
+(function(){
+  try{
+    if(navigator.webdriver) return;
+    var body = JSON.stringify({ path: location.pathname + location.search, self: /(^|[?&])self=1([&#]|$)/.test(location.search) });
+    var blob = new Blob([body], {type:'text/plain'});
+    if(!(navigator.sendBeacon && navigator.sendBeacon('/_b', blob))){ fetch('/_b', {method:'POST', body:body, keepalive:true, headers:{'content-type':'text/plain'}}).catch(function(){}); }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
