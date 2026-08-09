@@ -4,8 +4,9 @@
 # cannot push anything under .github/workflows/, by design.
 #
 # WHAT IT DOES
-# The build sandbox cannot reach *.workers.dev (CONNECT 403), so no scheduled run
-# can ever confirm the live site renders. A GitHub-hosted runner can, for free,
+# The build sandbox cannot reach the live origin (WebFetch is provenance-gated in
+# unattended runs; *.workers.dev is CONNECT 403), so no scheduled run can confirm
+# by itself that the live site renders. A GitHub-hosted runner can, for free,
 # with no secret. This probes the hub and every ship the ledger marks live, then
 # commits the result to public/health.json — which the next run reads as its
 # live-render signal, and the dashboard renders as a status pill.
@@ -38,7 +39,7 @@ jobs:
 
       - name: Probe the hub and every live ship path
         env:
-          BASE: https://foundry.theshin-naidu.workers.dev
+          BASE: https://tailorfarms.com
         run: |
           python3 - <<'PY'
           import json, os, urllib.request, urllib.error, datetime

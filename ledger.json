@@ -94,7 +94,7 @@
       "killed": {
         "date": "2026-08-06",
         "to": "graveyard.md",
-        "reason": "Three builds, seven independent checker verdicts, zero PASS. Killed by the anti-grind clause written into briefs/2026-08-06.md BEFORE the build, so the decision was made without knowing the verdict. Status is 'killed' rather than 'failed' on purpose: 'failed' means eligible for the rebuild lane, and this one is not. Only Theshin can overturn it.",
+        "reason": "Three builds, seven independent checker verdicts, zero PASS. Killed by the anti-grind clause written into briefs/2026-08-06.md BEFORE the build, so the decision was made without knowing the verdict. Status is 'killed' rather than 'failed' on purpose: 'failed' means eligible for the rebuild lane, and this one is not. Only the founder can overturn it.",
         "kept": "lib/door.js (two-cap rule), lib/nfa.js, lib/codeowners.js, lib/inline.js, lib/checks/codeowners-oracle.json (171 pairs), lib/checks/door-limits.json (11 probes) — all merged to main. The branch stays in the repo, dark and unmerged, as the record."
       }
     },
@@ -102,9 +102,9 @@
       "n": 4,
       "date": "2026-08-06",
       "slug": "khanya-school-tutor",
-      "one_liner": "gamified CAPS/IEB tutor for Gr 3-12 (born as the app built for Theshin's son) — Socratic tutor chat, knowledge maps, Snap & Solve, test generator, spaced repetition, teach-back; BYO free Gemini key or demo mode; the public build ships NO key",
+      "one_liner": "gamified CAPS/IEB tutor for Gr 3-12 (born as the app built for the founder's son) — Socratic tutor chat, knowledge maps, Snap & Solve, test generator, spaced repetition, teach-back; BYO free Gemini key or demo mode; the public build ships NO key",
       "gap_source_url": "https://x.com/heynavtoor/status/2047279221912084908",
-      "deploy_url": "https://foundry.theshin-naidu.workers.dev/004-khanya-school-tutor/",
+      "deploy_url": "https://tailorfarms.com/004-khanya-school-tutor/",
       "kind": "app",
       "checker_verdict": "PASS — no secrets, demo mode clean (0 errors, 0 network), footer + single body + safety constant all present; cold-serve 200 text/html. [Directed ship: an embedded family Gemini API key was found at line 642 BEFORE the checker pass and stripped from the public build (vault original untouched); independent checker then confirmed zero embedded keys and a coherent demo mode via headless Chromium — 0 page errors, 0 googleapis calls]",
       "distribution": {
@@ -125,7 +125,7 @@
       },
       "status": "live",
       "kill_criterion": "d30 per-path visits <25 once the beacon token lands (beacon still absent fleet-wide)",
-      "directed_by": "Theshin 2026-08-06 — fast-track order, publish pre-approved; recovered from vault projects/tutor-agent (the ordering session died on an auth error before doing anything)"
+      "directed_by": "the founder 2026-08-06 — fast-track order, publish pre-approved; recovered from vault projects/tutor-agent (the ordering session died on an auth error before doing anything)"
     },
     {
       "n": 5,
@@ -133,7 +133,7 @@
       "slug": "maccleaner",
       "one_liner": "AppCleaner-style leftover finder + dev-machine cache cleanup for macOS that quarantines instead of deletes — scan by default, manifest + full undo, purge double-gated; v1.1.4",
       "gap_source_url": "directed rebuild — original maker session cse_019hUctXBMeBJap8Ts15xJvR (no repo write path from its container)",
-      "deploy_url": "https://foundry.theshin-naidu.workers.dev/005-maccleaner/",
+      "deploy_url": "https://tailorfarms.com/005-maccleaner/",
       "kind": "app",
       "checker_verdict": "PASS after one fix cycle — round 1 PARTIAL: with a symlinked cache ancestor, --apply caches/all-safe relocated real ~/Documents files into quarantine (restorable, reproduced by the checker), refuting the absolute 'Documents structurally untouchable'; all other named attacks (child-symlink, hostile restore/purge args, age gates, root/category guards), byte-identity and no-bash-4 PASSED. Fix: v1.1.4 has_symlink_ancestor gate. Targeted RECHECK: PASS — parent-symlink escape closed (Documents untouched under --apply caches and all-safe), legitimate quarantine + child-symlink handling + restore unbroken, bash -n/shellcheck clean, ancestor-walk terminates and fails closed.",
       "distribution": {
@@ -154,7 +154,7 @@
       },
       "status": "live",
       "kill_criterion": "d30 per-path visits <25 once the beacon token lands",
-      "directed_by": "Theshin 2026-08-06 — fast-track order, publish pre-approved; v1.1.3 recovered from the build session transcript, independently re-verified, v1.1.4 adds the symlink-ancestor gate"
+      "directed_by": "the founder 2026-08-06 — fast-track order, publish pre-approved; v1.1.3 recovered from the build session transcript, independently re-verified, v1.1.4 adds the symlink-ancestor gate"
     },
     {
       "n": 6,
@@ -177,7 +177,7 @@
         "as_of": "2026-08-09T09:48:36Z"
       },
       "status": "failed",
-      "kill_criterion": "n/a - never published. The anti-grind clause written into briefs/2026-08-07.md BEFORE the build ('one fix cycle and one targeted re-check, and no second day') fired on the round-2 FAIL. Does NOT re-enter tomorrow as a rebuild. Only Theshin can overturn that.",
+      "kill_criterion": "n/a - never published. The anti-grind clause written into briefs/2026-08-07.md BEFORE the build ('one fix cycle and one targeted re-check, and no second day') fired on the round-2 FAIL. Does NOT re-enter tomorrow as a rebuild. Only the founder can overturn that.",
       "failed": {
         "why": "Two rounds, four independent verdicts, zero PASS. Round 1 found seven defects; the one permitted fix cycle closed all seven and that was independently confirmed; round 2 then found six more, TWO OF WHICH ARE SIBLINGS OF THE ROUND-1 FIXES - case-folding applied to the matcher but not to the four force-include comparisons one file away, and the fold itself introducing a length-changing-Unicode defect that did not exist before it. Same generator producing new defects at the rate they are closed. That is ship 003's death pattern, and recognising it is what the clause is for.",
         "nothing_merged": "Deliberate, including lib/. Ship 003's engineering was merged to main because it had been PROVEN correct and only the product around it failed. Not true here: two of the six live defects are inside lib/gitignore.js and lib/npmpack.js themselves, so merging would put known-defective code into the shared library for the next ship to inherit silently.",
@@ -259,7 +259,7 @@
       "plain": {
         "money": "Not monetised. This is the measuring instrument, not a product — but nothing else in the loop can be honestly evaluated until it works, because today no fire can read a single visit number."
       },
-      "rebuild": "REBUILT 2026-08-09 by the live session (Theshin present: 'fix all the issues… i want autonomy') after rounds 1-4, 0 PASS. Structural change, not another grind cycle: every prior FAIL was a hand-written HTML parse-and-match band claiming snippet liveness; that band is DELETED from the trust path. Liveness authority is now oracles/beacon/browser-truth.mjs — each page loads in a real Chromium and the only measured fact is an HTTP POST /_b arriving at a real socket; the rounds-2/3/4 defeat vectors are its probe controls, plus c4b where the browser corrected the oracle's own author during authoring. Worker shell verified cold via wrangler dev --local (bound AND unbound), delta-exact under 9 drop vectors. Deployed two-step: main-fronting first (verified live), then the one-line KV binding (verified live: /_b/stats 200, honest zeros).",
+      "rebuild": "REBUILT 2026-08-09 by the live session (the founder present: 'fix all the issues… i want autonomy') after rounds 1-4, 0 PASS. Structural change, not another grind cycle: every prior FAIL was a hand-written HTML parse-and-match band claiming snippet liveness; that band is DELETED from the trust path. Liveness authority is now oracles/beacon/browser-truth.mjs — each page loads in a real Chromium and the only measured fact is an HTTP POST /_b arriving at a real socket; the rounds-2/3/4 defeat vectors are its probe controls, plus c4b where the browser corrected the oracle's own author during authoring. Worker shell verified cold via wrangler dev --local (bound AND unbound), delta-exact under 9 drop vectors. Deployed two-step: main-fronting first (verified live), then the one-line KV binding (verified live: /_b/stats 200, honest zeros).",
       "residuals_carried": "RECORDED, NOT GROUND (one fix cycle spent; 002 precedent — changing code after the verdict would stage something unverified): (1) MEDIUM, fleet-growth reachability: the /_b/stats DEFAULT multi-path window shrinks as COUNTABLE grows (7 ships → 6-day window < the trailing-7 metric; 45 → 0-day silent zeros). Conservative direction (under-reads, never inflates), window.days is printed in every response, and ?path=X&days=30 single-path reads are unaffected at any fleet size — the operator MUST use per-path reads for threshold computations. FIX QUEUED: next fire, own commit, own checker (explicit by-path truncation with a _more list, never silent window collapse). (2) LOW pre-existing: sendBeacon-throws / Blob-throws → visit silently lost (identical pre-fix, measured). (3) adversary-with-write vectors (timer re-fire, service-worker) recorded in the oracle header; no fleet page has either, grepped."
     },
     {

@@ -35,7 +35,7 @@
   <p class="strap">One product a day, built and shipped by an AI agent under a human go/no-go gate. The ledger below is the source of truth — checker verdicts recorded verbatim, failures included. Sundays nothing new ships: the loop kills the dead and compounds what shows pull.</p>
   <div class="stats"><div><b id="s-total">–</b><span>ships</span></div><div><b id="s-live">–</b><span>live</span></div><div><b id="s-killed">–</b><span>killed</span></div><div><b id="s-day">–</b><span>day</span></div></div>
   <ol id="ships"><li class="empty">Loading the ledger…</li></ol>
-  <footer>built in public · <a href="https://github.com/theshin621/foundry">github.com/theshin621/foundry</a> · every entry shipped same-day by an agent, approved by a human, verified by an independent checker</footer>
+  <footer>built in public · <a href="/ledger.json">public ledger</a> · every entry shipped same-day by an agent, approved by a human, verified by an independent checker</footer>
 </main>
 <script>
 fetch('./ledger.json').then(r=>r.json()).then(d=>{
@@ -52,7 +52,7 @@ fetch('./ledger.json').then(r=>r.json()).then(d=>{
     const link=s.n===1?'./':url;
     return `<li><div class="row"><span class="n">${String(s.n).padStart(3,'0')}</span><a href="${link}">${s.slug}</a><span class="v ${v}">${s.checker_verdict||'pending'}</span><span style="color:var(--dim)">${s.date||''}</span></div><p class="one">${s.one_liner||''}</p></li>`
   }).join('');
-}).catch(()=>{document.getElementById('ships').innerHTML='<li class="empty">Ledger unavailable — see <a href="https://github.com/theshin621/foundry/blob/main/ledger.json">ledger.json on GitHub</a>.</li>'});
+}).catch(()=>{document.getElementById('ships').innerHTML='<li class="empty">Ledger unavailable — see <a href="/ledger.json">ledger.json</a>.</li>'});
 </script>
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
 <!-- first-party cookieless beacon — inlined verbatim from lib/beacon-firstparty.snippet.html -->

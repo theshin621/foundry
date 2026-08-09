@@ -2,7 +2,7 @@
 # ============================================================================
 # maccleaner v1.1.4 — safe, auditable macOS cleanup
 #
-# Built for Theshin's MacBook Air via the foundry short-circuit process
+# Built for a dev MacBook via the foundry short-circuit process
 # (maker -> adversarial checker -> fix -> re-verify).
 # Philosophy: scan first, act only when told, quarantine instead of delete,
 # always restorable, every action logged, never lie in the report.
