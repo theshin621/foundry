@@ -11,8 +11,8 @@ Theshin.
 `fix-shipped` (the fix is in force in `main`) · `closed` (fix in force AND ≥2 subsequent builds of
 the same shape passed without the cause recurring).
 
-**Build-day rule (proposed with Amendment v4, not yet in force):** any cause at `count ≥ 2` with no
-*shipped* fix blocks build days while outstanding. Recorded here so it is ready if v4 is adopted.
+**Build-day rule (IN FORCE since 2026-08-09 — v4 canon):** any cause at `count ≥ 2` with no
+*shipped* fix blocks build days while outstanding.
 
 ---
 
@@ -87,10 +87,20 @@ the same shape passed without the cause recurring).
     calls it correct, and the caller is where the defects now are.** Every fix in this incident
     has been one layer up from the last.
 
-- **status:** **fix-proposed** — *not* `fix-shipped`. Amendment v4 arrived 2026-08-08 as a manual
-  fire payload into an unattended session and is parked **PENDING** in `PLAYBOOK.md` until Theshin
-  confirms it from a live session. The fix is written down; it is not in force. Until it is, this
-  cause is `count 5, unfixed`.
+- **status:** **fix-shipped** (2026-08-09, live activation — `decisions/2026-08-09-v4-activated-live.md`):
+  oracle-before-code AND **probe-the-oracle** (negative control + an independent attempt to break
+  the oracle — this entry's own second clause, now a mandatory step) are canon in `main`.
+  **Shipped is not validated, and rounds 3-4 above are the honest correction:** the oracle-first
+  rule was followed on #008 and the cause recurred anyway, twice, in the hand-written band *around*
+  the borrowed tokenizer. The shipped fix therefore carries a third clause, applied first to #008's
+  rebuild (2026-08-09, the live session): **for liveness-of-markup claims the oracle executes the
+  page in a real browser (Chromium) and observes the behaviour itself — the hand-written
+  parse-and-match band is deleted, not repaired.** A static walker cannot be trusted to prove a
+  beacon fires; a browser observing the fire is the spec-defined tokenizer for the *whole* problem
+  — borrow-don't-build taken to its endpoint. **Checker-validated: pending** — the first
+  ship-shaped build to checker-PASS under this discipline validates the entry (the #008 rebuild is
+  the candidate); until then MOD-1 keeps ship merges on Theshin's one-click go. `closed` still
+  requires ≥2 subsequent same-shape builds passing without recurrence.
 
   **And #008 is evidence the proposed fix is necessary but not sufficient.** #008 *had* an oracle
   before the code — the v4 rule was followed voluntarily — and the pattern recurred anyway, one
@@ -101,11 +111,10 @@ the same shape passed without the cause recurring).
   passes. The round-2 checker did exactly that unprompted, in minutes, and found the hole. That
   should be a step, not a happy accident.
 
-  **Build-day rule status:** if v4 is adopted as written, this cause at `count 5` with no *shipped*
-  fix would **block build days** until the fix lands. That is the correct outcome and worth stating
-  plainly before it bites: the loop has produced four consecutive non-shipping builds, and the
-  honest reading is that it should stop starting new ships until this is fixed, not keep starting
-  them faster.
+  **Build-day rule status (updated 2026-08-09):** the rule is in force (v4 canon) and the fix is
+  *shipped*, so build days are NOT blocked by this cause. Five incidents across four artifacts
+  remain the reason the rule exists; a recurrence under the shipped fix moves the count to 6,
+  reverts the status to `open`, and blocks build days until a better fix ships.
 
   **A third open question, added 2026-08-09 after #008 rounds 3-4.** Is the anti-grind clause
   measuring the wrong thing? On this artifact the defect *count* per round is flat (2 severe, then
