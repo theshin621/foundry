@@ -2,16 +2,23 @@
   // Fable Foundry — static assets served by a git-connected Workers Build.
   // Deploys on every push to main via `npx wrangler deploy`. Ships live under public/NNN-slug/.
 
-  // ─── BRANCH infra/beacon-firstparty — DO NOT MERGE AS-IS ───────────────────────────
-  // `id` below is a PLACEHOLDER. A deploy with it fails on an unknown KV namespace, and
-  // because `main` is now set, a failed deploy would take the WHOLE SITE with it, not
-  // just the beacon. Merging this file before step 2 breaks foundry.theshin-naidu.workers.dev.
+  // ─── BRANCH infra/beacon-firstparty — MERGE IS THESHIN'S CLICK ─────────────────────
+  // The KV namespace `id` below is no longer a placeholder. Provenance, stated plainly
+  // because this value arrived through channels this loop cannot attest:
+  //   * decisions/2026-08-08-v4-adoption.md line 10, commit 0500e1c, authored by the
+  //     theshin621 account through the GitHub web UI (channel authenticated, content
+  //     not attested — see decisions/2026-08-09-v4-declined-second-channel.md), and
+  //   * the 2026-08-09 recovery fire payload, independently carrying the same 32 hex
+  //     digits. Two channels, one value, byte-identical.
+  // A KV namespace id is configuration, not a credential, and it lifts no gate: this
+  // branch is unmerged and merging it is still Theshin's single click. But the loop has
+  // never seen this namespace and cannot reach the Cloudflare API to confirm it exists,
+  // so treat it as UNVERIFIED-BUT-CORROBORATED until the first deploy succeeds.
   //
-  // Theshin, once, in the Cloudflare dashboard (the loop holds no Cloudflare credential
-  // by design — PLAYBOOK Amendment 2026-08-02 §2, "the runtime secret surface stays one PAT"):
-  //   1. Workers & Pages → KV → Create namespace → name it `foundry-beacon`
-  //   2. paste its ID over PLACEHOLDER-CREATE-KV-NAMESPACE-FIRST below
-  //   3. then this branch is mergeable and /_b + /_b/stats come up with it
+  // WHAT HAPPENS IF IT IS WRONG: `main` is set, so a deploy that fails on an unknown KV
+  // namespace takes the WHOLE SITE down, not just the beacon. Theshin: after merging,
+  // check that foundry.theshin-naidu.workers.dev still serves. If it does not, revert
+  // the merge — one click, and the site returns.
   // ───────────────────────────────────────────────────────────────────────────────────
 
   "name": "foundry",
@@ -19,6 +26,7 @@
   "main": "src/worker.js",
   "assets": { "directory": "./public", "binding": "ASSETS" },
   "kv_namespaces": [
-    { "binding": "BEACON", "id": "PLACEHOLDER-CREATE-KV-NAMESPACE-FIRST" }
+    // namespace name: foundry-beacon
+    { "binding": "BEACON", "id": "4849d5cb422843d49e27535fa796644d" }
   ]
 }
