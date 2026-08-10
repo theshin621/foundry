@@ -77,6 +77,10 @@ FAKE = os.environ.get("FOUNDRY_ORACLE_FAKE_API")
 def gh(path, token):
     if FAKE:
         canned = json.load(open(FAKE))
+        # Fidelity limit, named so nobody mistakes D-series coverage for walk coverage:
+        # the canned /contents/ responder IGNORES ?ref and returns one fixed blob, so the
+        # seam cannot exercise "skip a wrong newer candidate to reach the right older one".
+        # That behaviour is covered against real historical commits instead.
         if "/check-runs" in path:      return 200, canned.get("checkruns", {"check_runs": []})
         if "/commits?" in path:        return 200, canned.get("commits", [])
         if "/contents/" in path:       return 200, canned.get("contents", {})
@@ -250,15 +254,31 @@ def main():
         import subprocess
         local_blob = subprocess.run(["git", "hash-object", path], capture_output=True,
                                     text=True, cwd=ROOT).stdout.strip()
+        # ROUND 4 finding 1: a bare `except: continue` here made a transient API error
+        # indistinguishable from "these bytes don't match", so one 5xx on the candidate that
+        # would have matched reported FAIL P7.bytes — an infrastructure blip dressed up as
+        # tampering. Errors are now collected and reported as CANNOT-CERTIFY, never as FAIL.
         c = None
+        walk_errors = []
         for cand in (commits or [])[:20]:
             try:
                 _, cont = gh("/repos/%s/contents/%s?ref=%s" % (REPO, ARTIFACT_PATH, cand["sha"]), tok)
-            except Exception:
+                if not isinstance(cont, dict):
+                    walk_errors.append("%s: contents response was %s, not an object"
+                                       % (cand["sha"][:8], type(cont).__name__))
+                    continue
+                cand_blob = cont.get("sha")
+            except Exception as e:
+                walk_errors.append("%s: %s: %s" % (cand["sha"][:8], type(e).__name__, e))
                 continue
-            if cont.get("sha") == local_blob:
+            if cand_blob == local_blob:
                 c = cand
                 break
+        if c is None and walk_errors:
+            print("\n".join(notes + fails))
+            print("VERDICT: CANNOT-CERTIFY — the commit walk hit errors and no candidate matched, "
+                  "so absence of a match is not evidence of tampering: %s" % "; ".join(walk_errors[:3]))
+            return 2
         if not commits:
             fails.append("  FAIL P7.commit — GitHub has no commit touching %s on this branch" % ARTIFACT_PATH)
         elif c is None:
