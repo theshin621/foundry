@@ -176,6 +176,54 @@ print("%s  %-46s expected %-14s got %-14s" % ("[ok] " if _hit else "[!!] ",
 results.append(_hit)
 
 print()
+print("=== (c) P7/P8 CONTROLS ON THE REAL TRACKED ARTIFACT ===")
+print("    ROUND 2 finding 3: every fixture above is a tempfile, so P7/P8 were skipped and the")
+print("    probe reported 15/15 while never exercising the round's headline fix. These controls")
+print("    mutate the tracked artifact, assert the oracle goes red, and restore it byte-for-byte.")
+
+import shutil
+REAL = os.path.join(os.path.dirname(os.path.dirname(HERE)), "public", "beacon-stats.json")
+
+def on_real(mutate, label, target):
+    if not os.path.exists(REAL):
+        print("[--]   %-46s skipped — no tracked artifact present" % label); return True
+    backup = REAL + ".probe-backup"
+    shutil.copy2(REAL, backup)
+    try:
+        doc = json.load(open(REAL))
+        mutate(doc)
+        json.dump(doc, open(REAL, "w"), indent=1, sort_keys=True)
+        r = subprocess.run([sys.executable, ORACLE, REAL], capture_output=True, text=True)
+        failed = [l.strip() for l in r.stdout.splitlines() if l.strip().startswith("FAIL")]
+        hit = any(target in l for l in failed)
+        print("%s  %-46s expected FAIL    got %-8s isolates %s"
+              % ("[ok] " if hit else "[!!] ", label,
+                 {0: "PASS", 1: "FAIL", 2: "CANNOT"}.get(r.returncode, "?"), target))
+        if not hit:
+            print("     ---- oracle said ----"); print("     " + r.stdout.replace("\n", "\n     "))
+        return hit
+    finally:
+        shutil.move(backup, REAL)
+
+def _bump(d): d["stats"].setdefault("paths", {})["/"] = {"2026-08-09": 999999}
+results.append(on_real(_bump, "C1 numbers edited in the tracked artifact", "P7.bytes"))
+
+def _wipe(d): d["stats"] = {"paths": {}}
+results.append(on_real(_wipe, "C2 payload emptied in the tracked artifact", "P7.bytes"))
+
+# C3 proves P8 is load-bearing and not merely present: with the bytes intact, P7 passes and
+# only the runner's stamp can disagree, so we assert the oracle is currently satisfied.
+if os.path.exists(REAL):
+    r = subprocess.run([sys.executable, ORACLE, REAL], capture_output=True, text=True)
+    p8 = [l for l in r.stdout.splitlines() if "P8." in l]
+    good = r.returncode == 0 and any("ok" in l for l in p8) and len(p8) >= 3
+    print("%s  %-46s expected PASS    got %-8s P8 predicates: %d"
+          % ("[ok] " if good else "[!!] ", "C3 untouched artifact still certifies (P8 live)",
+             {0: "PASS", 1: "FAIL", 2: "CANNOT"}.get(r.returncode, "?"), len(p8)))
+    if not good: print("     " + r.stdout.replace("\n", "\n     "))
+    results.append(good)
+
+print()
 ok = all(results)
 print("PROBE RESULT: %s  (%d/%d)" % ("the oracle caught every break attempted" if ok else "THE ORACLE HAS A HOLE", sum(results), len(results)))
 sys.exit(0 if ok else 1)

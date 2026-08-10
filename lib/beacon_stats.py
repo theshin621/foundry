@@ -107,14 +107,15 @@ def paths(block):
     stats = block.get("stats")
     if not isinstance(stats, dict):
         return None
+    # ROUND 2 finding 4: the old "tolerate a bare path->byday map" fallback read the
+    # envelope's own metadata as if it were traffic --
+    #     qualified_visits({"stats":{"window":{"days":10}}}) -> 10
+    # It was dormant only because the live payload's "generated" field happens to be a
+    # string. A heuristic that invents a visit count from metadata is the exact failure
+    # this module exists to prevent, so it is deleted rather than tightened. Only the
+    # declared "paths" object counts; anything else is unmeasured.
     inner = stats.get("paths")
-    if isinstance(inner, dict):
-        return inner
-    # Tolerate a bare path->byday map in case the endpoint is ever flattened, but only
-    # when every value is itself a day->count map; never guess.
-    if stats and all(isinstance(v, dict) for v in stats.values()):
-        return stats
-    return None
+    return inner if isinstance(inner, dict) else None
 
 
 def qualified_visits(block, path=None, days=None):

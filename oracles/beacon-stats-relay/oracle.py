@@ -51,7 +51,7 @@ MAX_AGE_H     = 30          # the fire is daily; >30h means a run was skipped or
 
 REQUIRED_TOP  = {"fetched_utc", "source_url", "http", "ok", "provenance"}
 ARTIFACT_PATH = "public/beacon-stats.json"
-REQUIRED_PROV = {"run_id", "run_url", "run_attempt", "repo", "workflow_path", "head_sha"}
+REQUIRED_PROV = {"run_id", "run_url", "run_attempt", "repo", "workflow_path", "head_sha", "head_branch"}
 
 fails, notes = [], []
 def check(cond, pid, msg):
@@ -183,9 +183,10 @@ def main():
         # ROUND 1 finding 7: the run's branch was never read, so the PASS line claimed more
         # than it checked. Record it and require the artifact to agree if it states one.
         branch = run.get("head_branch")
-        if "head_branch" in prov:
-            check(prov.get("head_branch") == branch, "P6.branch",
-                  "artifact says branch %r, run says %r" % (prov.get("head_branch"), branch))
+        # ROUND 2 finding 7: this was conditional on a key the workflow never wrote, so it was
+        # dead code. The workflow now writes head_branch and the check is unconditional.
+        check(prov.get("head_branch") == branch, "P6.branch",
+              "artifact says branch %r, run says %r" % (prov.get("head_branch"), branch))
         # ROUND 1 finding 1 (temporal half): the reading must fall inside the run's own
         # execution window. Combined with P5.stale this means a forger must quote a run from
         # the last 30h AND land inside its ~1-minute window.
@@ -198,9 +199,20 @@ def main():
     # P7 — CONTENT BINDING. The predicate round 1 did not have, and the one that makes
     # the numbers themselves unforgeable rather than merely well-attributed.
     # ---------------------------------------------------------------------------
-    real_path = os.path.relpath(os.path.abspath(path), ROOT)
+    # ROUND 2 finding 2: this used to SKIP P7 for any path other than the tracked one, which
+    # reproduced round 1's original break verbatim on a copy. It now fails CLOSED: a fixture
+    # cannot be blessed, it can only be declined.
+    real_path = os.path.relpath(os.path.abspath(os.path.realpath(path)), ROOT)
     if real_path != ARTIFACT_PATH:
-        notes.append("  --   P7 skipped — %s is a fixture, not the tracked artifact" % real_path)
+        print("\n".join(notes + fails))
+        # A failure already found is still a failure; only a clean fixture is "cannot certify".
+        if fails:
+            print("VERDICT: FAIL (%d predicate(s)) — and P7/P8 could not run on a fixture." % len(fails))
+            return 1
+        print("VERDICT: CANNOT-CERTIFY — %s is not the tracked artifact (%s), so its bytes cannot "
+              "be bound to a runner. Content predicates above are informational only."
+              % (real_path, ARTIFACT_PATH))
+        return 2
     else:
         try:
             _, commits = gh("/repos/%s/commits?path=%s&sha=%s&per_page=1"
@@ -234,11 +246,45 @@ def main():
             except Exception as e:
                 fails.append("  FAIL P7.bytes — could not compare blobs: %s: %s" % (type(e).__name__, e))
 
+            # -------------------------------------------------------------------
+            # P8 — ACTOR PROOF. Round 2's severe finding, and the one both earlier
+            # versions were missing: a GitHub signature proves the CHANNEL, never the
+            # ACTOR, because GitHub signs every Contents-API commit whoever calls it.
+            #
+            # Measured in this repo with the loop's own fine-grained PAT:
+            #     POST /repos/.../check-runs -> 403 "Resource not accessible by
+            #                                   personal access token"
+            #     GET  /repos/.../check-runs -> 200
+            # The runner's GITHUB_TOKEN can create a check-run; the sandbox cannot.
+            # So the runner stamps sha256(bytes) into a check-run and this predicate
+            # reads it back. Forging it needs a credential the loop does not hold.
+            # -------------------------------------------------------------------
+            import hashlib
+            want = hashlib.sha256(open(path, "rb").read()).hexdigest()
+            try:
+                _, cr = gh("/repos/%s/commits/%s/check-runs" % (REPO, c["sha"]), tok)
+            except Exception as e:
+                print("\n".join(notes + fails))
+                print("VERDICT: CANNOT-CERTIFY — check-runs unreadable (%s)." % type(e).__name__)
+                return 2
+            att = [r for r in cr.get("check_runs", []) if r.get("name") == "beacon-stats-attestation"]
+            if not att:
+                fails.append("  FAIL P8.exists — no beacon-stats-attestation check-run on %s. The "
+                             "bytes carry no runner stamp, so nothing proves a runner wrote them." % c["sha"][:8])
+            else:
+                a = att[0]
+                check(a.get("app", {}).get("slug") == "github-actions", "P8.app",
+                      "attestation was created by app %r, not github-actions" % a.get("app", {}).get("slug"))
+                check(a.get("conclusion") == "success", "P8.concl", "attestation concluded %r" % a.get("conclusion"))
+                blob = "%s %s" % (a.get("output", {}).get("title") or "", a.get("output", {}).get("summary") or "")
+                check(want in blob, "P8.digest",
+                      "the runner attested a different sha256 than the bytes on disk (want %s)" % want[:16])
+
     print("\n".join(notes + fails))
     if fails:
         print("VERDICT: FAIL (%d predicate(s))" % len(fails)); return 1
     print("VERDICT: PASS — artifact is fresh, internally consistent, produced by Actions run %s of "
-          "%s at %s, and its exact bytes arrived in a commit GitHub itself signed."
+          "%s at %s, arrived in a commit GitHub signed, and carry a runner-only check-run stamp of their own sha256."
           % (prov.get("run_id"), WORKFLOW_PATH, (prov.get("head_sha") or "")[:7]))
     return 0
 

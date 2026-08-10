@@ -29,9 +29,11 @@
 # ROUND 1 CHECKER (FAIL, 2026-08-10) killed the first version of this file's security story.
 # It proved a run EXISTED but never bound the NUMBERS to it, and a run's provenance block is
 # public and re-quotable -- so editing `stats` and keeping provenance byte-identical passed.
-# The fix is in the commit step below: the reading is committed through the Contents API so
-# GitHub signs it, and the oracle verifies that signature. Fixing the oracle alone would not
-# have worked; the artifact had to become unforgeable.
+# ROUND 2 CHECKER (FAIL) then falsified the FIX's premise: GitHub signs every Contents-API
+# commit whoever calls it, so a signature proves the CHANNEL and never the ACTOR. The commit
+# step below now also writes a CHECK-RUN carrying the sha256 of the committed bytes. Measured
+# in this repo: a fine-grained PAT gets 403 on POST /check-runs and 200 on GET. The runner can
+# stamp; the sandbox can only read. That asymmetry is the actor proof both rounds were missing.
 
 name: beacon stats
 
@@ -46,6 +48,7 @@ on:
 
 permissions:
   contents: write
+  checks: write   # the attestation below; a PAT cannot write check-runs, which is the point
 
 concurrency:
   group: beacon-stats-${{ github.ref }}
@@ -81,6 +84,7 @@ jobs:
               'repo':          os.environ.get('GITHUB_REPOSITORY', ''),
               'workflow_path': '.github/workflows/beacon-stats.yml',
               'head_sha':      os.environ.get('GITHUB_SHA', ''),
+              'head_branch':   os.environ.get('GITHUB_REF_NAME', ''),
               'runner':        'ubuntu-latest',
           }
 
@@ -142,7 +146,7 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           python3 - <<'PY'
-          import base64, json, os, urllib.request, urllib.error
+          import base64, hashlib, json, os, urllib.request, urllib.error
 
           # WHY NOT `git commit && git push` (which is what round 1 shipped):
           # a plain push from anywhere produces an UNVERIFIED commit, so a fire holding the
@@ -187,13 +191,48 @@ jobs:
                      'branch': branch}
           if sha:
               payload['sha'] = sha
-          status, res = api('PUT', '/repos/%s/contents/%s' % (repo, path), payload)
+          try:
+              status, res = api('PUT', '/repos/%s/contents/%s' % (repo, path), payload)
+          except urllib.error.HTTPError as e:
+              raise SystemExit('FATAL: commit rejected, HTTP %s: %s'
+                               % (e.code, e.read()[:300].decode('utf-8', 'replace')))
+
+          commit_sha = res['commit']['sha']
           v = res.get('commit', {}).get('verification', {})
-          print('committed %s  verified=%s reason=%s' % (res['commit']['sha'][:7],
-                                                         v.get('verified'), v.get('reason')))
-          # Fail the run loudly if GitHub did NOT sign it -- an unverified commit would sail
-          # past a reader that trusts the file, which is the whole defect being fixed.
+          print('committed %s  verified=%s reason=%s' % (commit_sha[:7], v.get('verified'), v.get('reason')))
           if not v.get('verified'):
-              raise SystemExit('FATAL: commit is not GitHub-signed (%s); the oracle will '
-                               'reject this reading and it should.' % v.get('reason'))
+              raise SystemExit('FATAL: commit is not GitHub-signed (%s).' % v.get('reason'))
+
+          # ------------------------------------------------------------------
+          # THE ATTESTATION -- round 2's severe finding, closed.
+          #
+          # Round 2 was right: GitHub signs EVERY Contents-API commit, whoever calls it,
+          # so a signature proves the channel and not the actor. Measured in this repo:
+          #     PAT POST /statuses/{sha}   -> 403 Resource not accessible by PAT
+          #     PAT POST /check-runs       -> 403 Resource not accessible by PAT
+          #     PAT GET  /check-runs       -> 200
+          # A fine-grained PAT cannot CREATE a check-run. A workflow's GITHUB_TOKEN can.
+          # So the runner stamps the digest of the bytes it just committed into a check-run,
+          # and the oracle reads it back. A fire in the sandbox can write the file and can
+          # sign the commit -- it cannot produce this stamp.
+          # ------------------------------------------------------------------
+          digest = hashlib.sha256(body).hexdigest()
+          try:
+              api('POST', '/repos/%s/check-runs' % repo, {
+                  'name': 'beacon-stats-attestation',
+                  'head_sha': commit_sha,
+                  'status': 'completed',
+                  'conclusion': 'success',
+                  'output': {
+                      'title': 'sha256=%s' % digest,
+                      'summary': ('The GitHub-hosted runner of %s read %s and committed exactly '
+                                  'these bytes.\n\nsha256=%s\nrun_id=%s\ncommit=%s\n'
+                                  % ('.github/workflows/beacon-stats.yml',
+                                     'https://tailorfarms.com/_b/stats', digest,
+                                     os.environ.get('GITHUB_RUN_ID', ''), commit_sha)),
+                  }})
+          except urllib.error.HTTPError as e:
+              raise SystemExit('FATAL: attestation failed, HTTP %s: %s'
+                               % (e.code, e.read()[:300].decode('utf-8', 'replace')))
+          print('attested sha256=%s on %s' % (digest[:16], commit_sha[:7]))
           PY
