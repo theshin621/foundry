@@ -114,6 +114,22 @@ the same shape passed without the cause recurring).
   Until a PASS lands, MOD-1 keeps ship merges on Theshin's one-click go — staged autonomy working
   as designed, not a failure of it.
 
+  **Unadjudicated incident — #011 diffusion-curves (2026-08-10, the 10:30Z manual fire).** Logged,
+  deliberately NOT counted by its own author, for the same reason as #009: this fire wrote the fix
+  and cannot score whether the later failure is this cause. The facts, so Theshin can:
+  round 1 (independent, different model) FAILed with 4 findings, 1 severe — a mid-render scene swap
+  kept averaging new boundary data into the old accumulator and the page reported "done" over a
+  blend of two boundary-value problems. That severe finding is itself arguably a sibling: the `gen`
+  token had already been added during the build to stop two render loops racing, and the swap
+  handlers were the code path that fix did not cover. The one permitted fix cycle closed all 4.
+  Round 2 (FRESH adversary) confirmed **all four hold** and found 2 new, **0 severe** — and its
+  MEDIUM is explicitly the sibling of the *guard* added after the fix cycle (`setScene()` was
+  guarded against a null GL context; the banner-erasure and the unhandled rejection on that same
+  path were not). **The question for Theshin is whether "a fix grew a sibling one layer up, but the
+  siblings are now MEDIUM rather than SEVERE and are falling in count (4 → 2)" counts as this cause
+  recurring, or as the converging trajectory the entry has been waiting for.** This fire believes it
+  is the latter and has no standing to say so.
+
   **Unadjudicated incident — #009 html-structure-oracle (2026-08-09, the 02:10Z scheduled fire).**
   Logged, deliberately NOT counted by its own author. This entry's rule says *the fix author may
   not judge whether a later failure is the same cause — ties go to Theshin*, and this fire both
