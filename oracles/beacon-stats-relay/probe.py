@@ -224,6 +224,100 @@ if os.path.exists(REAL):
     results.append(good)
 
 print()
+print("=== (d) API-SIDE CONTROLS — the ten predicates ROUND 3 found untested ===")
+print("    P6.branch and every P7/P8 predicate take their input from GitHub, not from the file,")
+print("    so no file fixture can make them fire. probe.py used to report 18/18 while ten of the")
+print("    round's headline checks had zero coverage. These drive them through the oracle's fenced")
+print("    fake-API seam, which can never return exit 0.")
+
+def _live():
+    """Build a canned API bundle that mirrors the truth, so each mutation isolates one predicate."""
+    import urllib.request
+    for k in ("https_proxy","HTTPS_PROXY","http_proxy","HTTP_PROXY","all_proxy","ALL_PROXY","GLOBAL_AGENT_HTTPS_PROXY"):
+        os.environ.pop(k, None)
+    tok = json.load(open("/home/claude/foundry/config.json"))["github_pat"]
+    def g(pth):
+        r = urllib.request.urlopen(urllib.request.Request(
+            "https://api.github.com" + pth,
+            headers={"User-Agent": "probe", "Accept": "application/vnd.github+json",
+                     "Authorization": "Bearer " + tok}), timeout=30)
+        return json.load(r)
+    art = json.load(open(REAL))
+    prov = art["provenance"]
+    run = g("/repos/theshin621/foundry/actions/runs/%s" % prov["run_id"])
+    commits = g("/repos/theshin621/foundry/commits?path=public/beacon-stats.json&sha=%s&per_page=20"
+                % run["head_branch"])
+    blob = subprocess.run(["git", "hash-object", REAL], capture_output=True, text=True,
+                          cwd=os.path.dirname(os.path.dirname(HERE))).stdout.strip()
+    # find the commit carrying these bytes, same rule the oracle uses
+    target_sha = None
+    for cand in commits[:20]:
+        c = g("/repos/theshin621/foundry/contents/public/beacon-stats.json?ref=%s" % cand["sha"])
+        if c.get("sha") == blob:
+            target_sha = cand["sha"]; break
+    crs = g("/repos/theshin621/foundry/commits/%s/check-runs" % target_sha) if target_sha else {"check_runs": []}
+    return {"run": run, "commits": commits, "contents": {"sha": blob}, "checkruns": crs}
+
+try:
+    BASE = _live()
+except Exception as e:
+    BASE = None
+    print("[--]   section (d) skipped — could not build the live bundle: %s: %s" % (type(e).__name__, e))
+
+def api_control(mutate, label, target):
+    import copy, tempfile as _t
+    bundle = copy.deepcopy(BASE)
+    mutate(bundle)
+    with _t.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(bundle, f); fp = f.name
+    env = dict(os.environ, FOUNDRY_ORACLE_FAKE_API=fp)
+    r = subprocess.run([sys.executable, ORACLE, REAL], capture_output=True, text=True, env=env)
+    os.unlink(fp)
+    failed = [l.strip() for l in r.stdout.splitlines() if l.strip().startswith("FAIL")]
+    hit = any(target in l for l in failed)
+    print("%s  %-46s expected FAIL    isolates %s" % ("[ok] " if hit else "[!!] ", label, target))
+    if not hit:
+        print("     fired on: %s" % ([l.split()[1] for l in failed] or ["nothing"]))
+        print("     " + r.stdout.splitlines()[-1] if r.stdout else "")
+    return hit
+
+if BASE:
+    # sanity: an unmutated bundle must reach SIMULATED-PASS (exit 3), never 0
+    with __import__("tempfile").NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(BASE, f); _bp = f.name
+    _r = subprocess.run([sys.executable, ORACLE, REAL], capture_output=True, text=True,
+                        env=dict(os.environ, FOUNDRY_ORACLE_FAKE_API=_bp))
+    os.unlink(_bp)
+    _fenced = _r.returncode == 3 and "SIMULATED" in _r.stdout
+    print("%s  %-46s expected exit 3, got %d  (the seam can never certify)"
+          % ("[ok] " if _fenced else "[!!] ", "D0 fake mode is fenced", _r.returncode))
+    results.append(_fenced)
+
+    def m(fn):
+        return fn
+    CONTROLS = [
+        ("D1  run belongs to another repo",        lambda b: b["run"]["repository"].__setitem__("full_name", "someone/else"), "P6.repo"),
+        ("D2  run is a different workflow",        lambda b: b["run"].__setitem__("path", ".github/workflows/health-check.yml"), "P6.workflow"),
+        ("D3  run head_sha mismatched",            lambda b: b["run"].__setitem__("head_sha", "0"*40), "P6.sha"),
+        ("D4  run did not conclude success",       lambda b: b["run"].__setitem__("conclusion", "failure"), "P6.concl"),
+        ("D5  run is still in progress",           lambda b: b["run"].__setitem__("conclusion", None), "P6.concl"),
+        ("D6  run branch != artifact branch",      lambda b: b["run"].__setitem__("head_branch", "some-other-branch"), "P6.branch"),
+        ("D7  reading outside the run's window",   lambda b: b["run"].__setitem__("created_at", "2026-01-01T00:00:00Z") or b["run"].__setitem__("updated_at", "2026-01-01T00:01:00Z"), "P7.window"),
+        ("D8  no commit touches the artifact",     lambda b: b.__setitem__("commits", []), "P7.commit"),
+        ("D9  no commit carries these bytes",      lambda b: b.__setitem__("contents", {"sha": "f"*40}), "P7.bytes"),
+        ("D10 commit is not GitHub-signed",        lambda b: b["commits"][0]["commit"]["verification"].update({"verified": False, "reason": "unsigned"}), "P7.signed"),
+        ("D11 signature reason not valid",         lambda b: b["commits"][0]["commit"]["verification"].__setitem__("reason", "unknown_key"), "P7.reason"),
+        ("D12 wrong commit message",               lambda b: b["commits"][0]["commit"].__setitem__("message", "chore: something else"), "P7.msg"),
+        ("D13 no runner attestation",              lambda b: b["checkruns"].__setitem__("check_runs", []), "P8.exists"),
+        ("D14 attestation from another app",       lambda b: [c for c in b["checkruns"]["check_runs"] if c["name"]=="beacon-stats-attestation"][0]["app"].__setitem__("slug", "some-other-app"), "P8.app"),
+        ("D15 attestation did not succeed",        lambda b: [c for c in b["checkruns"]["check_runs"] if c["name"]=="beacon-stats-attestation"][0].__setitem__("conclusion", "failure"), "P8.concl"),
+        ("D16 attested digest is a different file",lambda b: [c for c in b["checkruns"]["check_runs"] if c["name"]=="beacon-stats-attestation"][0]["output"].update({"title":"sha256=%s"%("a"*64),"summary":"sha256=%s"%("a"*64)}), "P8.digest"),
+        ("D17 two attestations, order undefined",  lambda b: b["checkruns"]["check_runs"].append(dict([c for c in b["checkruns"]["check_runs"] if c["name"]=="beacon-stats-attestation"][0])), "P8.unique"),
+    ]
+    for label, mut, tgt in CONTROLS:
+        results.append(api_control(mut, label, tgt))
+
+print()
 ok = all(results)
 print("PROBE RESULT: %s  (%d/%d)" % ("the oracle caught every break attempted" if ok else "THE ORACLE HAS A HOLE", sum(results), len(results)))
 sys.exit(0 if ok else 1)

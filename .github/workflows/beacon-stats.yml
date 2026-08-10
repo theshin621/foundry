@@ -34,6 +34,21 @@
 # step below now also writes a CHECK-RUN carrying the sha256 of the committed bytes. Measured
 # in this repo: a fine-grained PAT gets 403 on POST /check-runs and 200 on GET. The runner can
 # stamp; the sandbox can only read. That asymmetry is the actor proof both rounds were missing.
+#
+# THE LIMIT OF THAT PROOF, stated plainly rather than glossed (ROUND 3 finding 2).
+# The foundry PAT also carries the `workflows` scope, and `main` has no branch protection and
+# no rulesets. So the loop CAN edit this file, push it, and have a real runner attest whatever
+# the edited file produces. P8 therefore proves "a GitHub runner executed the workflow as this
+# repo currently defines it" -- NOT "the numbers came off tailorfarms.com".
+#
+# That boundary is honest and it is the right one to stop at in code, because any check the
+# loop can edit is not a control on the loop. Closing it needs one action only Theshin can
+# take, and either works:
+#   * a repository ruleset requiring review on `.github/workflows/**`, or
+#   * removing `workflows` from the PAT (the loop then proposes CI changes instead of pushing).
+# Until then the guarantee is: a fire cannot fabricate numbers by writing a file, which is the
+# realistic failure mode this whole entry exists for. It can only fabricate them by rewriting
+# its own instrument in a commit that stays in the public history with its name on it.
 
 name: beacon stats
 

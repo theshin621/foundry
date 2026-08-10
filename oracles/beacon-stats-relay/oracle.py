@@ -63,7 +63,28 @@ def iso(s):
     try: return datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
     except Exception: return None
 
+# ---------------------------------------------------------------------------
+# TEST SEAM. ROUND 3 finding 3: ten predicates (P6.branch, all of P7 and P8) had no
+# negative control, because their inputs come from GitHub rather than from the file.
+# probe.py can now feed canned API responses through this seam and prove each one
+# fires. The seam is fenced so it can never be a bypass: in fake mode the oracle
+# NEVER returns 0. A clean run returns 3 and prints SIMULATED, and lib/beacon_stats.py
+# treats any non-zero exit as "no numbers".
+# ---------------------------------------------------------------------------
+FAKE = os.environ.get("FOUNDRY_ORACLE_FAKE_API")
+
+
 def gh(path, token):
+    if FAKE:
+        canned = json.load(open(FAKE))
+        if "/check-runs" in path:      return 200, canned.get("checkruns", {"check_runs": []})
+        if "/commits?" in path:        return 200, canned.get("commits", [])
+        if "/contents/" in path:       return 200, canned.get("contents", {})
+        return 200, canned.get("run", {})
+    return _gh_real(path, token)
+
+
+def _gh_real(path, token):
     for k in ("https_proxy","HTTPS_PROXY","http_proxy","HTTP_PROXY","all_proxy","ALL_PROXY","GLOBAL_AGENT_HTTPS_PROXY"):
         os.environ.pop(k, None)
     req = urllib.request.Request("https://api.github.com" + path, headers={
@@ -214,17 +235,36 @@ def main():
               % (real_path, ARTIFACT_PATH))
         return 2
     else:
+        # ROUND 3 finding 1: this used to take the MOST RECENT commit touching the path.
+        # Every relay run writes a new one (fetched_utc differs each time), so a perfectly
+        # good reading started FAILing the moment the next run landed — the oracle rejected
+        # its own valid output on the loop's normal path. Fix: find the commit whose blob IS
+        # these bytes, not the commit that happens to be newest.
         try:
-            _, commits = gh("/repos/%s/commits?path=%s&sha=%s&per_page=1"
+            _, commits = gh("/repos/%s/commits?path=%s&sha=%s&per_page=20"
                             % (REPO, ARTIFACT_PATH, run.get("head_branch") or "main"), tok)
         except Exception as e:
             print("\n".join(notes + fails))
             print("VERDICT: CANNOT-CERTIFY — could not read the artifact's commit history (%s)." % type(e).__name__)
             return 2
+        import subprocess
+        local_blob = subprocess.run(["git", "hash-object", path], capture_output=True,
+                                    text=True, cwd=ROOT).stdout.strip()
+        c = None
+        for cand in (commits or [])[:20]:
+            try:
+                _, cont = gh("/repos/%s/contents/%s?ref=%s" % (REPO, ARTIFACT_PATH, cand["sha"]), tok)
+            except Exception:
+                continue
+            if cont.get("sha") == local_blob:
+                c = cand
+                break
         if not commits:
             fails.append("  FAIL P7.commit — GitHub has no commit touching %s on this branch" % ARTIFACT_PATH)
+        elif c is None:
+            fails.append("  FAIL P7.bytes — no commit on this branch carries these exact bytes (local blob %s). "
+                         "The working copy was edited after GitHub last saw it." % local_blob[:10])
         else:
-            c = commits[0]
             ver = c.get("commit", {}).get("verification", {})
             # THE control. A `git push` with the loop's PAT produces verified=false.
             check(ver.get("verified") is True, "P7.signed",
@@ -234,17 +274,9 @@ def main():
             check(ver.get("reason") == "valid", "P7.reason", "signature reason is %r" % ver.get("reason"))
             check((c.get("commit", {}).get("message") or "").startswith("beacon: instrument reading"),
                   "P7.msg", "commit message is %r" % (c.get("commit", {}).get("message") or "")[:60])
-            # The bytes on disk must BE the bytes in that signed commit.
-            try:
-                import subprocess
-                local_blob = subprocess.run(["git", "hash-object", path], capture_output=True,
-                                            text=True, cwd=ROOT).stdout.strip()
-                _, cont = gh("/repos/%s/contents/%s?ref=%s" % (REPO, ARTIFACT_PATH, c["sha"]), tok)
-                check(cont.get("sha") == local_blob, "P7.bytes",
-                      "local artifact blob %s != signed-commit blob %s — the working copy has been "
-                      "edited since GitHub signed it" % (local_blob[:10], str(cont.get("sha"))[:10]))
-            except Exception as e:
-                fails.append("  FAIL P7.bytes — could not compare blobs: %s: %s" % (type(e).__name__, e))
+            # P7.bytes is established by construction above: c is the commit whose blob
+            # equals the local file. Recorded explicitly so the predicate appears in output.
+            check(True, "P7.bytes", "")
 
             # -------------------------------------------------------------------
             # P8 — ACTOR PROOF. Round 2's severe finding, and the one both earlier
@@ -272,6 +304,9 @@ def main():
                 fails.append("  FAIL P8.exists — no beacon-stats-attestation check-run on %s. The "
                              "bytes carry no runner stamp, so nothing proves a runner wrote them." % c["sha"][:8])
             else:
+                check(len(att) == 1, "P8.unique",
+                      "%d check-runs named beacon-stats-attestation on this commit; ordering is "
+                      "undocumented so the right one cannot be chosen" % len(att))
                 a = att[0]
                 check(a.get("app", {}).get("slug") == "github-actions", "P8.app",
                       "attestation was created by app %r, not github-actions" % a.get("app", {}).get("slug"))
@@ -283,6 +318,10 @@ def main():
     print("\n".join(notes + fails))
     if fails:
         print("VERDICT: FAIL (%d predicate(s))" % len(fails)); return 1
+    if FAKE:
+        print("VERDICT: SIMULATED-PASS — fake API responses were in use; this is never a real "
+              "certification and never exits 0.")
+        return 3
     print("VERDICT: PASS — artifact is fresh, internally consistent, produced by Actions run %s of "
           "%s at %s, arrived in a commit GitHub signed, and carry a runner-only check-run stamp of their own sha256."
           % (prov.get("run_id"), WORKFLOW_PATH, (prov.get("head_sha") or "")[:7]))
