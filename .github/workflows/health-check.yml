@@ -110,4 +110,14 @@ jobs:
             exit 0
           fi
           git commit -m "health: live-site probe [skip ci]"
-          git push
+          # 2026-08-10: beacon-stats.yml also writes to this branch, and both fire on the
+          # same push, so a bare `git push` loses the race and fails the run. Rebase and
+          # retry instead of failing on a conflict that is not a conflict.
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "push rejected, rebasing (attempt $i)"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+            sleep $((i * 5))
+          done
+          echo "push still failing after 5 attempts" >&2
+          exit 1
