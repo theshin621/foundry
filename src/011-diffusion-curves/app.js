@@ -155,8 +155,11 @@
     state.scene = JSON.parse(JSON.stringify(scene));
     if (scene.width && scene.height) setResolution(scene.width, scene.height);
     state.scene.width = W; state.scene.height = H;
-    clearAcc();
-    show();
+    /* No GL means no accumulator to clear. Without this guard, a browser with no WebGL2 (or the
+     * probe's C9 control, which is how this was found) throws a TypeError out of clearAcc() the
+     * first time anything changes the scene — on a page that had already, correctly, told the
+     * user it cannot render. An error state must stay an error state, not become an exception. */
+    if (pAcc && fbo[0]) { clearAcc(); show(); }
     canvas.setAttribute('data-scene', JSON.stringify(state.scene));
     if (sourceHtml !== undefined) srcEl.innerHTML = sourceHtml;
     statusEl.dataset.state = 'idle';

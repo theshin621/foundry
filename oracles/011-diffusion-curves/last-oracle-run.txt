@@ -19,8 +19,9 @@
   [PASS] P9.no_third_party: third-party requests: none
   [PASS] P9.no_pageerrors: uncaught page errors: none
   [PASS] P9.escaping: hostile label did not become markup ({'pwned': False, 'injected': False})
-  [PASS] P11.midrender_swap_clean: scene swapped mid-render then rendered: RMSE vs a clean render of the same scene = 2.74 (tol 14.0; contamination measured at 62 before the fix)
-  [PASS] P11.midrender_swap_harmonic: and the result is still harmonic: mean-value error 1.42 over 60 probes
+  [PASS] P11.swap_point: reached 375 of 800 samples of scene A before swapping (a 50/50 blend is the worst case; an early swap hides contamination in the average)
+  [PASS] P11.midrender_swap_not_contaminated: page halted the in-flight run on the swap (state='idle') rather than finishing it over mixed boundary data
+  [PASS] P11.works_after_swap: render after the swap matches a clean render (RMSE 2.74, tol 14.0) and is harmonic (mean-value 1.42 over 60 probes)
   [PASS] P10.no_drift: no drift
 
-24/24 predicates PASS  (777s)
+25/25 predicates PASS  (800s)

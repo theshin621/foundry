@@ -12,7 +12,7 @@ Usage:
 
 Exit 0 = all predicates PASS. Exit 1 = at least one FAIL. Exit 2 = could not run at all.
 """
-import argparse, base64, io, json, math, os, random, subprocess, sys, time, threading
+import argparse, base64, io, json, math, os, random, re, subprocess, sys, time, threading
 import http.server, socketserver, functools
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -202,6 +202,28 @@ def canvas_image(page, w, h):
         im = im.resize((w, h), Image.NEAREST)
     return im
 
+
+
+def swap_when_half(pg, target):
+    """Wait until the page has accumulated ~half of `target`, reading only the status line.
+
+    A fixed sleep is not good enough and that is a measured fact, not a preference: the probe's
+    C10 control (the deliberately unguarded build) did NOT flip P11 when the swap landed 8s into
+    a 3000-sample render, because the contaminating scene then made up only ~8% of the final
+    average -- about 8 RMSE, under tolerance. The round-1 checker's 62-level contamination came
+    from swapping at the HALFWAY point. A predicate that only fires at some contamination ratios
+    is decoration at the others, so the swap is placed where the blend is worst: 50/50.
+    """
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        txt = pg.text_content("#dc-status") or ""
+        m = re.search(r"(\d+)\s*/\s*(\d+)\s+samples", txt)
+        if m and int(m.group(1)) >= 0.45 * int(m.group(2)):
+            return int(m.group(1))
+        if (pg.get_attribute("#dc-status", "data-state") or "") in ("done", "idle", "error"):
+            return -1
+        time.sleep(0.5)
+    return -1
 
 # ---------------------------------------------------------------- local server
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -415,23 +437,50 @@ def run(url, verbose=True):
         pgB.goto(url + SHIP_PATH, wait_until="load")
         pgB.wait_for_selector("#dc-canvas")
         pgB.select_option("#dc-example", "three")
-        pgB.fill("#dc-samples", "6000")
+        pgB.fill("#dc-samples", "800")
         pgB.click("#dc-render")
         pgB.wait_for_function("() => document.getElementById('dc-status')"
                               ".dataset.state === 'running'", timeout=30000)
-        time.sleep(12)                      # let a real partial average build up
-        scn_s, swapped = ui_render(pgB, "loop", 1024)   # swap mid-flight, then render for real
-        e11 = rmse(clean, swapped)
-        d11 = mean_value_stats(scn_s, swapped)
+        got_half = swap_when_half(pgB, 800)
+        rec("P11.swap_point", got_half > 0,
+            f"reached {got_half} of 800 samples of scene A before swapping (a 50/50 "
+            f"blend is the worst case; an early swap hides contamination in the average)")
+        # THE SWAP, and then NOTHING. No second Render click.
+        # The first version of this predicate clicked Render after swapping, which calls start(),
+        # which clears the accumulator -- so it wiped the very contamination it was meant to
+        # detect and passed against a deliberately broken build. The probe's C10 control refused
+        # to flip and that is how the hole was found. The corrupting path the round-1 checker
+        # reported is: swap, then let the ORIGINAL run carry on to "done".
+        pgB.select_option("#dc-example", "loop")
+        deadline = time.time() + 300
+        state11 = None
+        while time.time() < deadline:
+            state11 = pgB.get_attribute("#dc-status", "data-state")
+            if state11 in ("done", "idle", "error"):
+                break
+            time.sleep(2)
+        scn_s = json.loads(pgB.get_attribute("#dc-canvas", "data-scene"))
+        swapped = list(canvas_image(pgB, scn_s["width"], scn_s["height"]).tobytes())
+        if state11 == "done":
+            # the page claims a finished render: it must be a clean solve of the CURRENT scene
+            e11 = rmse(clean, swapped)
+            ok11 = e11 <= 14.0
+            det11 = (f"page reported DONE after a mid-render swap; RMSE vs a clean render of the "
+                     f"current scene = {e11:.2f} (tol 14.0)")
+        else:
+            ok11 = (state11 == "idle")
+            det11 = (f"page halted the in-flight run on the swap (state={state11!r}) rather than "
+                     f"finishing it over mixed boundary data")
+        rec("P11.midrender_swap_not_contaminated", ok11, det11)
+
+        # and it must still work afterwards: render the swapped-to scene for real
+        _scn2, after = ui_render(pgB, "loop", 1024)
+        e11b = rmse(clean, after)
+        d11 = mean_value_stats(_scn2, after)
         m11 = sum(d11) / max(len(d11), 1)
-        # two independent 1024-spp renders of the same scene differ by MC noise alone:
-        # sqrt(2) * 127.5/sqrt(1024) ~ 5.6 worst case. 14 leaves headroom and is far under the
-        # 62-level contamination the checker measured.
-        rec("P11.midrender_swap_clean", e11 <= 14.0,
-            f"scene swapped mid-render then rendered: RMSE vs a clean render of the same scene "
-            f"= {e11:.2f} (tol 14.0; contamination measured at 62 before the fix)")
-        rec("P11.midrender_swap_harmonic", len(d11) >= 20 and m11 <= P3_MEAN_TOL * 1.6,
-            f"and the result is still harmonic: mean-value error {m11:.2f} over {len(d11)} probes")
+        rec("P11.works_after_swap", e11b <= 14.0 and m11 <= P3_MEAN_TOL * 1.6,
+            f"render after the swap matches a clean render (RMSE {e11b:.2f}, tol 14.0) and is "
+            f"harmonic (mean-value {m11:.2f} over {len(d11)} probes)")
         pgA.close(); pgB.close()
 
         # ---------------- P10 the inlined shared primitives have not drifted from lib/

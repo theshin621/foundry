@@ -1,0 +1,37 @@
+PROBE-THE-ORACLE — ship 011
+==============================================================
+
+BASELINE (unmutated build) — every predicate must be GREEN or the controls prove nothing
+  {"P1": true, "P2": true, "P3": true, "_P3v": 3.94, "P4": true, "_P4v": 1.91, "P5.seed": true, "P6": true, "P9.escaping": true, "P11": true, "_P11v": "idle", "P7": true}
+
+[C10-scene-swap-unguarded] must turn P11 RED
+  revert the round-1 severe fix: let the example dropdown reassign the scene WITHOUT stopping the running loop, so a mid-render swap keeps averaging new boundary data into the old buffer. P11 exists only for this, so if it does not flip, P11 is decoration.
+  P11 = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P3": true, "P4": true, "P5.seed": true, "P6": true, "P9.escaping": true}
+
+==============================================================
+INDEPENDENT BREAK ATTEMPT (v4 clause b), stated before the controls were written:
+
+  Attempt A1 — 'pass P3 without solving anything.' The mean-value property is satisfied EXACTLY by
+  any affine function, so a plain linear ramp is a perfect harmonic fake. This is a real hole in
+  P3 and it is why S2 carries three curves whose two-sided colour data no affine function can
+  match, and why P2 is a separate predicate rather than folded into P3. C2 is that attack, run.
+
+  Attempt A2 — 'pass everything through the seam while the page is dead.' Ship 008 did this by
+  accident. P6 (seam == screenshot) and P7 (drive the real buttons, never touch DC.*) were written
+  for it before any code existed. C6 and C7 are that attack, run.
+
+  Attempt A3 — 'pass P4 with a deterministic renderer by adding noise.' A faker could dither the
+  output per seed and produce a 1/sqrt(N)-looking curve. This attempt SUCCEEDS against P4 alone.
+  It fails against P3+P2 together, because dither is not harmonic and the dither amplitude needed
+  to fake the convergence curve is the same amplitude P3 measures. Recorded as a known limit of
+  P4 in isolation rather than patched, because the composite is already sound.
+
+  Attempt A4 — 'satisfy P2 and P3 on the oracle's scenes only, by hard-coding them.' Not defended
+  against by any predicate here, and honestly stated: the oracle's scenes are in a public repo.
+  What makes it unrewarding rather than impossible is P7, which renders whatever scene the PAGE
+  declares, and P5.scene, which requires a different scene to produce a different image. A build
+  that hard-coded S1/S2/S3 would still have to solve the UI's own example. Left as a stated limit.
+
+==============================================================
+1/1 controls flipped their predicate as claimed

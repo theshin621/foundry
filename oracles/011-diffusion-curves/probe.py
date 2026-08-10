@@ -19,7 +19,7 @@ Nothing else differs, and no control is judged by a rule oracle.py does not use.
 Usage: python3 oracles/011-diffusion-curves/probe.py
 Exit 0 = every control flipped its predicate as claimed.
 """
-import json, math, os, shutil, subprocess, sys, tempfile, time
+import json, math, os, re, shutil, subprocess, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -81,8 +81,8 @@ CONTROLS = [
     ("C7-dead-button",
      "leave the automation seam fully working and make the Render button do nothing. Every "
      "predicate that talks to DC.* still passes.",
-     [("  btnRender.addEventListener('click', function () {\n    var n = ",
-       "  btnRender.addEventListener('click', function () {\n    if (1) return;\n    var n = ")],
+     [("  btnRender.addEventListener('click', function () {\n    start(clampSamples",
+       "  btnRender.addEventListener('click', function () {\n    if (1) return; start(clampSamples")],
      "P7"),
 
     ("C8-unescaped-label",
@@ -102,9 +102,21 @@ CONTROLS = [
      "SKIP"),   # replaced below by the direct form
 ]
 
+CONTROLS.append((
+    "C10-scene-swap-unguarded",
+    "revert the round-1 severe fix: let the example dropdown reassign the scene WITHOUT stopping "
+    "the running loop, so a mid-render swap keeps averaging new boundary data into the old "
+    "buffer. P11 exists only for this, so if it does not flip, P11 is decoration.",
+    [("  sel.addEventListener('change', function () {\n    var sc = ",
+      "  sel.addEventListener('change', function () {\n    if (1) { var q = "
+      "JSON.parse(JSON.stringify(EXAMPLES[sel.value].scene)); q.width = W; q.height = H; "
+      "state.scene = q; canvas.setAttribute('data-scene', JSON.stringify(q)); return; }\n"
+      "    var sc = ")],
+    "P11"))
+
 # C9 needs to run BEFORE app.js takes the context; the cleanest byte-level way is to grab a 2D
 # context in a script tag placed immediately before the engine block.
-CONTROLS[-1] = (
+CONTROLS[8] = (          # replaces the SKIP placeholder above, by index not by [-1]
     "C9-2d-canvas",
     "take a 2D context on the canvas before the engine runs, so getContext('webgl2') can only "
     "return null. A page that then claims to render is claiming something impossible.",
@@ -113,6 +125,28 @@ CONTROLS[-1] = (
       "<!-- ===== ship engine + UI (src/011-diffusion-curves/app.js) ===== -->")],
     "P1")
 
+
+
+def swap_when_half(pg, target):
+    """Wait until the page has accumulated ~half of `target`, reading only the status line.
+
+    A fixed sleep is not good enough and that is a measured fact, not a preference: the probe's
+    C10 control (the deliberately unguarded build) did NOT flip P11 when the swap landed 8s into
+    a 3000-sample render, because the contaminating scene then made up only ~8% of the final
+    average -- about 8 RMSE, under tolerance. The round-1 checker's 62-level contamination came
+    from swapping at the HALFWAY point. A predicate that only fires at some contamination ratios
+    is decoration at the others, so the swap is placed where the blend is worst: 50/50.
+    """
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        txt = pg.text_content("#dc-status") or ""
+        m = re.search(r"(\d+)\s*/\s*(\d+)\s+samples", txt)
+        if m and int(m.group(1)) >= 0.45 * int(m.group(2)):
+            return int(m.group(1))
+        if (pg.get_attribute("#dc-status", "data-state") or "") in ("done", "idle", "error"):
+            return -1
+        time.sleep(0.5)
+    return -1
 
 # ---------------------------------------------------------------------------- harness
 def stage(mutations):
@@ -130,7 +164,7 @@ def stage(mutations):
     return d
 
 
-def measure(root, want_ui=False):
+def measure(root, want_ui=False, want_p11=False):
     """Run the small predicate battery against a staged copy. Returns a dict of results."""
     from playwright.sync_api import sync_playwright
     httpd, url = O.serve(os.path.join(root, "public"))
@@ -155,6 +189,9 @@ def measure(root, want_ui=False):
                 try { two = c.getContext('2d'); } catch(e){}
                 return {backend: DC.meta().backend, gl: !!gl, two: !!two}; }""")
             out["P1"] = (m["backend"] == "webgl2") and m["gl"] and not m["two"]
+            if not out["P1"]:
+                b.close()          # nothing downstream is meaningful without a GL context
+                return out
 
             def render(scene, spp, seed):
                 pg.evaluate("s => DC.load(s)", scene)
@@ -195,6 +232,44 @@ def measure(root, want_ui=False):
             out["P9.escaping"] = pg.evaluate("""() => { DC.setLabel('<img src=x onerror=window.__p=1>');
                 return !window.__p && !document.querySelector('img[onerror]'); }""")
 
+            if want_p11:
+                def ui(pg2, ex, spp):
+                    pg2.select_option("#dc-example", ex)
+                    pg2.fill("#dc-samples", str(spp))
+                    pg2.click("#dc-render")
+                    pg2.wait_for_function("() => document.getElementById('dc-status')"
+                                          ".dataset.state === 'done'", timeout=300000)
+                    sc = json.loads(pg2.get_attribute("#dc-canvas", "data-scene"))
+                    return list(O.canvas_image(pg2, sc["width"], sc["height"]).tobytes())
+                pa = b.new_page(viewport={"width": 1100, "height": 900})
+                pa.goto(url + O.SHIP_PATH, wait_until="load"); pa.wait_for_selector("#dc-canvas")
+                clean = ui(pa, "loop", 256)
+                pb = b.new_page(viewport={"width": 1100, "height": 900})
+                pb.goto(url + O.SHIP_PATH, wait_until="load"); pb.wait_for_selector("#dc-canvas")
+                pb.select_option("#dc-example", "three"); pb.fill("#dc-samples", "800")
+                pb.click("#dc-render")
+                pb.wait_for_function("() => document.getElementById('dc-status')"
+                                     ".dataset.state === 'running'", timeout=30000)
+                swap_when_half(pb, 800)
+                pb.select_option("#dc-example", "loop")     # swap, then NO second Render click
+                deadline = time.time() + 240
+                st = None
+                while time.time() < deadline:
+                    st = pb.get_attribute("#dc-status", "data-state")
+                    if st in ("done", "idle", "error"):
+                        break
+                    time.sleep(2)
+                sc = json.loads(pb.get_attribute("#dc-canvas", "data-scene"))
+                swapped = list(O.canvas_image(pb, sc["width"], sc["height"]).tobytes())
+                if st == "done":
+                    e = O.rmse(clean, swapped)
+                    out["P11"] = e <= 26.0
+                    out["_P11v"] = round(e, 2)
+                else:
+                    out["P11"] = (st == "idle")
+                    out["_P11v"] = st
+                pa.close(); pb.close()
+
             if want_ui:
                 p2 = b.new_page(viewport={"width": 1100, "height": 900})
                 p2.goto(url + O.SHIP_PATH, wait_until="load")
@@ -222,7 +297,7 @@ def main():
     print("PROBE-THE-ORACLE — ship 011\n" + "=" * 62)
     baseline_dir = stage([])
     print("\nBASELINE (unmutated build) — every predicate must be GREEN or the controls prove nothing")
-    base = measure(baseline_dir, want_ui=True)
+    base = measure(baseline_dir, want_ui=True, want_p11=True)
     shutil.rmtree(baseline_dir, ignore_errors=True)
     print("  " + json.dumps(base))
     bad = [k for k, v in base.items() if not k.startswith("_") and v is not True]
@@ -230,12 +305,18 @@ def main():
         print(f"\nBASELINE IS NOT GREEN ({bad}) — controls below are meaningless. Stop.")
         return 2
 
+    only = None
+    for a in sys.argv[1:]:
+        if a.startswith("--only="):
+            only = set(a.split("=", 1)[1].split(","))
     results = []
     for cid, claim, muts, target in CONTROLS:
+        if only and cid.split("-")[0] not in only:
+            continue
         print(f"\n[{cid}] must turn {target} RED\n  {claim}")
         d = stage(muts)
         try:
-            r = measure(d, want_ui=(target == "P7"))
+            r = measure(d, want_ui=(target == "P7"), want_p11=(target == "P11"))
         finally:
             shutil.rmtree(d, ignore_errors=True)
         got = r.get(target, None)
