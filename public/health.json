@@ -1,6 +1,6 @@
 {
- "checked_utc": "2026-08-10T06:43:08Z",
- "commit": "686523f",
+ "checked_utc": "2026-08-10T07:10:58Z",
+ "commit": "d4e3d0a",
  "base": "https://tailorfarms.com",
  "hub": {
   "path": "/",
@@ -48,16 +48,6 @@
    "has_beacon": true,
    "n": 5,
    "slug": "maccleaner",
-   "status": "live"
-  },
-  {
-   "path": "/008-beacon-firstparty/",
-   "http": 404,
-   "ok": false,
-   "bytes": 0,
-   "has_beacon": false,
-   "n": 8,
-   "slug": "beacon-firstparty",
    "status": "live"
   }
  ]
