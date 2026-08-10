@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>diffusion curves — a real solver in the browser · foundry day 011</title>
+<meta name="description" content="Draw or drop curves with a colour on each side; a grid-free Monte Carlo solver fills the space between them. Runs entirely in your browser, exports PNG at any size.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--line:#20262e;--acc:#7dd3a0;--bad:#f0806c}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+  font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
+main{max-width:48rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+h1{font-size:1.35rem;margin:0 0 .35rem}
+h2{font-size:1rem;margin:2.2rem 0 .6rem;color:var(--acc)}
+.sub{color:var(--dim);margin:0 0 1.6rem}
+.stage{display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start}
+canvas{width:384px;height:384px;image-rendering:pixelated;background:#111;
+  border:1px solid var(--line);border-radius:4px;max-width:100%}
+.panel{flex:1 1 15rem;min-width:14rem}
+label{display:block;color:var(--dim);font-size:.8rem;margin:.9rem 0 .25rem}
+select,input[type=number],input[type=text]{width:100%;background:#12161b;color:var(--fg);
+  border:1px solid var(--line);border-radius:4px;padding:.45rem .55rem;font:inherit;font-size:.85rem}
+input[type=file]{width:100%;font-size:.75rem;color:var(--dim)}
+button{background:#182029;color:var(--fg);border:1px solid var(--line);border-radius:4px;
+  padding:.5rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;margin:.9rem .4rem 0 0}
+button:hover{border-color:var(--acc)}
+#dc-status{margin-top:.75rem;font-size:.8rem;color:var(--dim);min-height:1.4em}
+#dc-status[data-state=error]{color:var(--bad)}
+#dc-source,#dc-caption{font-size:.8rem;color:var(--dim);margin-top:.6rem;word-break:break-word}
+.cap{color:var(--fg)}
+.bad{color:var(--bad)}
+.eval{border-left:2px solid var(--acc);padding:.1rem 0 .1rem .9rem;margin:1.4rem 0;color:var(--dim)}
+.eval b{color:var(--fg)}
+ol,ul{padding-left:1.2rem}
+footer{margin-top:3rem;color:#4b535c;font-size:.8rem;border-top:1px solid var(--line);padding-top:1rem}
+footer a{color:#4b535c}
+code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
+</style>
+</head>
+<body>
+<main>
+  <h1>diffusion curves</h1>
+  <p class="sub">Curves with a colour on each side. Everything between them is the actual solution
+  to Laplace's equation — not a blur, not a mesh of control points. Solved in your browser, one
+  independent random walk per pixel.</p>
+
+  <div class="stage">
+    <canvas id="dc-canvas" width="128" height="128" data-scene="{}"></canvas>
+    <div class="panel">
+      <label for="dc-example">example scene</label>
+      <select id="dc-example"></select>
+      <label for="dc-file">…or drop an SVG (paths, polylines, lines, polygons)</label>
+      <input id="dc-file" type="file" accept=".svg,image/svg+xml">
+      <label for="dc-res">solve resolution (square)</label>
+      <select id="dc-res">
+        <option value="128" selected>128 × 128 — fast</option>
+        <option value="192">192 × 192</option>
+        <option value="256">256 × 256</option>
+        <option value="384">384 × 384</option>
+        <option value="512">512 × 512 — slow</option>
+      </select>
+      <label for="dc-samples">samples per pixel</label>
+      <input id="dc-samples" type="number" min="1" max="16384" step="1" value="512">
+      <label for="dc-title">caption (optional)</label>
+      <input id="dc-title" type="text" placeholder="untitled">
+      <button id="dc-render" type="button">Render</button>
+      <button id="dc-export" type="button">Export PNG</button>
+      <div id="dc-status" data-state="idle">starting…</div>
+      <div id="dc-source">source: <b>three curves</b> (built-in)</div>
+      <div id="dc-caption"></div>
+    </div>
+  </div>
+
+  <div class="eval">
+    <b>To evaluate this you need to understand five things.</b>
+    <ol>
+      <li><b>The claim is mathematical, not aesthetic.</b> The field between the curves satisfies
+      Δu&nbsp;=&nbsp;0 with the curve colours as boundary data. A Gaussian blur of the same curves
+      looks similar and is a different function.</li>
+      <li><b>The test for that claim is the mean-value property.</b> A harmonic function's value at
+      any point equals its average over any circle around that point that stays clear of the
+      boundary. The build's oracle checks exactly this, on the rendered pixels, in a real browser.</li>
+      <li><b>It is Monte Carlo, so it is noisy and the noise is the honest part.</b> Error falls as
+      1/√samples. Doubling samples does not double quality; quadrupling halves the error.</li>
+      <li><b>Nothing leaves your machine.</b> No upload, no server, no account. The SVG is parsed by
+      your own browser and the pixels never go anywhere.</li>
+      <li><b>Software rendering is slow.</b> On a machine without a working GPU path this falls back
+      to a software rasteriser and a high sample count takes minutes. That is the honest cost of a
+      per-pixel stochastic solver.</li>
+    </ol>
+  </div>
+
+  <h2>What it does that a mesh gradient does not</h2>
+  <p>Mesh-gradient tools give you a grid of control points and interpolate between them. Diffusion
+  curves invert that: you specify colour on <i>curves</i>, and the smooth field between them is
+  computed rather than authored. Sharp edges stay sharp — the two sides of a curve are independent
+  boundary values, so a hard colour break survives arbitrarily close to the line, which is exactly
+  what a control-point mesh cannot do.</p>
+
+  <h2>How the solve works</h2>
+  <p>Grid-free <b>walk-on-spheres</b>, after Sawhney's grid-free Monte Carlo methods for PDEs.
+  For each pixel: find the distance to the nearest curve, jump to a uniformly random point on the
+  circle of that radius, repeat. When the walk lands on a curve, take the colour of the side it
+  arrived from. Average many such walks. There is no mesh, no linear system, and every pixel is
+  independent — which is why it is a fragment shader and not a solver.</p>
+  <p>The image border is a boundary too, tinted with the page background, otherwise the problem is
+  not well posed on a finite canvas.</p>
+
+  <h2>Limits, stated</h2>
+  <ul>
+    <li>Solve resolution is selectable from 128² to 512² and the canvas is displayed scaled with
+    nearest-neighbour. Export is the solved image at the chosen resolution. Cost is linear in pixels
+    × samples, so 512² is 16× the work of 128².</li>
+    <li>Dirichlet data on segments only — no Neumann conditions, no source terms, no blur radius
+    per curve. Curved paths are sampled into segments.</li>
+    <li>Up to 12 curves and 64 segments from an SVG.</li>
+    <li>Colour is averaged in sRGB, not linear light. Physically that is the wrong space; it is the
+    space the boundary colours are specified in, and changing it would change what "the colour you
+    set" means at the boundary.</li>
+  </ul>
+
+  <footer>built by <a href="https://tailorfarms.com">foundry</a> · day 011 ·
+  <a href="https://tailorfarms.com/dashboard/">status</a> ·
+  verified against <code>oracles/011-diffusion-curves/</code> before ship — the mean-value test,
+  the Monte-Carlo convergence test and the boundary test are run by a browser, not asserted here</footer>
+</main>
+
+<!-- ===== inlined verbatim from lib/esc.js ===== -->
+<script>
+/*__ESC__*/
+</script>
+<!-- ===== inlined verbatim from lib/wos-glsl.js ===== -->
+<script>
+/*__WOS__*/
+</script>
+<!-- ===== ship engine + UI (src/011-diffusion-curves/app.js) ===== -->
+<script>
+/*__APP__*/
+</script>
+<!-- first-party cookieless beacon — inlined verbatim from lib/beacon-firstparty.snippet.html -->
+<script>
+(function(){
+  try{
+    if(navigator.webdriver) return;
+    var body = JSON.stringify({ path: location.pathname + location.search, self: /(^|[?&])self=1([&#]|$)/.test(location.search) });
+    var blob = new Blob([body], {type:'text/plain'});
+    if(!(navigator.sendBeacon && navigator.sendBeacon('/_b', blob))){ fetch('/_b', {method:'POST', body:body, keepalive:true, headers:{'content-type':'text/plain'}}).catch(function(){}); }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

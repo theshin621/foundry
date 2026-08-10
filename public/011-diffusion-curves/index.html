@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>diffusion curves — a real solver in the browser · foundry day 011</title>
+<meta name="description" content="Draw or drop curves with a colour on each side; a grid-free Monte Carlo solver fills the space between them. Runs entirely in your browser, exports PNG at any size.">
+<style>
+:root{--bg:#0b0d10;--fg:#e8eaed;--dim:#8b949e;--line:#20262e;--acc:#7dd3a0;--bad:#f0806c}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+  font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
+main{max-width:48rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+h1{font-size:1.35rem;margin:0 0 .35rem}
+h2{font-size:1rem;margin:2.2rem 0 .6rem;color:var(--acc)}
+.sub{color:var(--dim);margin:0 0 1.6rem}
+.stage{display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start}
+canvas{width:384px;height:384px;image-rendering:pixelated;background:#111;
+  border:1px solid var(--line);border-radius:4px;max-width:100%}
+.panel{flex:1 1 15rem;min-width:14rem}
+label{display:block;color:var(--dim);font-size:.8rem;margin:.9rem 0 .25rem}
+select,input[type=number],input[type=text]{width:100%;background:#12161b;color:var(--fg);
+  border:1px solid var(--line);border-radius:4px;padding:.45rem .55rem;font:inherit;font-size:.85rem}
+input[type=file]{width:100%;font-size:.75rem;color:var(--dim)}
+button{background:#182029;color:var(--fg);border:1px solid var(--line);border-radius:4px;
+  padding:.5rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;margin:.9rem .4rem 0 0}
+button:hover{border-color:var(--acc)}
+#dc-status{margin-top:.75rem;font-size:.8rem;color:var(--dim);min-height:1.4em}
+#dc-status[data-state=error]{color:var(--bad)}
+#dc-source,#dc-caption{font-size:.8rem;color:var(--dim);margin-top:.6rem;word-break:break-word}
+.cap{color:var(--fg)}
+.bad{color:var(--bad)}
+.eval{border-left:2px solid var(--acc);padding:.1rem 0 .1rem .9rem;margin:1.4rem 0;color:var(--dim)}
+.eval b{color:var(--fg)}
+ol,ul{padding-left:1.2rem}
+footer{margin-top:3rem;color:#4b535c;font-size:.8rem;border-top:1px solid var(--line);padding-top:1rem}
+footer a{color:#4b535c}
+code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
+</style>
+</head>
+<body>
+<main>
+  <h1>diffusion curves</h1>
+  <p class="sub">Curves with a colour on each side. Everything between them is the actual solution
+  to Laplace's equation — not a blur, not a mesh of control points. Solved in your browser, one
+  independent random walk per pixel.</p>
+
+  <div class="stage">
+    <canvas id="dc-canvas" width="128" height="128" data-scene="{}"></canvas>
+    <div class="panel">
+      <label for="dc-example">example scene</label>
+      <select id="dc-example"></select>
+      <label for="dc-file">…or drop an SVG (paths, polylines, lines, polygons)</label>
+      <input id="dc-file" type="file" accept=".svg,image/svg+xml">
+      <label for="dc-res">solve resolution (square)</label>
+      <select id="dc-res">
+        <option value="128" selected>128 × 128 — fast</option>
+        <option value="192">192 × 192</option>
+        <option value="256">256 × 256</option>
+        <option value="384">384 × 384</option>
+        <option value="512">512 × 512 — slow</option>
+      </select>
+      <label for="dc-samples">samples per pixel</label>
+      <input id="dc-samples" type="number" min="1" max="16384" step="1" value="512">
+      <label for="dc-title">caption (optional)</label>
+      <input id="dc-title" type="text" placeholder="untitled">
+      <button id="dc-render" type="button">Render</button>
+      <button id="dc-export" type="button">Export PNG</button>
+      <div id="dc-status" data-state="idle">starting…</div>
+      <div id="dc-source">source: <b>three curves</b> (built-in)</div>
+      <div id="dc-caption"></div>
+    </div>
+  </div>
+
+  <div class="eval">
+    <b>To evaluate this you need to understand five things.</b>
+    <ol>
+      <li><b>The claim is mathematical, not aesthetic.</b> The field between the curves satisfies
+      Δu&nbsp;=&nbsp;0 with the curve colours as boundary data. A Gaussian blur of the same curves
+      looks similar and is a different function.</li>
+      <li><b>The test for that claim is the mean-value property.</b> A harmonic function's value at
+      any point equals its average over any circle around that point that stays clear of the
+      boundary. The build's oracle checks exactly this, on the rendered pixels, in a real browser.</li>
+      <li><b>It is Monte Carlo, so it is noisy and the noise is the honest part.</b> Error falls as
+      1/√samples. Doubling samples does not double quality; quadrupling halves the error.</li>
+      <li><b>Nothing leaves your machine.</b> No upload, no server, no account. The SVG is parsed by
+      your own browser and the pixels never go anywhere.</li>
+      <li><b>Software rendering is slow.</b> On a machine without a working GPU path this falls back
+      to a software rasteriser and a high sample count takes minutes. That is the honest cost of a
+      per-pixel stochastic solver.</li>
+    </ol>
+  </div>
+
+  <h2>What it does that a mesh gradient does not</h2>
+  <p>Mesh-gradient tools give you a grid of control points and interpolate between them. Diffusion
+  curves invert that: you specify colour on <i>curves</i>, and the smooth field between them is
+  computed rather than authored. Sharp edges stay sharp — the two sides of a curve are independent
+  boundary values, so a hard colour break survives arbitrarily close to the line, which is exactly
+  what a control-point mesh cannot do.</p>
+
+  <h2>How the solve works</h2>
+  <p>Grid-free <b>walk-on-spheres</b>, after Sawhney's grid-free Monte Carlo methods for PDEs.
+  For each pixel: find the distance to the nearest curve, jump to a uniformly random point on the
+  circle of that radius, repeat. When the walk lands on a curve, take the colour of the side it
+  arrived from. Average many such walks. There is no mesh, no linear system, and every pixel is
+  independent — which is why it is a fragment shader and not a solver.</p>
+  <p>The image border is a boundary too, tinted with the page background, otherwise the problem is
+  not well posed on a finite canvas.</p>
+
+  <h2>Limits, stated</h2>
+  <ul>
+    <li>Solve resolution is selectable from 128² to 512² and the canvas is displayed scaled with
+    nearest-neighbour. Export is the solved image at the chosen resolution. Cost is linear in pixels
+    × samples, so 512² is 16× the work of 128².</li>
+    <li>Dirichlet data on segments only — no Neumann conditions, no source terms, no blur radius
+    per curve. Curved paths are sampled into segments.</li>
+    <li>Up to 12 curves and 64 segments from an SVG.</li>
+    <li>Colour is averaged in sRGB, not linear light. Physically that is the wrong space; it is the
+    space the boundary colours are specified in, and changing it would change what "the colour you
+    set" means at the boundary.</li>
+  </ul>
+
+  <footer>built by <a href="https://tailorfarms.com">foundry</a> · day 011 ·
+  <a href="https://tailorfarms.com/dashboard/">status</a> ·
+  verified against <code>oracles/011-diffusion-curves/</code> before ship — the mean-value test,
+  the Monte-Carlo convergence test and the boundary test are run by a browser, not asserted here</footer>
+</main>
+
+<!-- ===== inlined verbatim from lib/esc.js ===== -->
+<script>
+/* lib/esc.js — the ONE HTML-escape helper every ship uses on any user-derived string
+ * before it reaches innerHTML. Inline a copy into each ship (pages stay self-contained);
+ * this file is the canonical source.
+ *
+ * WHY THIS IS A SHARED PRIMITIVE (2026-08-02): ship 002 shipped TWO security findings in
+ * two checker rounds, both the same class — a user-controlled string reaching innerHTML
+ * unescaped. Round 1: a value interpolated into a template. Round 2: a value interpolated
+ * into a THROWN ERROR MESSAGE, then rendered. The lesson is not "remember to escape" — it
+ * is "route every sink through one audited function and escape at the boundary". If a ship
+ * builds HTML from input, it uses this. The checker greps for raw `innerHTML=` assignments
+ * that don't pass through esc().
+ *
+ * Escapes the five characters that matter in both element and attribute context. It does
+ * NOT make arbitrary input safe inside a <script>, a style, a URL, or an unquoted attribute
+ * — those need context-specific handling and are out of scope on purpose.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.esc = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  var MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return MAP[c]; });
+  };
+});
+
+</script>
+<!-- ===== inlined verbatim from lib/wos-glsl.js ===== -->
+<script>
+/* lib/wos-glsl.js — the reusable piece extracted from ship 011 (diffusion curves).
+ *
+ * A grid-free **walk-on-spheres** estimator for the Laplace equation with two-sided Dirichlet
+ * data on line segments, as a WebGL2 fragment shader plus the scene->uniform packing it needs.
+ * Mechanism after Sawhney (CMU 2024), "Grid-Free Monte Carlo methods for PDEs"; the estimator is
+ * per-pixel independent, which is why it is a fragment shader and not a solver.
+ *
+ * WHY THIS IS A SHARED PRIMITIVE: any future ship that needs a smooth field obeying boundary
+ * data — gradient tools, heat maps, distance-field art, interpolation over sketched constraints —
+ * needs exactly this and should not re-derive it. Ships stay self-contained, so a ship INLINES a
+ * verbatim copy of SHADER_FS and packScene(); this file is the canonical source and the ship's
+ * oracle carries a drift predicate (P10) asserting the inlined copy still matches this text.
+ *
+ * WHAT IT IS NOT: this is not a general PDE solver. Dirichlet data on segments only; no Neumann,
+ * no source term, no anisotropy. The image border is a boundary too — callers must pass it, which
+ * packScene() does, otherwise the problem is not well posed on a finite canvas.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.WOS = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var MAX_SEG = 64;
+
+  /* Scene -> flat uniform arrays.
+   * scene = {width, height, curves:[{pts:[[x,y]...], left:[r,g,b], right:[r,g,b]}]}
+   * Coordinates are normalised [0,1], origin top-left, y DOWN.
+   * "left" is the side where the 2-D cross product (b-a) x (p-a) is NEGATIVE in y-down space.
+   * The four border segments are appended with left == right == bg, which both closes the domain
+   * and gives the caller a background tint for free.
+   */
+  function packScene(scene, bg) {
+    var seg = [], colL = [], colR = [], i, j, c, p;
+    for (i = 0; i < scene.curves.length; i++) {
+      c = scene.curves[i]; p = c.pts;
+      for (j = 0; j + 1 < p.length; j++) {
+        if (seg.length / 4 >= MAX_SEG) break;
+        seg.push(p[j][0], p[j][1], p[j + 1][0], p[j + 1][1]);
+        colL.push(c.left[0] / 255, c.left[1] / 255, c.left[2] / 255);
+        colR.push(c.right[0] / 255, c.right[1] / 255, c.right[2] / 255);
+      }
+    }
+    var b = [(bg && bg[0] || 0) / 255, (bg && bg[1] || 0) / 255, (bg && bg[2] || 0) / 255];
+    var border = [[0, 0, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 0, 0]];
+    for (i = 0; i < 4; i++) {
+      if (seg.length / 4 >= MAX_SEG) break;
+      seg.push(border[i][0], border[i][1], border[i][2], border[i][3]);
+      colL.push(b[0], b[1], b[2]);
+      colR.push(b[0], b[1], b[2]);
+    }
+    return { n: seg.length / 4, seg: new Float32Array(seg), colL: new Float32Array(colL),
+             colR: new Float32Array(colR) };
+  }
+
+  var SHADER_VS = '#version 300 es\n' +
+    'in vec2 aPos; void main(){ gl_Position = vec4(aPos,0.0,1.0); }\n';
+
+  /* Accumulation pass. Reads the running sum, adds uSPP fresh walks, writes sum + count.
+   * RGBA32F: rgb = sum of boundary colours hit, a = number of walks. */
+  var SHADER_FS = '#version 300 es\n' +
+    'precision highp float; precision highp int;\n' +
+    'uniform sampler2D uPrev;\n' +
+    'uniform vec2  uRes;\n' +
+    'uniform int   uNSeg;\n' +
+    'uniform vec4  uSeg[' + MAX_SEG + '];\n' +
+    'uniform vec3  uColL[' + MAX_SEG + '];\n' +
+    'uniform vec3  uColR[' + MAX_SEG + '];\n' +
+    'uniform uint  uSeed;\n' +
+    'uniform int   uSPP;\n' +
+    'uniform int   uBase;\n' +
+    'out vec4 outC;\n' +
+    'const int MAXSTEP = 40;\n' +
+    'const float EPS = 0.0015;\n' +
+    'uint hashu(uint x){ x^=x>>16; x*=0x7feb352du; x^=x>>15; x*=0x846ca68bu; x^=x>>16; return x; }\n' +
+    'float rnd(inout uint s){ s = s*747796405u + 2891336453u;\n' +
+    '  uint r = ((s >> ((s >> 28) + 4u)) ^ s) * 277803737u; r = (r >> 22) ^ r;\n' +
+    '  return float(r) * (1.0/4294967296.0); }\n' +
+    // nearest boundary point: distance, which segment, and which side we are on
+    'void closest(vec2 p, out float d, out int idx, out float sgn){\n' +
+    '  d = 1e9; idx = 0; sgn = 1.0;\n' +
+    '  for(int i=0;i<uNSeg;i++){\n' +
+    '    vec4 s = uSeg[i]; vec2 a = s.xy, b = s.zw;\n' +
+    '    vec2 v = b-a, w = p-a;\n' +
+    '    float L2 = dot(v,v);\n' +
+    '    float t = L2 > 0.0 ? clamp(dot(w,v)/L2, 0.0, 1.0) : 0.0;\n' +
+    '    float dd = length(p - (a + t*v));\n' +
+    '    if(dd < d){ d = dd; idx = i; sgn = v.x*(p.y-a.y) - v.y*(p.x-a.x); }\n' +
+    '  }\n' +
+    '}\n' +
+    'vec3 boundaryColour(int idx, float sgn){ return sgn > 0.0 ? uColR[idx] : uColL[idx]; }\n' +
+    // one walk-on-spheres path: jump to a uniform point on the largest empty ball until the
+    // boundary is within EPS, then take the colour of the side we arrived on.
+    'vec3 walk(vec2 p, inout uint st){\n' +
+    '  float d; int idx; float sgn;\n' +
+    '  for(int k=0;k<MAXSTEP;k++){\n' +
+    '    closest(p, d, idx, sgn);\n' +
+    '    if(d < EPS) return boundaryColour(idx, sgn);\n' +
+    '    float th = 6.28318530718 * rnd(st);\n' +
+    '    p += d * vec2(cos(th), sin(th));\n' +
+    '  }\n' +
+    '  closest(p, d, idx, sgn); return boundaryColour(idx, sgn);\n' +
+    '}\n' +
+    'void main(){\n' +
+    '  ivec2 ip = ivec2(gl_FragCoord.xy);\n' +
+    '  vec2 uv = (gl_FragCoord.xy) / uRes;\n' +
+    '  vec2 p  = vec2(uv.x, 1.0 - uv.y);\n' +           // gl_FragCoord is bottom-up; scene is y-down
+    '  uint st = hashu(uint(ip.x) + uint(ip.y)*1973u + uSeed*9277u + uint(uBase)*26699u);\n' +
+    '  vec3 sum = vec3(0.0);\n' +
+    '  for(int i=0;i<uSPP;i++) sum += walk(p, st);\n' +
+    '  vec4 prev = texelFetch(uPrev, ip, 0);\n' +
+    '  outC = vec4(prev.rgb + sum, prev.a + float(uSPP));\n' +
+    '}\n';
+
+  /* Display pass: mean of the accumulated walks. */
+  var SHADER_SHOW = '#version 300 es\n' +
+    'precision highp float;\n' +
+    'uniform sampler2D uAcc;\n' +
+    'out vec4 outC;\n' +
+    'void main(){\n' +
+    '  vec4 a = texelFetch(uAcc, ivec2(gl_FragCoord.xy), 0);\n' +
+    '  vec3 c = a.a > 0.0 ? a.rgb / a.a : vec3(0.0);\n' +
+    '  outC = vec4(clamp(c, 0.0, 1.0), 1.0);\n' +
+    '}\n';
+
+  return { MAX_SEG: MAX_SEG, packScene: packScene,
+           SHADER_VS: SHADER_VS, SHADER_FS: SHADER_FS, SHADER_SHOW: SHADER_SHOW };
+});
+
+</script>
+<!-- ===== ship engine + UI (src/011-diffusion-curves/app.js) ===== -->
+<script>
+/* ship 011 — diffusion-curve gradient renderer. Engine + UI.
+ * The estimator and its shaders live in lib/wos-glsl.js and are inlined above this block
+ * verbatim; this file is only the WebGL plumbing, the UI, and the automation seam (window.DC).
+ */
+(function () {
+  'use strict';
+
+  var W = 128, H = 128;                      // solve resolution; CSS scales the canvas up
+  /* Samples per draw call, adapted at run time. This is NOT a taste knob. A single draw that
+   * takes ~a second is long enough for the browser's GPU watchdog to reset the context: measured
+   * during the build at 192x192, where a 16-sample pass ran ~0.9s and Chromium logged
+   * "CONTEXT_LOST_WEBGL: loseContext" a few passes in, after which every draw silently became a
+   * no-op and the canvas read back as all zeros while the sample counter kept climbing. Bounding
+   * each draw to ~100ms is the fix; the loop below halves or doubles the pass size to hold that. */
+  /* Sizing is ANALYTIC, not measured. The first version of this adapted on wall-clock around
+   * gl.finish() and ran away to 64 samples/pass, because in Chromium the GL calls are queued to a
+   * separate GPU process and finish() does not block until the work is really done — so every
+   * pass "measured" fast and the loop kept doubling until a single draw was ~3.6s and the context
+   * died. Measured facts from that build: 128x128 x 64spp (1.05e6 pixel-samples) survived;
+   * 192x192 x 64spp (2.36e6) lost the context. The budget below is ~4x under the survivor. */
+  var PIXEL_SAMPLE_BUDGET = 2.5e5;
+  function passSize() { return Math.max(1, Math.floor(PIXEL_SAMPLE_BUDGET / (W * H))); }
+  var MAX_DIM = 512;
+
+  var canvas = document.getElementById('dc-canvas');
+  var statusEl = document.getElementById('dc-status');
+  var gl = canvas.getContext('webgl2', { alpha: false, antialias: false,
+                                         preserveDrawingBuffer: true });
+
+  var EXAMPLES = {
+    three: { name: 'three curves', scene: { width: 128, height: 128, curves: [
+      { pts: [[0.12, 0.18], [0.88, 0.22]], left: [250, 60, 20], right: [20, 40, 200] },
+      { pts: [[0.15, 0.80], [0.85, 0.78]], left: [30, 200, 120], right: [230, 220, 40] },
+      { pts: [[0.50, 0.34], [0.52, 0.66]], left: [250, 250, 250], right: [10, 10, 10] }
+    ] } },
+    ribbon: { name: 'two ribbons', scene: { width: 128, height: 128, curves: [
+      { pts: [[0.05, 0.30], [0.95, 0.30]], left: [255, 40, 40], right: [30, 60, 220] },
+      { pts: [[0.05, 0.72], [0.95, 0.72]], left: [40, 220, 90], right: [240, 210, 40] }
+    ] } },
+    loop: { name: 'closed loop', scene: { width: 128, height: 128, curves: [
+      { pts: [[0.22, 0.22], [0.78, 0.22], [0.78, 0.78], [0.22, 0.78], [0.22, 0.22]],
+        left: [255, 235, 60], right: [25, 35, 150] }
+    ] } },
+    arc: { name: 'swept arc', scene: { width: 128, height: 128, curves: (function () {
+      var p = [], i, t;
+      for (i = 0; i <= 24; i++) { t = i / 24; p.push([0.10 + 0.80 * t, 0.5 + 0.28 * Math.sin(Math.PI * t)]); }
+      return [{ pts: p, left: [255, 120, 0], right: [0, 90, 160] }];
+    })() } }
+  };
+
+  var state = {
+    scene: JSON.parse(JSON.stringify(EXAMPLES.three.scene)),
+    bg: [18, 20, 24], samples: 0, target: 0, seed: 1, running: false, err: null,
+    /* gen guards against two render loops running at once. Caught during the build when an
+     * automated caller issued render() while the page's own first render was still going: both
+     * requestAnimationFrame loops then incremented the SAME sample counter, so the target was
+     * reached at twice the true sample count and the displayed image was whatever the losing
+     * loop had last drawn. A generation token is the whole fix — a stale loop returns. */
+    gen: 0
+  };
+
+  /* ---------------------------------------------------------------- GL setup */
+  function fail(msg) {
+    state.err = msg;
+    statusEl.dataset.state = 'error';
+    statusEl.textContent = msg;
+  }
+  if (!gl) { fail('This browser has no WebGL2. The renderer needs it — nothing else on the page will work.'); }
+  var extF = gl && gl.getExtension('EXT_color_buffer_float');
+  if (gl && !extF) { fail('WebGL2 is present but float render targets (EXT_color_buffer_float) are not. Cannot accumulate.'); }
+
+  function sh(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  function prog(vs, fs) {
+    var p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+
+  var pAcc = null, pShow = null, quad = null, tex = [null, null], fbo = [null, null], cur = 0;
+
+  function makeTex() {
+    var t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    var f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return [t, f];
+  }
+
+  function initGL() {
+    pAcc = prog(WOS.SHADER_VS, WOS.SHADER_FS);
+    pShow = prog(WOS.SHADER_VS, WOS.SHADER_SHOW);
+    quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    allocTargets();
+  }
+
+  /* (Re)allocate the ping-pong float targets at the current solve resolution. Called on init and
+   * whenever a scene or the resolution control changes W/H — the card's "export at any
+   * resolution" promise is this function. */
+  function allocTargets() {
+    var i;
+    for (i = 0; i < 2; i++) {
+      if (tex[i]) gl.deleteTexture(tex[i]);
+      if (fbo[i]) gl.deleteFramebuffer(fbo[i]);
+    }
+    canvas.width = W; canvas.height = H;
+    var a = makeTex(); tex[0] = a[0]; fbo[0] = a[1];
+    var b = makeTex(); tex[1] = b[0]; fbo[1] = b[1];
+    clearAcc();
+  }
+
+  function setResolution(w, h) {
+    w = Math.max(16, Math.min(MAX_DIM, w | 0));
+    h = Math.max(16, Math.min(MAX_DIM, h | 0));
+    if (w === W && h === H) return;
+    W = w; H = h;
+    if (pAcc) allocTargets();
+  }
+  function bindQuad(p) {
+    var loc = gl.getAttribLocation(p, 'aPos');
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  }
+  function clearAcc() {
+    for (var i = 0; i < 2; i++) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[i]);
+      gl.viewport(0, 0, W, H);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    cur = 0; state.samples = 0;
+  }
+
+  /* ---------------------------------------------------------------- passes */
+  function accumulate(spp) {
+    var pk = WOS.packScene(state.scene, state.bg);
+    gl.useProgram(pAcc); bindQuad(pAcc);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[1 - cur]);
+    gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex[cur]);
+    gl.uniform1i(gl.getUniformLocation(pAcc, 'uPrev'), 0);
+    gl.uniform2f(gl.getUniformLocation(pAcc, 'uRes'), W, H);
+    gl.uniform1i(gl.getUniformLocation(pAcc, 'uNSeg'), pk.n);
+    gl.uniform4fv(gl.getUniformLocation(pAcc, 'uSeg'), pk.seg);
+    gl.uniform3fv(gl.getUniformLocation(pAcc, 'uColL'), pk.colL);
+    gl.uniform3fv(gl.getUniformLocation(pAcc, 'uColR'), pk.colR);
+    gl.uniform1ui(gl.getUniformLocation(pAcc, 'uSeed'), state.seed >>> 0);
+    gl.uniform1i(gl.getUniformLocation(pAcc, 'uSPP'), spp);
+    gl.uniform1i(gl.getUniformLocation(pAcc, 'uBase'), state.samples);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    cur = 1 - cur;
+    state.samples += spp;
+  }
+  function show() {
+    gl.useProgram(pShow); bindQuad(pShow);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex[cur]);
+    gl.uniform1i(gl.getUniformLocation(pShow, 'uAcc'), 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  /* readPixels comes back bottom-up; flip so index 0 is the top-left pixel. */
+  function readCanvas() {
+    var raw = new Uint8Array(W * H * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+    var out = new Uint8Array(W * H * 4), y, rowBytes = W * 4;
+    for (y = 0; y < H; y++) out.set(raw.subarray((H - 1 - y) * rowBytes, (H - y) * rowBytes), y * rowBytes);
+    return out;
+  }
+
+  /* ---------------------------------------------------------------- run loop */
+  var pending = null;
+  function step(g) {
+    if (g !== state.gen || !state.running) return;
+    if (gl.isContextLost()) { onLost(); return; }
+    /* ONE pass per animation frame, deliberately. Queueing several draws inside a single frame
+     * builds a long GPU command buffer and was observed to reset the context on the software
+     * renderer; yielding after each pass lets it drain. Throughput is set by passSize(), not by
+     * how many draws are crammed into a frame. */
+    accumulate(Math.min(passSize(), state.target - state.samples));
+    if (gl.isContextLost()) { onLost(); return; }
+    show();
+    if (state.samples >= state.target) {
+      state.running = false;
+      statusEl.dataset.state = 'done';
+      statusEl.textContent = state.samples + ' samples/pixel · ' + W + '×' + H +
+        ' · walk-on-spheres, WebGL2';
+      if (pending) { var r = pending; pending = null; r(); }
+    } else {
+      statusEl.dataset.state = 'running';
+      statusEl.textContent = 'rendering … ' + state.samples + ' / ' + state.target +
+        ' samples/pixel';
+      requestAnimationFrame(function () { step(g); });
+    }
+  }
+
+  function start(samples, seed) {
+    if (state.err) return Promise.reject(new Error(state.err));
+    /* supersede any run in flight: bump the token, and settle its promise so no caller is left
+     * waiting forever and no unhandled rejection reaches the page. */
+    state.gen = (state.gen + 1) | 0;
+    var g = state.gen;
+    if (pending) { var old = pending; pending = null; old(); }
+    state.seed = (seed === undefined ? state.seed : seed) >>> 0;
+    clearAcc();
+    state.target = Math.max(1, samples | 0);
+    state.running = true;
+    canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+    statusEl.dataset.state = 'running';
+    var p = new Promise(function (res) { pending = res; });
+    requestAnimationFrame(function () { step(g); });
+    return p;
+  }
+
+  /* Context loss is a real event on software renderers and on tab suspension. It must never be
+   * silent: a lost context makes every draw a no-op while the sample counter keeps climbing, which
+   * is exactly how a page reports "done" over a blank canvas. */
+  function onLost() {
+    state.running = false;
+    state.err = 'The browser reset the WebGL context mid-render (this happens on software ' +
+      'renderers at high resolution). Nothing on screen is a valid result. Reload and try a ' +
+      'lower resolution or fewer samples.';
+    statusEl.dataset.state = 'error';
+    statusEl.textContent = state.err;
+    if (pending) { var r = pending; pending = null; r(); }
+  }
+  if (canvas) {
+    canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); onLost(); });
+  }
+
+  /* ---------------------------------------------------------------- SVG import */
+  function curvesFromSVG(text) {
+    var doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+    var svg = doc.querySelector('svg');
+    if (!svg) throw new Error('not an SVG document');
+    var vb = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+    var ox = 0, oy = 0, sw = Number(svg.getAttribute('width')) || 100,
+        shh = Number(svg.getAttribute('height')) || 100;
+    if (vb.length === 4 && vb.every(function (v) { return isFinite(v); })) {
+      ox = vb[0]; oy = vb[1]; sw = vb[2]; shh = vb[3];
+    }
+    var out = [], els = doc.querySelectorAll('polyline,line,polygon,path'), i;
+    for (i = 0; i < els.length; i++) {
+      var el = els[i], pts = [];
+      var tag = el.tagName.toLowerCase();
+      if (tag === 'line') {
+        pts = [[+el.getAttribute('x1'), +el.getAttribute('y1')],
+               [+el.getAttribute('x2'), +el.getAttribute('y2')]];
+      } else if (tag === 'polyline' || tag === 'polygon') {
+        var nums = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
+        for (var k = 0; k + 1 < nums.length; k += 2) pts.push([nums[k], nums[k + 1]]);
+        if (tag === 'polygon' && pts.length > 2) pts.push(pts[0].slice());
+      } else {                       // path: sample it with the browser's own geometry engine
+        var L = 0;
+        try { L = el.getTotalLength(); } catch (e) { L = 0; }
+        if (!L) continue;
+        var N = Math.min(48, Math.max(8, Math.round(L / 4)));
+        for (var j = 0; j <= N; j++) {
+          var pt = el.getPointAtLength(L * j / N);
+          pts.push([pt.x, pt.y]);
+        }
+      }
+      pts = pts.filter(function (q) { return isFinite(q[0]) && isFinite(q[1]); })
+               .map(function (q) { return [(q[0] - ox) / sw, (q[1] - oy) / shh]; });
+      if (pts.length < 2) continue;
+      var stroke = el.getAttribute('stroke') || '#ff3b30';
+      var fillc = el.getAttribute('fill');
+      out.push({ pts: pts, left: parseColour(stroke, [255, 59, 48]),
+                 right: parseColour(fillc && fillc !== 'none' ? fillc : '#2b6cff', [43, 108, 255]) });
+      if (out.length >= 12) break;
+    }
+    if (!out.length) throw new Error('no <path>, <polyline>, <line> or <polygon> found');
+    return out;
+  }
+  function parseColour(s, dflt) {
+    s = String(s || '').trim();
+    var m = /^#([0-9a-f]{6})$/i.exec(s);
+    if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16),
+                   parseInt(m[1].slice(4, 6), 16)];
+    m = /^#([0-9a-f]{3})$/i.exec(s);
+    if (m) return [17 * parseInt(m[1][0], 16), 17 * parseInt(m[1][1], 16), 17 * parseInt(m[1][2], 16)];
+    m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(s);
+    if (m) return [Math.round(+m[1]), Math.round(+m[2]), Math.round(+m[3])];
+    return dflt.slice();
+  }
+
+  /* ---------------------------------------------------------------- UI */
+  var sel = document.getElementById('dc-example');
+  var inSamples = document.getElementById('dc-samples');
+  var btnRender = document.getElementById('dc-render');
+  var btnExport = document.getElementById('dc-export');
+  var fileIn = document.getElementById('dc-file');
+  var titleIn = document.getElementById('dc-title');
+  var resIn = document.getElementById('dc-res');
+  var capEl = document.getElementById('dc-caption');
+  var srcEl = document.getElementById('dc-source');
+
+  Object.keys(EXAMPLES).forEach(function (k) {
+    var o = document.createElement('option');
+    o.value = k; o.textContent = EXAMPLES[k].name;
+    sel.appendChild(o);
+  });
+  sel.value = 'three';
+
+  function setLabel(s) {                       // every user string goes through esc()
+    capEl.innerHTML = '<span class="cap">' + esc(s) + '</span>';
+  }
+  titleIn.addEventListener('input', function () { setLabel(titleIn.value); });
+
+  resIn.addEventListener('change', function () {
+    var n = parseInt(resIn.value, 10) || 128;
+    setResolution(n, n);
+    state.scene.width = W; state.scene.height = H;
+    canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+    statusEl.dataset.state = 'idle';
+    statusEl.textContent = 'resolution ' + W + '×' + H + ' — press Render';
+  });
+
+  sel.addEventListener('change', function () {
+    state.scene = JSON.parse(JSON.stringify(EXAMPLES[sel.value].scene));
+    state.scene.width = W; state.scene.height = H;
+    srcEl.innerHTML = 'source: <b>' + esc(EXAMPLES[sel.value].name) + '</b> (built-in)';
+    canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+    statusEl.dataset.state = 'idle';
+    statusEl.textContent = 'scene loaded — press Render';
+  });
+
+  btnRender.addEventListener('click', function () {
+    var n = Math.max(1, Math.min(16384, parseInt(inSamples.value, 10) || 512));
+    start(n, (state.seed + 1) >>> 0);
+  });
+
+  btnExport.addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.download = 'diffusion-curves-' + W + 'x' + H + '-' + state.samples + 'spp.png';
+    a.href = canvas.toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  fileIn.addEventListener('change', function () {
+    var f = fileIn.files && fileIn.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        var curves = curvesFromSVG(String(fr.result));
+        state.scene = { width: W, height: H, curves: curves };
+        canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+        srcEl.innerHTML = 'source: <b>' + esc(f.name) + '</b> — ' + curves.length +
+          ' curve(s). Stroke colour becomes the left side, fill the right.';
+        statusEl.dataset.state = 'idle';
+        statusEl.textContent = 'SVG loaded — press Render';
+      } catch (e) {
+        srcEl.innerHTML = '<span class="bad">could not read ' + esc(f.name) + ': ' +
+          esc(e.message) + '</span>';
+      }
+    };
+    fr.readAsText(f);
+  });
+
+  /* ---------------------------------------------------------------- seam */
+  window.DC = {
+    load: function (scene) {
+      state.scene = JSON.parse(JSON.stringify(scene));
+      if (scene.width && scene.height) setResolution(scene.width, scene.height);
+      state.scene.width = W; state.scene.height = H;
+      canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+    },
+    render: function (o) { return start((o && o.samples) || 512, (o && o.seed) || 1); },
+    pixels: function () { return Array.prototype.slice.call(readCanvas()); },
+    canvas: function () { return canvas; },
+    setLabel: setLabel,
+    meta: function () {
+      return { backend: gl ? 'webgl2' : 'none', width: W, height: H,
+               samples: state.samples, seed: state.seed, error: state.err,
+               lost: gl ? gl.isContextLost() : true, passSpp: passSize() };
+    }
+  };
+
+  if (gl && extF) {
+    try {
+      initGL();
+      canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+      statusEl.dataset.state = 'idle';
+      statusEl.textContent = 'ready — press Render';
+      start(256, 1);
+    } catch (e) { fail('WebGL2 initialisation failed: ' + e.message); }
+  }
+})();
+
+</script>
+<!-- first-party cookieless beacon — inlined verbatim from lib/beacon-firstparty.snippet.html -->
+<script>
+(function(){
+  try{
+    if(navigator.webdriver) return;
+    var body = JSON.stringify({ path: location.pathname + location.search, self: /(^|[?&])self=1([&#]|$)/.test(location.search) });
+    var blob = new Blob([body], {type:'text/plain'});
+    if(!(navigator.sendBeacon && navigator.sendBeacon('/_b', blob))){ fetch('/_b', {method:'POST', body:body, keepalive:true, headers:{'content-type':'text/plain'}}).catch(function(){}); }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

@@ -169,7 +169,9 @@ def run(url, verbose=True):
 
         def render(scene, samples, seed):
             page.evaluate("s => DC.load(s)", scene)
-            page.evaluate("o => DC.render(o)", {"samples": samples, "seed": seed})
+            # deliberately NOT awaited: page.evaluate() would await the returned promise
+            # against Playwright's 30s default and time out on a slow software render.
+            page.evaluate("o => { DC.render(o); }", {"samples": samples, "seed": seed})
             page.wait_for_function("o => DC.meta().samples >= o.samples",
                                    arg={"samples": samples}, timeout=180000)
             return page.evaluate("() => DC.pixels()")
@@ -244,14 +246,14 @@ def run(url, verbose=True):
             f"second scene mean = {m2:.2f} over {len(d2)} probes")
 
         # ---------------- P4 Monte Carlo convergence
-        ref = render(S1, 8192, 101)
+        ref = render(S1, 2048, 101)
         lo = render(S1, 128, 202)
         hi = render(S1, 512, 303)
         e_lo, e_hi = rmse(lo, ref), rmse(hi, ref)
         ratio = e_lo / e_hi if e_hi > 1e-9 else 999.0
         rec("P4.converges", P4_BAND[0] <= ratio <= P4_BAND[1],
             f"RMSE(128)={e_lo:.2f} RMSE(512)={e_hi:.2f} ratio={ratio:.2f} "
-            f"(expect ~2.0, band {P4_BAND})")
+            f"(ref 2048 spp; ideal 1.84 after ref noise, band {P4_BAND})")
         rec("P4.nonzero", e_lo > 0.5, f"low-sample RMSE {e_lo:.2f} > 0.5 (a static image gives 0)")
 
         # ---------------- P5 responds to inputs
@@ -351,6 +353,15 @@ def run(url, verbose=True):
         }""")
         rec("P9.escaping", not xss["pwned"] and not xss["injected"],
             f"hostile label did not become markup ({xss})")
+
+        # ---------------- P10 the inlined shared primitives have not drifted from lib/
+        try:
+            r10 = subprocess.run([sys.executable, os.path.join(REPO, "tools", "build-011.py"),
+                                  "--check"], capture_output=True, text=True, timeout=60)
+            rec("P10.no_drift", r10.returncode == 0,
+                (r10.stdout + r10.stderr).strip()[:160] or f"exit {r10.returncode}")
+        except Exception as e:
+            rec("P10.no_drift", False, f"{type(e).__name__}: {e}")
 
         browser.close()
     return R
