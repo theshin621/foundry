@@ -25,6 +25,13 @@
 #     python3 oracles/beacon-stats-relay/oracle.py public/beacon-stats.json
 # It refuses anything a sandbox fire could have fabricated -- see that file's header.
 # PLAYBOOK: signal blocks are instrument-read, never claimed, never hand-invented.
+#
+# ROUND 1 CHECKER (FAIL, 2026-08-10) killed the first version of this file's security story.
+# It proved a run EXISTED but never bound the NUMBERS to it, and a run's provenance block is
+# public and re-quotable -- so editing `stats` and keeping provenance byte-identical passed.
+# The fix is in the commit step below: the reading is committed through the Contents API so
+# GitHub signs it, and the oracle verifies that signature. Fixing the oracle alone would not
+# have worked; the artifact had to become unforgeable.
 
 name: beacon stats
 
@@ -95,12 +102,20 @@ jobs:
                   # A 200 carrying an HTML shell is NOT a reading. Parse or fail loudly;
                   # never store an un-parsed body as if it were the instrument.
                   try:
-                      out['stats'] = json.loads(body)
-                      out['ok'] = (r.status == 200)
-                      if not out['ok']:
+                      parsed = json.loads(body)
+                      # ROUND 1 finding 8: json.loads succeeds on 'null', '42' and '"hi"'.
+                      # A scalar is not an instrument reading. Refuse it here rather than
+                      # committing a self-contradictory record and relying on the oracle.
+                      if not isinstance(parsed, (dict, list)):
                           out['ok'] = False
-                          out.pop('stats', None)
+                          out['error'] = ('body parsed as JSON but is %s, not an object/array'
+                                          % type(parsed).__name__)
+                      elif r.status != 200:
+                          out['ok'] = False
                           out['error'] = 'non-200 with a JSON body: HTTP %s' % r.status
+                      else:
+                          out['stats'] = parsed
+                          out['ok'] = True
                   except ValueError:
                       out['ok'] = False
                       out['error'] = ('body is not JSON (first 200 bytes: %r)'
@@ -120,16 +135,65 @@ jobs:
           print(json.dumps(out, indent=1, sort_keys=True)[:4000])
           PY
 
-      - name: Commit the reading
+      - name: Commit the reading THROUGH THE CONTENTS API (this is the security control)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          set -euo pipefail
-          git config user.name  'foundry beacon-stats'
-          git config user.email 'beacon-stats@users.noreply.github.com'
-          git add public/beacon-stats.json
-          if git diff --cached --quiet; then
-            echo "beacon-stats.json unchanged"
-            exit 0
-          fi
-          # [skip ci] so committing a reading does not trigger another reading.
-          git commit -m "beacon: instrument reading [skip ci]"
-          git push origin HEAD:"${GITHUB_REF_NAME}"
+          python3 - <<'PY'
+          import base64, json, os, urllib.request, urllib.error
+
+          # WHY NOT `git commit && git push` (which is what round 1 shipped):
+          # a plain push from anywhere produces an UNVERIFIED commit, so a fire holding the
+          # repo PAT could edit these numbers and the result would be indistinguishable from
+          # a real reading. ROUND 1 FINDING 1, and it was correct.
+          #
+          # A commit created through the CONTENTS API with GITHUB_TOKEN is GPG-signed by
+          # GitHub's own web-flow key: `verification.verified == true`. The loop's PAT cannot
+          # produce that signature -- GitHub, not the caller, holds the key. So the oracle can
+          # ask GitHub "did YOU sign the commit these numbers arrived in?" and a hand-edited
+          # artifact answers no. This is the content binding round 1 lacked: it binds the
+          # BYTES, not merely the existence of a run.
+          repo   = os.environ['REPO']
+          branch = os.environ['BRANCH']
+          token  = os.environ['GH_TOKEN']
+          path   = 'public/beacon-stats.json'
+
+          def api(method, url, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              req = urllib.request.Request('https://api.github.com' + url, data=data, method=method,
+                                           headers={'User-Agent': 'foundry-beacon-stats-relay',
+                                                    'Accept': 'application/vnd.github+json',
+                                                    'Authorization': 'Bearer ' + token})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return r.status, json.load(r)
+
+          body = open(path, 'rb').read()
+
+          sha = None
+          try:
+              _, cur = api('GET', '/repos/%s/contents/%s?ref=%s' % (repo, path, branch))
+              sha = cur.get('sha')
+              if base64.b64decode(cur.get('content', '')) == body:
+                  print('reading unchanged; nothing to commit')
+                  raise SystemExit(0)
+          except urllib.error.HTTPError as e:
+              if e.code != 404:
+                  raise
+
+          payload = {'message': 'beacon: instrument reading [skip ci]',
+                     'content': base64.b64encode(body).decode(),
+                     'branch': branch}
+          if sha:
+              payload['sha'] = sha
+          status, res = api('PUT', '/repos/%s/contents/%s' % (repo, path), payload)
+          v = res.get('commit', {}).get('verification', {})
+          print('committed %s  verified=%s reason=%s' % (res['commit']['sha'][:7],
+                                                         v.get('verified'), v.get('reason')))
+          # Fail the run loudly if GitHub did NOT sign it -- an unverified commit would sail
+          # past a reader that trusts the file, which is the whole defect being fixed.
+          if not v.get('verified'):
+              raise SystemExit('FATAL: commit is not GitHub-signed (%s); the oracle will '
+                               'reject this reading and it should.' % v.get('reason'))
+          PY

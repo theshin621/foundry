@@ -80,6 +80,17 @@ def read(artifact=ARTIFACT, max_age_h=None):
     }
 
 
+def _count(n):
+    """True only for a value that can honestly be a visit count.
+
+    ROUND 1 finding 5, three separate holes in one line of the first draft:
+      * `isinstance(True, int)` is True in Python, so a stray JSON `true` counted as 1.
+      * negative counts passed through and could silently deflate a multi-path sum.
+      * a non-int (string, float, null) was skipped, quietly turning "unrecognised" into 0.
+    """
+    return isinstance(n, int) and not isinstance(n, bool) and n >= 0
+
+
 def paths(block):
     """The per-path map out of a PASS block, or None.
 
@@ -120,13 +131,17 @@ def qualified_visits(block, path=None, days=None):
     for p, byday in pmap.items():
         if path is not None and p != path:
             continue
+        # ROUND 1 finding 5: silently skipping a malformed entry reports a NUMBER for a
+        # payload we did not understand -- "measured" when the truth is "unrecognised".
+        # Refuse the whole read instead. None propagates; a wrong integer does not.
         if not isinstance(byday, dict):
-            continue
+            return None
         for day, n in byday.items():
             if days is not None and day not in days:
                 continue
-            if isinstance(n, int):
-                total += n
+            if not _count(n):
+                return None
+            total += n
     return total
 
 
@@ -140,8 +155,13 @@ def distinct_days(block, path=None):
     for p, byday in pmap.items():
         if path is not None and p != path:
             continue
-        if isinstance(byday, dict):
-            seen.update(d for d, n in byday.items() if isinstance(n, int) and n > 0)
+        if not isinstance(byday, dict):
+            return None
+        for dy, n in byday.items():
+            if not _count(n):
+                return None
+            if n > 0:
+                seen.add(dy)
     return len(seen)
 
 

@@ -16,8 +16,18 @@ WHY THIS ORACLE EXISTS IN THIS SHAPE
     Those two are byte-indistinguishable in the artifact. So the oracle does not inspect
     the numbers at all. It asks GITHUB whether the run that produced them exists
     (api.github.com, authenticated), and whether that run was THIS workflow at THIS commit.
-    A sandbox fire can write any JSON it likes; it cannot manufacture an Actions run.
-    That API call is this oracle's equivalent of "execute it in a real browser".
+    ROUND 1 (checker FAIL, 2026-08-10) proved the first version of that argument answered the
+    wrong question. Manufacturing a run is unnecessary: a run's provenance block is PUBLIC and
+    re-quotable, so editing `stats` while keeping provenance byte-identical passed cleanly. The
+    oracle proved a run EXISTED; it never bound the BYTES to it.
+
+    P7 is the fix, and it moves the unforgeable thing from the run to the commit. The relay now
+    writes the reading through GitHub's Contents API, which makes GitHub GPG-sign the commit
+    (`verification.verified == true`, web-flow key). The loop's PAT pushes UNVERIFIED commits and
+    cannot produce that signature -- GitHub holds the key, not the caller. So P7 asks GitHub
+    whether IT signed the commit these exact bytes arrived in. A hand-edited artifact answers no.
+    That is this oracle's equivalent of "execute it in a real browser": observe the real system,
+    do not predict it.
 
 VERDICTS
     PASS            every predicate held
@@ -32,12 +42,15 @@ USAGE
 """
 import json, os, re, sys, datetime, urllib.request, urllib.error
 
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 REPO          = "theshin621/foundry"
 WORKFLOW_PATH = ".github/workflows/beacon-stats.yml"
 SOURCE_URL    = "https://tailorfarms.com/_b/stats"
 MAX_AGE_H     = 30          # the fire is daily; >30h means a run was skipped or is failing
 
 REQUIRED_TOP  = {"fetched_utc", "source_url", "http", "ok", "provenance"}
+ARTIFACT_PATH = "public/beacon-stats.json"
 REQUIRED_PROV = {"run_id", "run_url", "run_attempt", "repo", "workflow_path", "head_sha"}
 
 fails, notes = [], []
@@ -159,14 +172,74 @@ def main():
         check(run.get("path") == WORKFLOW_PATH, "P6.workflow", "run %s is workflow %r, not %r" % (prov.get("run_id"), run.get("path"), WORKFLOW_PATH))
         check(run.get("head_sha") == prov.get("head_sha"), "P6.sha", "run head_sha %r != artifact head_sha %r" % (run.get("head_sha"), prov.get("head_sha")))
         check(str(prov.get("run_id")) in str(prov.get("run_url", "")), "P6.url", "run_url does not contain run_id")
+        # ROUND 1 finding 2: `None` means the run has not finished, so it cannot yet have
+        # produced a committed reading. Accepting it let an in-progress run launder numbers.
         concl = run.get("conclusion")
-        check(concl in (None, "success"), "P6.concl", "the producing run concluded %r" % concl)
+        check(concl == "success", "P6.concl", "the producing run concluded %r (only 'success' is ground truth)" % concl)
+        # ROUND 1 finding 6: the artifact's self-reported workflow_path was required to exist
+        # but its VALUE was never checked, making it decorative. Check it.
+        check(prov.get("workflow_path") == WORKFLOW_PATH, "P6.selfpath",
+              "artifact self-reports workflow_path %r" % prov.get("workflow_path"))
+        # ROUND 1 finding 7: the run's branch was never read, so the PASS line claimed more
+        # than it checked. Record it and require the artifact to agree if it states one.
+        branch = run.get("head_branch")
+        if "head_branch" in prov:
+            check(prov.get("head_branch") == branch, "P6.branch",
+                  "artifact says branch %r, run says %r" % (prov.get("head_branch"), branch))
+        # ROUND 1 finding 1 (temporal half): the reading must fall inside the run's own
+        # execution window. Combined with P5.stale this means a forger must quote a run from
+        # the last 30h AND land inside its ~1-minute window.
+        c_at, u_at = iso((run.get("created_at") or "").replace("+00:00", "Z")), iso((run.get("updated_at") or "").replace("+00:00", "Z"))
+        if ts and c_at and u_at:
+            check(c_at - datetime.timedelta(minutes=2) <= ts <= u_at + datetime.timedelta(minutes=2),
+                  "P7.window", "fetched_utc %s is outside run window %s..%s" % (d.get("fetched_utc"), run.get("created_at"), run.get("updated_at")))
+
+    # ---------------------------------------------------------------------------
+    # P7 — CONTENT BINDING. The predicate round 1 did not have, and the one that makes
+    # the numbers themselves unforgeable rather than merely well-attributed.
+    # ---------------------------------------------------------------------------
+    real_path = os.path.relpath(os.path.abspath(path), ROOT)
+    if real_path != ARTIFACT_PATH:
+        notes.append("  --   P7 skipped — %s is a fixture, not the tracked artifact" % real_path)
+    else:
+        try:
+            _, commits = gh("/repos/%s/commits?path=%s&sha=%s&per_page=1"
+                            % (REPO, ARTIFACT_PATH, run.get("head_branch") or "main"), tok)
+        except Exception as e:
+            print("\n".join(notes + fails))
+            print("VERDICT: CANNOT-CERTIFY — could not read the artifact's commit history (%s)." % type(e).__name__)
+            return 2
+        if not commits:
+            fails.append("  FAIL P7.commit — GitHub has no commit touching %s on this branch" % ARTIFACT_PATH)
+        else:
+            c = commits[0]
+            ver = c.get("commit", {}).get("verification", {})
+            # THE control. A `git push` with the loop's PAT produces verified=false.
+            check(ver.get("verified") is True, "P7.signed",
+                  "the commit carrying these numbers is NOT GitHub-signed (reason %r) — it was "
+                  "pushed by a token, not created through the Contents API, so the bytes are unattested"
+                  % ver.get("reason"))
+            check(ver.get("reason") == "valid", "P7.reason", "signature reason is %r" % ver.get("reason"))
+            check((c.get("commit", {}).get("message") or "").startswith("beacon: instrument reading"),
+                  "P7.msg", "commit message is %r" % (c.get("commit", {}).get("message") or "")[:60])
+            # The bytes on disk must BE the bytes in that signed commit.
+            try:
+                import subprocess
+                local_blob = subprocess.run(["git", "hash-object", path], capture_output=True,
+                                            text=True, cwd=ROOT).stdout.strip()
+                _, cont = gh("/repos/%s/contents/%s?ref=%s" % (REPO, ARTIFACT_PATH, c["sha"]), tok)
+                check(cont.get("sha") == local_blob, "P7.bytes",
+                      "local artifact blob %s != signed-commit blob %s — the working copy has been "
+                      "edited since GitHub signed it" % (local_blob[:10], str(cont.get("sha"))[:10]))
+            except Exception as e:
+                fails.append("  FAIL P7.bytes — could not compare blobs: %s: %s" % (type(e).__name__, e))
 
     print("\n".join(notes + fails))
     if fails:
         print("VERDICT: FAIL (%d predicate(s))" % len(fails)); return 1
-    print("VERDICT: PASS — artifact is fresh, internally consistent, and provably the output of "
-          "Actions run %s of %s at %s." % (prov.get("run_id"), WORKFLOW_PATH, (prov.get("head_sha") or "")[:7]))
+    print("VERDICT: PASS — artifact is fresh, internally consistent, produced by Actions run %s of "
+          "%s at %s, and its exact bytes arrived in a commit GitHub itself signed."
+          % (prov.get("run_id"), WORKFLOW_PATH, (prov.get("head_sha") or "")[:7]))
     return 0
 
 if __name__ == "__main__":
