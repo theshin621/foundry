@@ -1,0 +1,23 @@
+  [PASS] P1.backend: DC.meta().backend='webgl2'
+  [PASS] P1.gl: canvas webgl2=True 2d=False (a 2D fake cannot have both)
+  [PASS] P1.onscreen: canvas in DOM=True
+  [PASS] P2.dirichlet: 6/6 boundary probes within 26.0 (worst channel error 18.0)
+  [PASS] P3.meanvalue.count: 60 interior probes placed
+  [PASS] P3.meanvalue.mean: mean |u(p) - avg_circle| = 1.72 (tol 6.0)
+  [PASS] P3.meanvalue.max: max |u(p) - avg_circle| = 5.72 (tol 22.0)
+  [PASS] P3.meanvalue.scene2: second scene mean = 1.70 over 60 probes
+  [PASS] P4.converges: RMSE(128)=5.33 RMSE(512)=2.91 ratio=1.83 (ref 2048 spp; ideal 1.84 after ref noise, band (1.4, 3.2))
+  [PASS] P4.nonzero: low-sample RMSE 5.33 > 0.5 (a static image gives 0)
+  [PASS] P5.seed: seed 1 vs 2 RMSE 5.16 > 0.3
+  [PASS] P5.reproducible: same seed+samples reproduces byte-identically
+  [PASS] P5.scene: scene S1 vs S3 RMSE 99.19 > 8.0
+  [PASS] P6.seam_is_screen: DC.pixels() vs browser screenshot of the visible canvas: RMSE 0.18 (tol 4.0)
+  [PASS] P7.ui_harmonic: UI-driven canvas (no DC.* call) mean-value error 2.71 over 60 probes
+  [PASS] P7.ui_dirichlet: UI-driven canvas honours boundary data: 6/6
+  [PASS] P8.export: 31103 bytes, PNG magic ok, RMSE vs on-screen canvas 0.00 (tol 8.0)
+  [PASS] P9.no_third_party: third-party requests: none
+  [PASS] P9.no_pageerrors: uncaught page errors: none
+  [PASS] P9.escaping: hostile label did not become markup ({'pwned': False, 'injected': False})
+  [PASS] P10.no_drift: no drift
+
+21/21 predicates PASS  (705s)

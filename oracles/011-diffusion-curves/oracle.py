@@ -142,10 +142,18 @@ def mean_value_stats(scene, buf):
     return diffs
 
 
-def boundary_probes(scene, buf, off_px=3.0):
-    """(total, bad, worst) over points a few pixels off each segment, on a known side."""
+def boundary_probes(scene, buf, off=0.016):
+    """(total, bad, worst) over points just off each segment, on a known side.
+
+    The offset is in DOMAIN units, not pixels, and that is a correction rather than a preference.
+    The first version used 3 pixels, which is 0.0156 of the domain at 192x192 and 0.0234 at
+    128x128 -- so the predicate silently asked a harder question at lower resolution. Measured
+    2026-08-10 on the same build: at 192 it read worst-error 18, at 128 it read 27, and the
+    difference is not defect, it is the harmonic solution genuinely drifting toward the other
+    boundary data as you step further (in domain units) off the curve. A predicate whose meaning
+    depends on the resolution cannot be interpreted, so it is denominated in the domain.
+    """
     W_ = scene["width"]
-    off = off_px / W_
     bad = tot = 0
     worst = 0.0
     for (a, b, lc, rc) in segments(scene):
@@ -345,6 +353,7 @@ def run(url, verbose=True):
         ok8 = raw[:8] == PNG_MAGIC and len(raw) > 1000
         det8 = f"{len(raw)} bytes, PNG magic {'ok' if raw[:8] == PNG_MAGIC else 'BAD'}"
         if ok8:
+            from PIL import Image
             pim = Image.open(io.BytesIO(raw)).convert("RGBA")
             if pim.size != im2.size:
                 pim = pim.resize(im2.size, Image.NEAREST)
