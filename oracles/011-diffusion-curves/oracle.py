@@ -329,10 +329,23 @@ def run(url, verbose=True):
         page2.goto(url + SHIP_PATH, wait_until="load")
         page2.wait_for_selector("#dc-canvas")
         page2.select_option("#dc-example", "three")     # the S2-shaped built-in example
-        page2.fill("#dc-samples", "2048")
+        # A DISTINCTIVE sample count, and the status line must end up quoting it.
+        # WHY: the first version of P7 clicked Render and waited for status=done. The page renders
+        # once on load by itself, so status was ALREADY done and the wait returned instantly --
+        # a completely dead Render button passed P7. The probe's C7 control caught this (it did
+        # not flip) and this is the fix: the click must produce a render at a sample count the
+        # page's own auto-render cannot have produced.
+        UI_SPP = "1536"
+        page2.fill("#dc-samples", UI_SPP)
         page2.click("#dc-render")
         page2.wait_for_function("() => document.getElementById('dc-status')"
-                                ".dataset.state === 'done'", timeout=240000)
+                                ".dataset.state === 'running'", timeout=30000)
+        page2.wait_for_function("() => document.getElementById('dc-status')"
+                                ".dataset.state === 'done'", timeout=600000)
+        ui_status = page2.text_content("#dc-status") or ""
+        rec("P7.click_caused_it", UI_SPP + " samples" in ui_status,
+            f"status after clicking Render reads {ui_status.strip()[:70]!r} "
+            f"(must quote the {UI_SPP} the human typed, not the page's own startup render)")
         scn = json.loads(page2.get_attribute("#dc-canvas", "data-scene"))
         im2 = canvas_image(page2, scn["width"], scn["height"])
         ui_buf = list(im2.tobytes())

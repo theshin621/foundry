@@ -12,12 +12,13 @@
   [PASS] P5.reproducible: same seed+samples reproduces byte-identically
   [PASS] P5.scene: scene S1 vs S3 RMSE 99.19 > 8.0
   [PASS] P6.seam_is_screen: DC.pixels() vs browser screenshot of the visible canvas: RMSE 0.18 (tol 4.0)
-  [PASS] P7.ui_harmonic: UI-driven canvas (no DC.* call) mean-value error 2.71 over 60 probes
+  [PASS] P7.click_caused_it: status after clicking Render reads '1536 samples/pixel · 128×128 · walk-on-spheres, WebGL2' (must quote the 1536 the human typed, not the page's own startup render)
+  [PASS] P7.ui_harmonic: UI-driven canvas (no DC.* call) mean-value error 2.98 over 60 probes
   [PASS] P7.ui_dirichlet: UI-driven canvas honours boundary data: 6/6
-  [PASS] P8.export: 31103 bytes, PNG magic ok, RMSE vs on-screen canvas 0.00 (tol 8.0)
+  [PASS] P8.export: 31885 bytes, PNG magic ok, RMSE vs on-screen canvas 0.00 (tol 8.0)
   [PASS] P9.no_third_party: third-party requests: none
   [PASS] P9.no_pageerrors: uncaught page errors: none
   [PASS] P9.escaping: hostile label did not become markup ({'pwned': False, 'injected': False})
   [PASS] P10.no_drift: no drift
 
-21/21 predicates PASS  (705s)
+22/22 predicates PASS  (700s)

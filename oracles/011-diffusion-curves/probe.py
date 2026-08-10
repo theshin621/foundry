@@ -200,13 +200,16 @@ def measure(root, want_ui=False):
                 p2.goto(url + O.SHIP_PATH, wait_until="load")
                 p2.wait_for_selector("#dc-canvas")
                 p2.select_option("#dc-example", "three")
-                p2.fill("#dc-samples", "256")
+                p2.fill("#dc-samples", "384")      # distinctive: not the page's startup 256
                 p2.click("#dc-render")
                 try:
                     p2.wait_for_function(
+                        "() => document.getElementById('dc-status').dataset.state === 'running'",
+                        timeout=30000)
+                    p2.wait_for_function(
                         "() => document.getElementById('dc-status').dataset.state === 'done'",
-                        timeout=90000)
-                    out["P7"] = True
+                        timeout=300000)
+                    out["P7"] = "384 samples" in (p2.text_content("#dc-status") or "")
                 except Exception:
                     out["P7"] = False
             b.close()
