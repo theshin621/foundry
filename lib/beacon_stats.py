@@ -80,16 +80,44 @@ def read(artifact=ARTIFACT, max_age_h=None):
     }
 
 
-def qualified_visits(block, path=None, days=None):
-    """Sum visits from a PASS block. Returns None if the block is an error block —
-    a caller must not silently treat 'unmeasured' as zero."""
+def paths(block):
+    """The per-path map out of a PASS block, or None.
+
+    The live /_b/stats payload nests the per-path counts under a "paths" key alongside
+    "window" and "generated" metadata -- confirmed against the first real reading,
+    2026-08-10T02:24:49Z, run 31349720900. This helper isolates that shape so callers
+    never index the envelope by accident. (Maker-caught before checking: the first draft
+    treated the envelope itself as the path map, which would have silently summed zero
+    for every path forever -- the exact "measured nothing, reported a number" failure
+    this whole relay exists to prevent.)
+    """
     if not isinstance(block, dict) or block.get("verdict") != "PASS":
         return None
     stats = block.get("stats")
     if not isinstance(stats, dict):
         return None
+    inner = stats.get("paths")
+    if isinstance(inner, dict):
+        return inner
+    # Tolerate a bare path->byday map in case the endpoint is ever flattened, but only
+    # when every value is itself a day->count map; never guess.
+    if stats and all(isinstance(v, dict) for v in stats.values()):
+        return stats
+    return None
+
+
+def qualified_visits(block, path=None, days=None):
+    """Sum visits from a PASS block.
+
+    Returns None if the block is an error block or the payload shape is unrecognised --
+    a caller must NEVER silently treat "unmeasured" as zero. 0 means measured-and-empty;
+    None means we do not know, and those two must not collapse into each other.
+    """
+    pmap = paths(block)
+    if pmap is None:
+        return None
     total = 0
-    for p, byday in stats.items():
+    for p, byday in pmap.items():
         if path is not None and p != path:
             continue
         if not isinstance(byday, dict):
@@ -100,6 +128,21 @@ def qualified_visits(block, path=None, days=None):
             if isinstance(n, int):
                 total += n
     return total
+
+
+def distinct_days(block, path=None):
+    """Number of distinct days with >=1 visit -- MOD-2's second condition (>=3 days).
+    None when unmeasured."""
+    pmap = paths(block)
+    if pmap is None:
+        return None
+    seen = set()
+    for p, byday in pmap.items():
+        if path is not None and p != path:
+            continue
+        if isinstance(byday, dict):
+            seen.update(d for d, n in byday.items() if isinstance(n, int) and n > 0)
+    return len(seen)
 
 
 if __name__ == "__main__":

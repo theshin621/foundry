@@ -193,3 +193,62 @@ the same shape passed without the cause recurring).
 
 *Opened 2026-08-08 by the wiring fire, on the cause the 2026-08-08 daily brief had independently
 nominated as Sunday's lead triage item.*
+
+---
+
+## Entry #2 — the loop cannot read its own instrument
+
+- **cause:** an unattended scheduled fire cannot fetch a live URL. `WebFetch` answers
+  `PROVENANCE_REQUIRED — "the permission request for this URL was not answered in time"`, because
+  approving that prompt requires a human in the session and a scheduled fire has none. It is not
+  transient and it does not retry its way out. Consequence: **every signal the loop is supposed to
+  steer by is unreadable by the loop.** Kill-criteria in `ledger.json` are denominated in beacon
+  visits; MOD-2 Branch B of the 30-day stop-condition is `>=250 qualified visits, >=3 distinct days,
+  trailing 7d`; both are served only at `https://tailorfarms.com/_b/stats`. A loop that cannot read
+  its own instrument cannot kill, cannot iterate on evidence, and cannot know whether it has won.
+- **count:** 3
+- **incidents:**
+  - **2026-08-09T13:14Z relay fire** — `decisions/2026-08-09-segment-lock.md` precondition table
+    records beacon armed as *"✓ **carried, not re-read this run**"*. The fire asserted the
+    precondition it could not measure.
+  - **2026-08-09T14:52Z clock-go fire** — same file, verbatim: *"this fire could **not**
+    independently re-read `https://tailorfarms.com/_b/stats`. The fetch tool returned
+    `PROVENANCE_REQUIRED` … an unattended session has nobody to approve the prompt."* It correctly
+    declined to overwrite good measured data with an `{"error":…}` stub, and correctly named the
+    limitation — but the clock started on a precondition nobody had checked that day.
+  - **2026-08-10T02:2xZ daily fire** — same failure, measured again on clock day 1. Filed this
+    entry.
+- **why it was not caught sooner:** the cause was already written down, in this repo, in prose —
+  `.github/workflows/health-check.yml`'s header states it in general form: *"The build sandbox
+  cannot reach the live origin (WebFetch is provenance-gated in unattended runs) … so no scheduled
+  run can confirm by itself that the live site renders."* The remedy invented there (a
+  GitHub-hosted runner, outside the sandbox, committing what it saw) was applied to **render
+  checks** and never extended to **the instrument**. Ship 008 then built `/_b/stats` explicitly so
+  "a scheduled fire can READ its own instrument" (ledger row 8) and stopped one step short of the
+  reader. The gap survived because each artifact was correct about its own scope.
+- **fix:** `.github/workflows/beacon-stats.yml` — the health-check path pointed at one more
+  endpoint. A GitHub-hosted runner reads `/_b/stats` at 01:35 UTC (~25 min before the daily fire),
+  records the body **with Actions provenance** (`run_id`, `run_url`, `run_attempt`, `repo`,
+  `workflow_path`, `head_sha`), and commits it to `public/beacon-stats.json`. The next fire reads
+  its instrument out of git.
+  **The provenance is the load-bearing part, not the convenience.** `public/beacon-stats.json` is a
+  file in a repo the loop can write to, so its existence proves nothing — a fire could fabricate
+  numbers into it and the ledger would look measured. `oracles/beacon-stats-relay/oracle.py`
+  therefore does not inspect the numbers at all; it asks **api.github.com** whether the run behind
+  them exists, is *this* workflow, and sits at *this* `head_sha`. A sandbox fire can write any JSON
+  it likes; it cannot manufacture an Actions run. That API call is this oracle's equivalent of
+  entry #1's "execute it in a real browser" — observe the real system rather than predict it.
+  `lib/beacon_stats.py` is the only permitted reader and returns numbers **only** on an oracle
+  PASS; on anything else it returns an honest `{"error":…, "as_of":…}` block, and it keeps
+  *measured-zero* and *unmeasured* as different values (`0` vs `None`) so a quiet day can never be
+  laundered into an outage or vice versa.
+- **status:** `fix-shipped` pending this run's CHECKER verdict — INFRA, so it merges autonomously on
+  PASS under v4 MOD-1. `closed` still requires >=2 subsequent fires reading the instrument without
+  recurrence.
+- **first evidence the fix works:** run `31349720900` produced a reading the oracle certified cold
+  at 02:24:49Z — the first time in this loop's history that a fire has read its own instrument.
+  What it says is in `briefs/2026-08-10.md` §5 and it is not good news.
+
+*Opened 2026-08-10 by the daily fire, which is also the fix author. Per this file's standing rule
+the fix author may not judge cause-sameness for later failures; a recurrence is adjudicated by
+Theshin or by a fire that did not write this entry.*
