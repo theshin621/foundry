@@ -255,7 +255,8 @@
    "signal": {
     "self_measurement": "the beacon measures the fleet, not itself; its liveness signal IS /_b/stats answering 200",
     "stats_endpoint_live": true,
-    "as_of": "2026-08-09T09:48:36Z"
+    "as_of": "2026-08-10T10:35:39Z",
+    "note": "the beacon measures the fleet, not itself; its liveness signal IS /_b/stats answering 200, which it did at this timestamp (public/beacon-stats.json, http 200). Fleet totals at this read: hub 20 visits across 2 distinct days, all three ship pages measured-zero."
    },
    "status": "live",
    "kill_criterion": "infra — lives while the loop lives; provisioning deadline met 2026-08-09 (KV bound, /_b/stats 200 live). Standing failure criterion: /_b/stats non-200 for >24h or a checker showing the oracle green on an inert beacon = immediate BOTTLENECKS entry + rebuild.",
