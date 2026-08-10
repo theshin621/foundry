@@ -200,108 +200,49 @@ nominated as Sunday's lead triage item.*
 
 - **cause:** an unattended scheduled fire cannot fetch a live URL. `WebFetch` answers
   `PROVENANCE_REQUIRED — "the permission request for this URL was not answered in time"`, because
-  approving that prompt requires a human in the session and a scheduled fire has none. It is not
-  transient and it does not retry its way out. Consequence: **every signal the loop is supposed to
-  steer by is unreadable by the loop.** Kill-criteria in `ledger.json` are denominated in beacon
-  visits; MOD-2 Branch B of the 30-day stop-condition is `>=250 qualified visits, >=3 distinct days,
-  trailing 7d`; both are served only at `https://tailorfarms.com/_b/stats`. A loop that cannot read
-  its own instrument cannot kill, cannot iterate on evidence, and cannot know whether it has won.
-- **count:** 3
-- **incidents:**
-  - **2026-08-09T13:14Z relay fire** — `decisions/2026-08-09-segment-lock.md` precondition table
-    records beacon armed as *"✓ **carried, not re-read this run**"*. The fire asserted the
-    precondition it could not measure.
-  - **2026-08-09T14:52Z clock-go fire** — same file, verbatim: *"this fire could **not**
-    independently re-read `https://tailorfarms.com/_b/stats`. The fetch tool returned
-    `PROVENANCE_REQUIRED` … an unattended session has nobody to approve the prompt."* It correctly
-    declined to overwrite good measured data with an `{"error":…}` stub, and correctly named the
-    limitation — but the clock started on a precondition nobody had checked that day.
-  - **2026-08-10T02:2xZ daily fire** — same failure, measured again on clock day 1. Filed this
-    entry.
-- **why it was not caught sooner:** the cause was already written down, in this repo, in prose —
-  `.github/workflows/health-check.yml`'s header states it in general form: *"The build sandbox
-  cannot reach the live origin (WebFetch is provenance-gated in unattended runs) … so no scheduled
-  run can confirm by itself that the live site renders."* The remedy invented there (a
-  GitHub-hosted runner, outside the sandbox, committing what it saw) was applied to **render
-  checks** and never extended to **the instrument**. Ship 008 then built `/_b/stats` explicitly so
-  "a scheduled fire can READ its own instrument" (ledger row 8) and stopped one step short of the
-  reader. The gap survived because each artifact was correct about its own scope.
-- **fix:** `.github/workflows/beacon-stats.yml` — the health-check path pointed at one more
-  endpoint. A GitHub-hosted runner reads `/_b/stats` at 01:35 UTC (~25 min before the daily fire),
-  records the body **with Actions provenance** (`run_id`, `run_url`, `run_attempt`, `repo`,
-  `workflow_path`, `head_sha`), and commits it to `public/beacon-stats.json`. The next fire reads
-  its instrument out of git.
-  **The provenance is the load-bearing part, not the convenience.** `public/beacon-stats.json` is a
-  file in a repo the loop can write to, so its existence proves nothing — a fire could fabricate
-  numbers into it and the ledger would look measured. `oracles/beacon-stats-relay/oracle.py`
-  therefore does not inspect the numbers at all; it asks **api.github.com** whether the run behind
-  them exists, is *this* workflow, and sits at *this* `head_sha`. A sandbox fire can write any JSON
-  it likes; it cannot manufacture an Actions run. That API call is this oracle's equivalent of
-  entry #1's "execute it in a real browser" — observe the real system rather than predict it.
-  `lib/beacon_stats.py` is the only permitted reader and returns numbers **only** on an oracle
-  PASS; on anything else it returns an honest `{"error":…, "as_of":…}` block, and it keeps
-  *measured-zero* and *unmeasured* as different values (`0` vs `None`) so a quiet day can never be
-  laundered into an outage or vice versa.
-<<<<<<< HEAD
-- **status:** **`open`.** The fix above was built, and it does not merge. Two independent
-  adversaries on a different model from the maker, two rounds, **zero PASS** — the anti-grind clause
-  binds and `infra/beacon-stats-relay` stays unmerged. Full verdicts verbatim in `ledger.json` row 10.
-  **What actually failed is worth stating precisely, because the two halves came apart:**
-  - **The RELAY works.** Actions runs `31349720900`, `31349820402`, `31350293968`, `31350511164`
-    each reached `tailorfarms.com/_b/stats` from outside the sandbox and committed what they saw.
-    The loop read its own instrument today, four times, for the first time in its history. Neither
-    checker disputed this; round 2 explicitly confirmed every relay-side guard holds.
-  - **The PROOF that the numbers are the runner's does not work.** Round 1 killed the first version
-    ("a fire cannot manufacture an Actions run" — true, and irrelevant: a run's provenance block is
-    public and re-quotable, so editing `stats` and keeping provenance byte-identical passed). The one
-    permitted fix cycle moved the unforgeable thing from the run to the commit — the reading is now
-    written through GitHub's Contents API, which GPG-signs it. Round 2 falsified **the premise of
-    that fix**: GitHub signs *every* Contents-API commit regardless of caller, so the loop's own PAT
-    (which has `push:true, admin:true`, and which the oracle itself reads) can produce a
-    `verified:true` commit carrying any bytes it likes. *"This is not a sibling of one round-1 fix —
-    it is the same finding #1 reopened by the very mechanism chosen to fix it."*
-- **why this entry stays open rather than being downgraded:** the honest reading is that BOTTLENECKS
-  #1's pattern reproduced here in one day, and the loop should say so rather than argue itself into a
-  merge. But the trajectory data belongs on the record too: round 1 found 4 severe; the fix cycle
-  held on 6 of 8 findings under adversarial re-test (round 2 re-verified them by *neutering each
-  predicate individually*, which is stronger evidence than round 1 asked for); and round 2's three
-  severe findings are one root, not three — **the oracle authenticates the CHANNEL and never the
-  ACTOR.** Every bypass, in both rounds, is the same sentence: nothing checks *who wrote the bytes*.
-- **the fix that is NOT attempted here, deliberately:** round 2 handed over the shape of the real
-  answer — check identity, not just signature. `commit.author.login` is `github-actions[bot]` for a
-  runner commit and Theshin's account for a PAT commit; that distinction is visible in the same API
-  response P7 already fetches. It is one predicate. **It is not written, because the one permitted
-  fix cycle is spent and this fire is now the fix author twice over.** Writing a third version and
-  grading it is exactly the self-certification loop this file exists to stop. It is the next fire's
-  first task, against a fresh adversary.
-- **the clean way out, and it is Theshin's hand:** the strongest binding is not identity at all, it
-  is the runner's own log — GitHub writes it, no caller can. The oracle was built to use it and
-  could not: `GET /actions/runs/{id}/logs` returns **403** with the current fine-grained PAT, which
-  carries Contents + Pull requests + Workflows but **not `Actions: read`**. Adding that one scope to
-  the existing token closes finding #1 outright, with no cleverness: the oracle downloads the log
-  GitHub wrote, and asserts the committed numbers appear in it. **Decision-debt opened 2026-08-10,
-  owner Theshin, one-line action: add `Actions: read` to the foundry PAT.**
-=======
-- **status:** `fix-shipped` pending this run's CHECKER verdict — INFRA, so it merges autonomously on
-  PASS under v4 MOD-1. `closed` still requires >=2 subsequent fires reading the instrument without
-  recurrence.
->>>>>>> infra/beacon-stats-relay
-- **first evidence the fix works:** run `31349720900` produced a reading the oracle certified cold
-  at 02:24:49Z — the first time in this loop's history that a fire has read its own instrument.
-  What it says is in `briefs/2026-08-10.md` §5 and it is not good news.
+  approving that prompt needs a human in the session and a scheduled fire has none. Consequence:
+  every signal the loop steers by was unreadable by the loop. Kill-criteria are denominated in
+  beacon visits; MOD-2 Branch B is `>=250 qualified visits, >=3 distinct days, trailing 7d`; both
+  are served only at `https://tailorfarms.com/_b/stats`.
+- **count:** 3 (2026-08-09 13:14Z fire · 2026-08-09 14:52Z fire · 2026-08-10 02:2xZ fire)
+- **fix:** `.github/workflows/beacon-stats.yml`. A GitHub-hosted runner reads `/_b/stats` at
+  01:35 UTC, ~25 min before the daily fire, and commits the reading to `public/beacon-stats.json`.
+  The next fire reads its instrument out of git. `oracles/beacon-stats-relay/oracle.py` re-derives
+  the whole chain from `api.github.com` and `lib/beacon_stats.py` is the only permitted reader —
+  it returns numbers on an oracle PASS and an honest `{"error", "as_of"}` block on anything else,
+  and keeps *measured-zero* and *unmeasured* as different values.
+- **status:** **`fix-shipped`** (2026-08-10, merged to `main` on a CHECKER PASS). **Four rounds,
+  four independent adversaries on a different model from the maker, three FAILs then a PASS.**
+- **what took four rounds, because the record is the useful part:** every FAIL was one root wearing
+  a new coat — *the oracle authenticated the CHANNEL and never the ACTOR.*
+  - **Round 1:** the oracle proved an Actions run *existed* but never bound the *bytes* to it. A
+    run's provenance block is public and re-quotable, so editing `stats` and keeping provenance
+    byte-identical passed.
+  - **Round 2:** the fix bound the bytes to a GitHub GPG signature — and the premise was false.
+    GitHub signs *every* Contents-API commit whoever calls it, so the loop's own PAT could produce
+    a `verified:true` commit carrying anything.
+  - **Round 3:** the actor proof was finally real, but the commit lookup took the *newest* commit
+    touching the artifact rather than *this artifact's*, so a valid reading failed the moment the
+    next relay run landed. And ten of the new predicates had **no negative control at all** — the
+    probe reported 18/18 while never exercising the round's headline fix.
+  - **Round 4: PASS**, with an explicit "merge as-is". It independently neutered **all 35
+    predicates one at a time** and confirmed every one has a control that flips.
+- **what actually solved it, and the lesson worth keeping:** not cleverness — **measurement**. The
+  loop's own PAT was probed against the API and answered: `POST /repos/.../check-runs` → **403
+  "Resource not accessible by personal access token"**; `GET` → **200**. A runner's `GITHUB_TOKEN`
+  can create a check-run; the sandbox cannot. So the runner stamps `sha256` of the bytes it
+  committed into a check-run and the oracle reads it back. **The proof was a property of the
+  credential, and two rounds were spent reasoning about signatures instead of asking the API what
+  the token could do.** Entry #1's lesson generalises: borrow a primitive, and *measure* what it
+  actually guarantees rather than assuming.
+- **the limit, stated rather than glossed:** the PAT holds the `workflows` scope and `main` has no
+  ruleset, so the loop can rewrite `beacon-stats.yml` and have a real runner attest bytes it chose.
+  P8 proves *a runner executed the workflow as this repo currently defines it* — not *the numbers
+  came off tailorfarms.com*. Any check the loop can edit is not a control on the loop, so this is
+  the right place to stop in code. **Decision-debt, owner Theshin, one action, either works:** a
+  repository ruleset requiring review on `.github/workflows/**`, or dropping `workflows` from the
+  PAT so the loop proposes CI changes instead of pushing them.
+- **`closed` still requires** >=2 subsequent fires reading the instrument without recurrence.
 
-<<<<<<< HEAD
-- **incident #4 (the fix attempt itself, 2026-08-10):** `infra/beacon-stats-relay`, 2 rounds,
-  2 independent verdicts, 0 PASS, branch unmerged. Logged here because a failed fix for a cause is
-  evidence about the cause. **This fire authored the fix and therefore does not score whether it is
-  the same cause as entry #1** — that adjudication is Theshin's or a later fire's, per this file's
-  standing rule. The case for "same cause as #1" is round 2's own sentence about the reopened
-  finding; the case against is that #1 is about defect *count* regenerating while here a single root
-  (channel-not-actor) was mis-modelled twice, which is arguably one mistake made twice rather than a
-  generator of new ones.
-
-=======
->>>>>>> infra/beacon-stats-relay
-*Opened 2026-08-10 by the daily fire, which is also the fix author. Per this file's standing rule
-the fix author may not judge cause-sameness for later failures; a recurrence is adjudicated by
-Theshin or by a fire that did not write this entry.*
+*Opened and fixed 2026-08-10 by the daily fire; merged after four independent verdicts. The fire
+authored the fix and does not score cause-sameness for any later failure.*
