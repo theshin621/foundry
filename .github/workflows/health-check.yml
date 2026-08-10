@@ -51,9 +51,16 @@ jobs:
               req = urllib.request.Request(url, headers={'User-Agent': 'foundry-health-check'})
               try:
                   with urllib.request.urlopen(req, timeout=25) as r:
-                      body = r.read(200000).decode('utf-8', 'replace')
+                      # 2026-08-10: was 200000. The beacon snippet sits just before </body>, so the
+                      # cap is a tail cut: the first page over the limit would silently report
+                      # has_beacon:false while fully instrumented. Largest page today is ~103KB.
+                      body = r.read(4000000).decode('utf-8', 'replace')
+                      # 2026-08-10: this used to look for 'cloudflareinsights.com', the
+                      # THIRD-PARTY beacon that ship 008 replaced. Every page reported
+                      # has_beacon: true while the field measured a script the loop no
+                      # longer depends on. It now looks for the first-party POST target.
                       return {'path': path, 'http': r.status, 'ok': r.status == 200,
-                              'bytes': len(body), 'has_beacon': 'cloudflareinsights.com' in body}
+                              'bytes': len(body), 'has_beacon': "'/_b'" in body}
               except urllib.error.HTTPError as e:
                   return {'path': path, 'http': e.code, 'ok': False, 'bytes': 0, 'has_beacon': False}
               except Exception as e:
@@ -74,6 +81,11 @@ jobs:
           }
           for s in ships:
               if s.get('status') != 'live':
+                  continue
+              # 2026-08-10: infra rows have no page of their own. Row 8 (beacon-firstparty)
+              # is inlined into the other pages, so probing /008-beacon-firstparty/ returned
+              # a permanent 404 and health.json reported a failure that could never clear.
+              if s.get('kind') == 'infra':
                   continue
               path = '/' if s.get('slug') == 'hub' else '/%03d-%s/' % (s['n'], s['slug'])
               r = probe(path)

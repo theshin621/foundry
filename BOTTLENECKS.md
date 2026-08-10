@@ -242,6 +242,7 @@ nominated as Sunday's lead triage item.*
   PASS; on anything else it returns an honest `{"error":…, "as_of":…}` block, and it keeps
   *measured-zero* and *unmeasured* as different values (`0` vs `None`) so a quiet day can never be
   laundered into an outage or vice versa.
+<<<<<<< HEAD
 - **status:** **`open`.** The fix above was built, and it does not merge. Two independent
   adversaries on a different model from the maker, two rounds, **zero PASS** — the anti-grind clause
   binds and `infra/beacon-stats-relay` stays unmerged. Full verdicts verbatim in `ledger.json` row 10.
@@ -280,10 +281,16 @@ nominated as Sunday's lead triage item.*
   the existing token closes finding #1 outright, with no cleverness: the oracle downloads the log
   GitHub wrote, and asserts the committed numbers appear in it. **Decision-debt opened 2026-08-10,
   owner Theshin, one-line action: add `Actions: read` to the foundry PAT.**
+=======
+- **status:** `fix-shipped` pending this run's CHECKER verdict — INFRA, so it merges autonomously on
+  PASS under v4 MOD-1. `closed` still requires >=2 subsequent fires reading the instrument without
+  recurrence.
+>>>>>>> infra/beacon-stats-relay
 - **first evidence the fix works:** run `31349720900` produced a reading the oracle certified cold
   at 02:24:49Z — the first time in this loop's history that a fire has read its own instrument.
   What it says is in `briefs/2026-08-10.md` §5 and it is not good news.
 
+<<<<<<< HEAD
 - **incident #4 (the fix attempt itself, 2026-08-10):** `infra/beacon-stats-relay`, 2 rounds,
   2 independent verdicts, 0 PASS, branch unmerged. Logged here because a failed fix for a cause is
   evidence about the cause. **This fire authored the fix and therefore does not score whether it is
@@ -293,6 +300,8 @@ nominated as Sunday's lead triage item.*
   (channel-not-actor) was mis-modelled twice, which is arguably one mistake made twice rather than a
   generator of new ones.
 
+=======
+>>>>>>> infra/beacon-stats-relay
 *Opened 2026-08-10 by the daily fire, which is also the fix author. Per this file's standing rule
 the fix author may not judge cause-sameness for later failures; a recurrence is adjudicated by
 Theshin or by a fire that did not write this entry.*

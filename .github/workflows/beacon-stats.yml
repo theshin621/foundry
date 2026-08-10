@@ -1,0 +1,253 @@
+# .github/workflows/beacon-stats.yml
+#
+# WHY THIS FILE EXISTS  (BOTTLENECKS.md entry #2, filed 2026-08-10)
+# The loop cannot read its own instrument. Every kill-criterion in ledger.json, and
+# Branch B of the 30-day stop-condition (>=250 qualified visits, >=3 distinct days,
+# trailing 7d), is denominated in beacon visits served at https://tailorfarms.com/_b/stats
+# -- and an unattended scheduled fire CANNOT fetch it. Measured three times, most
+# recently 2026-08-10T02:2xZ: WebFetch returns PROVENANCE_REQUIRED ("the permission
+# request for this URL was not answered in time") because there is nobody in the
+# session to approve the prompt. That is permanent for unattended runs, not transient.
+#
+# Ship 008 built the endpoint so "a scheduled fire can READ its own instrument instead
+# of only feeding Cloudflare's dashboard" (ledger row 8). It built the endpoint and
+# stopped one step short: the reader still cannot reach it.
+#
+# HOW THIS FIXES IT
+# Exactly the way health-check.yml already solved the same problem for live-render
+# checks: a GitHub-hosted runner sits OUTSIDE the sandbox, reaches the live origin for
+# free with no secret, and commits what it saw into the repo. The next fire then reads
+# its instrument out of git instead of over the network. No new mechanism is invented
+# here -- one proven path is pointed at one more endpoint.
+#
+# WHAT THE NEXT FIRE MUST DO WITH THE RESULT
+# Do NOT trust this file because it exists. Run the oracle:
+#     python3 oracles/beacon-stats-relay/oracle.py public/beacon-stats.json
+# It refuses anything a sandbox fire could have fabricated -- see that file's header.
+# PLAYBOOK: signal blocks are instrument-read, never claimed, never hand-invented.
+#
+# ROUND 1 CHECKER (FAIL, 2026-08-10) killed the first version of this file's security story.
+# It proved a run EXISTED but never bound the NUMBERS to it, and a run's provenance block is
+# public and re-quotable -- so editing `stats` and keeping provenance byte-identical passed.
+# ROUND 2 CHECKER (FAIL) then falsified the FIX's premise: GitHub signs every Contents-API
+# commit whoever calls it, so a signature proves the CHANNEL and never the ACTOR. The commit
+# step below now also writes a CHECK-RUN carrying the sha256 of the committed bytes. Measured
+# in this repo: a fine-grained PAT gets 403 on POST /check-runs and 200 on GET. The runner can
+# stamp; the sandbox can only read. That asymmetry is the actor proof both rounds were missing.
+#
+# THE LIMIT OF THAT PROOF, stated plainly rather than glossed (ROUND 3 finding 2).
+# The foundry PAT also carries the `workflows` scope, and `main` has no branch protection and
+# no rulesets. So the loop CAN edit this file, push it, and have a real runner attest whatever
+# the edited file produces. P8 therefore proves "a GitHub runner executed the workflow as this
+# repo currently defines it" -- NOT "the numbers came off tailorfarms.com".
+#
+# That boundary is honest and it is the right one to stop at in code, because any check the
+# loop can edit is not a control on the loop. Closing it needs one action only Theshin can
+# take, and either works:
+#   * a repository ruleset requiring review on `.github/workflows/**`, or
+#   * removing `workflows` from the PAT (the loop then proposes CI changes instead of pushing).
+# Until then the guarantee is: a fire cannot fabricate numbers by writing a file, which is the
+# realistic failure mode this whole entry exists for. It can only fabricate them by rewriting
+# its own instrument in a commit that stays in the public history with its name on it.
+
+name: beacon stats
+
+on:
+  schedule:
+    # 01:35 UTC = 03:35 SAST, ~25 min before the 04:00 SAST daily fire, so the fire
+    # always finds a reading from the same night rather than one 24h old.
+    - cron: '35 1 * * *'
+  push:
+    branches: [main, 'infra/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  checks: write   # the attestation below; a PAT cannot write check-runs, which is the point
+
+concurrency:
+  group: beacon-stats-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the live beacon and record it with provenance
+        env:
+          SOURCE_URL: https://tailorfarms.com/_b/stats
+        run: |
+          python3 - <<'PY'
+          import json, os, datetime, urllib.request, urllib.error
+
+          url = os.environ['SOURCE_URL']
+
+          # Provenance is the whole point of this file. A sandbox fire can write any
+          # numbers it likes into public/beacon-stats.json; what it cannot do is make
+          # api.github.com agree that an Actions run produced them. These five fields
+          # are what the oracle checks against GitHub, so they are recorded even when
+          # the fetch fails -- a failed reading must be as attributable as a good one.
+          prov = {
+              'run_id':        int(os.environ.get('GITHUB_RUN_ID', 0)),
+              'run_url':       '%s/%s/actions/runs/%s' % (
+                                   os.environ.get('GITHUB_SERVER_URL', 'https://github.com'),
+                                   os.environ.get('GITHUB_REPOSITORY', ''),
+                                   os.environ.get('GITHUB_RUN_ID', '')),
+              'run_attempt':   int(os.environ.get('GITHUB_RUN_ATTEMPT', 1)),
+              'repo':          os.environ.get('GITHUB_REPOSITORY', ''),
+              'workflow_path': '.github/workflows/beacon-stats.yml',
+              'head_sha':      os.environ.get('GITHUB_SHA', ''),
+              'head_branch':   os.environ.get('GITHUB_REF_NAME', ''),
+              'runner':        'ubuntu-latest',
+          }
+
+          out = {
+              'fetched_utc': datetime.datetime.now(datetime.timezone.utc)
+                                 .strftime('%Y-%m-%dT%H:%M:%SZ'),
+              'source_url': url,
+              'provenance': prov,
+          }
+
+          req = urllib.request.Request(url, headers={
+              'User-Agent': 'foundry-beacon-stats-relay',
+              'Accept': 'application/json',
+          })
+          try:
+              with urllib.request.urlopen(req, timeout=25) as r:
+                  body = r.read(2_000_000).decode('utf-8', 'replace')
+                  out['http'] = r.status
+                  # A 200 carrying an HTML shell is NOT a reading. Parse or fail loudly;
+                  # never store an un-parsed body as if it were the instrument.
+                  try:
+                      parsed = json.loads(body)
+                      # ROUND 1 finding 8: json.loads succeeds on 'null', '42' and '"hi"'.
+                      # A scalar is not an instrument reading. Refuse it here rather than
+                      # committing a self-contradictory record and relying on the oracle.
+                      if not isinstance(parsed, (dict, list)):
+                          out['ok'] = False
+                          out['error'] = ('body parsed as JSON but is %s, not an object/array'
+                                          % type(parsed).__name__)
+                      elif r.status != 200:
+                          out['ok'] = False
+                          out['error'] = 'non-200 with a JSON body: HTTP %s' % r.status
+                      else:
+                          out['stats'] = parsed
+                          out['ok'] = True
+                  except ValueError:
+                      out['ok'] = False
+                      out['error'] = ('body is not JSON (first 200 bytes: %r)'
+                                      % body[:200])
+          except urllib.error.HTTPError as e:
+              out['http'] = e.code
+              out['ok'] = False
+              out['error'] = 'HTTP %s from the beacon endpoint' % e.code
+          except Exception as e:
+              out['http'] = 0
+              out['ok'] = False
+              out['error'] = '%s: %s' % (type(e).__name__, e)
+
+          os.makedirs('public', exist_ok=True)
+          with open('public/beacon-stats.json', 'w') as f:
+              json.dump(out, f, indent=1, sort_keys=True)
+          print(json.dumps(out, indent=1, sort_keys=True)[:4000])
+          PY
+
+      - name: Commit the reading THROUGH THE CONTENTS API (this is the security control)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, urllib.request, urllib.error
+
+          # WHY NOT `git commit && git push` (which is what round 1 shipped):
+          # a plain push from anywhere produces an UNVERIFIED commit, so a fire holding the
+          # repo PAT could edit these numbers and the result would be indistinguishable from
+          # a real reading. ROUND 1 FINDING 1, and it was correct.
+          #
+          # A commit created through the CONTENTS API with GITHUB_TOKEN is GPG-signed by
+          # GitHub's own web-flow key: `verification.verified == true`. The loop's PAT cannot
+          # produce that signature -- GitHub, not the caller, holds the key. So the oracle can
+          # ask GitHub "did YOU sign the commit these numbers arrived in?" and a hand-edited
+          # artifact answers no. This is the content binding round 1 lacked: it binds the
+          # BYTES, not merely the existence of a run.
+          repo   = os.environ['REPO']
+          branch = os.environ['BRANCH']
+          token  = os.environ['GH_TOKEN']
+          path   = 'public/beacon-stats.json'
+
+          def api(method, url, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              req = urllib.request.Request('https://api.github.com' + url, data=data, method=method,
+                                           headers={'User-Agent': 'foundry-beacon-stats-relay',
+                                                    'Accept': 'application/vnd.github+json',
+                                                    'Authorization': 'Bearer ' + token})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return r.status, json.load(r)
+
+          body = open(path, 'rb').read()
+
+          sha = None
+          try:
+              _, cur = api('GET', '/repos/%s/contents/%s?ref=%s' % (repo, path, branch))
+              sha = cur.get('sha')
+              if base64.b64decode(cur.get('content', '')) == body:
+                  print('reading unchanged; nothing to commit')
+                  raise SystemExit(0)
+          except urllib.error.HTTPError as e:
+              if e.code != 404:
+                  raise
+
+          payload = {'message': 'beacon: instrument reading [skip ci]',
+                     'content': base64.b64encode(body).decode(),
+                     'branch': branch}
+          if sha:
+              payload['sha'] = sha
+          try:
+              status, res = api('PUT', '/repos/%s/contents/%s' % (repo, path), payload)
+          except urllib.error.HTTPError as e:
+              raise SystemExit('FATAL: commit rejected, HTTP %s: %s'
+                               % (e.code, e.read()[:300].decode('utf-8', 'replace')))
+
+          commit_sha = res['commit']['sha']
+          v = res.get('commit', {}).get('verification', {})
+          print('committed %s  verified=%s reason=%s' % (commit_sha[:7], v.get('verified'), v.get('reason')))
+          if not v.get('verified'):
+              raise SystemExit('FATAL: commit is not GitHub-signed (%s).' % v.get('reason'))
+
+          # ------------------------------------------------------------------
+          # THE ATTESTATION -- round 2's severe finding, closed.
+          #
+          # Round 2 was right: GitHub signs EVERY Contents-API commit, whoever calls it,
+          # so a signature proves the channel and not the actor. Measured in this repo:
+          #     PAT POST /statuses/{sha}   -> 403 Resource not accessible by PAT
+          #     PAT POST /check-runs       -> 403 Resource not accessible by PAT
+          #     PAT GET  /check-runs       -> 200
+          # A fine-grained PAT cannot CREATE a check-run. A workflow's GITHUB_TOKEN can.
+          # So the runner stamps the digest of the bytes it just committed into a check-run,
+          # and the oracle reads it back. A fire in the sandbox can write the file and can
+          # sign the commit -- it cannot produce this stamp.
+          # ------------------------------------------------------------------
+          digest = hashlib.sha256(body).hexdigest()
+          try:
+              api('POST', '/repos/%s/check-runs' % repo, {
+                  'name': 'beacon-stats-attestation',
+                  'head_sha': commit_sha,
+                  'status': 'completed',
+                  'conclusion': 'success',
+                  'output': {
+                      'title': 'sha256=%s' % digest,
+                      'summary': ('The GitHub-hosted runner of %s read %s and committed exactly '
+                                  'these bytes.\n\nsha256=%s\nrun_id=%s\ncommit=%s\n'
+                                  % ('.github/workflows/beacon-stats.yml',
+                                     'https://tailorfarms.com/_b/stats', digest,
+                                     os.environ.get('GITHUB_RUN_ID', ''), commit_sha)),
+                  }})
+          except urllib.error.HTTPError as e:
+              raise SystemExit('FATAL: attestation failed, HTTP %s: %s'
+                               % (e.code, e.read()[:300].decode('utf-8', 'replace')))
+          print('attested sha256=%s on %s' % (digest[:16], commit_sha[:7]))
+          PY
