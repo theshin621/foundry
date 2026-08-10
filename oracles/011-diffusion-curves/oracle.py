@@ -114,6 +114,87 @@ def rmse(a, b):
     return math.sqrt(s / max(cnt, 1))
 
 
+
+def mean_value_stats(scene, buf):
+    """|u(p) - mean of u on a circle of radius r about p|, for interior p whose whole disc is
+    clear of every boundary. Zero for a harmonic function; large for a blur or an interpolation."""
+    W_ = scene["width"]
+    rnd = random.Random(20260810)
+    diffs, tries = [], 0
+    while len(diffs) < 60 and tries < 4000:
+        tries += 1
+        x = rnd.uniform(0.12, 0.88)
+        y = rnd.uniform(0.12, 0.88)
+        r = rnd.uniform(0.035, 0.075)
+        if dist_to_scene(x, y, scene) < r * 1.25:
+            continue
+        if x - r < 0.02 or x + r > 0.98 or y - r < 0.02 or y + r > 0.98:
+            continue
+        centre = px_at(buf, W_, int(x * W_), int(y * W_))
+        acc = [0.0, 0.0, 0.0]
+        K = 64
+        for i in range(K):
+            th = 2 * math.pi * i / K
+            p = px_at(buf, W_, int((x + r * math.cos(th)) * W_), int((y + r * math.sin(th)) * W_))
+            for k in range(3):
+                acc[k] += p[k]
+        diffs.append(max(abs(acc[k] / K - centre[k]) for k in range(3)))
+    return diffs
+
+
+def boundary_probes(scene, buf, off_px=3.0):
+    """(total, bad, worst) over points a few pixels off each segment, on a known side."""
+    W_ = scene["width"]
+    off = off_px / W_
+    bad = tot = 0
+    worst = 0.0
+    for (a, b, lc, rc) in segments(scene):
+        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / L, dx / L
+        for sgn in (+1, -1):
+            qx, qy = mx + sgn * nx * off, my + sgn * ny * off
+            if dist_to_scene(qx, qy, scene) < off * 0.8:
+                continue
+            want = rc if side_of(qx, qy, a, b) > 0 else lc
+            got = px_at(buf, W_, int(qx * W_), int(qy * W_))
+            err = max(abs(got[k] - want[k]) for k in range(3))
+            worst = max(worst, err)
+            tot += 1
+            if err > P2_TOL:
+                bad += 1
+    return tot, bad, worst
+
+
+def boundary_ok(scene, buf):
+    tot, bad, _ = boundary_probes(scene, buf)
+    return tot >= 4 and bad == 0
+
+
+
+def canvas_image(page, w, h):
+    """A byte-faithful picture of what the canvas element is DISPLAYING.
+
+    Not `locator.screenshot()`: that captures the element's border box, so a 1px CSS border and a
+    fractional page offset come along for the ride (measured 2026-08-10: a 128x128 canvas shown at
+    384 CSS px came back 385x385 at y=182.0625, and resampling that to 128 gave RMSE 10.4 against
+    the identical pixels read straight off the canvas). Clipping to the CONTENT box and resizing
+    nearest-neighbour -- the canvas is `image-rendering: pixelated`, so every displayed pixel is
+    exactly one canvas pixel -- gives RMSE 0.0. The border was an artefact of the instrument, and
+    the fix is to the instrument, not to the tolerance.
+    """
+    from PIL import Image
+    box = page.evaluate("""() => { const c = document.getElementById('dc-canvas');
+        const r = c.getBoundingClientRect();
+        return {x: r.left + c.clientLeft, y: r.top + c.clientTop,
+                width: c.clientWidth, height: c.clientHeight}; }""")
+    im = Image.open(io.BytesIO(page.screenshot(clip=box))).convert("RGBA")
+    if im.size != (w, h):
+        im = im.resize((w, h), Image.NEAREST)
+    return im
+
+
 # ---------------------------------------------------------------- local server
 class _Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a):
@@ -172,63 +253,22 @@ def run(url, verbose=True):
             # deliberately NOT awaited: page.evaluate() would await the returned promise
             # against Playwright's 30s default and time out on a slow software render.
             page.evaluate("o => { DC.render(o); }", {"samples": samples, "seed": seed})
-            page.wait_for_function("o => DC.meta().samples >= o.samples",
-                                   arg={"samples": samples}, timeout=180000)
+            # a render that dies (WebGL context loss) sets DC.meta().error; wait for either so a
+            # dead render is a FAIL with a reason, not an opaque timeout.
+            page.wait_for_function("o => DC.meta().samples >= o.samples || !!DC.meta().error",
+                                   arg={"samples": samples}, timeout=900000)
+            err = page.evaluate("() => DC.meta().error")
+            if err:
+                raise RuntimeError("render aborted: " + str(err))
             return page.evaluate("() => DC.pixels()")
 
         # ---------------- P2 Dirichlet boundary data
-        W = S2["width"]
         buf = render(S2, 1024, 11)
-        off = 3.0 / W
-        bad, tot, worst = 0, 0, 0.0
-        for (a, b, lc, rc) in segments(S2):
-            mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-            dx, dy = b[0] - a[0], b[1] - a[1]
-            L = math.hypot(dx, dy) or 1.0
-            nx, ny = -dy / L, dx / L          # a normal
-            for sgn, want in ((+1, None), (-1, None)):
-                qx, qy = mx + sgn * nx * off, my + sgn * ny * off
-                want = rc if side_of(qx, qy, a, b) > 0 else lc
-                if dist_to_scene(qx, qy, S2) < off * 0.8:
-                    continue                   # too close to another curve to attribute
-                got = px_at(buf, W, int(qx * W), int(qy * W))
-                err = max(abs(got[k] - want[k]) for k in range(3))
-                worst = max(worst, err)
-                tot += 1
-                if err > P2_TOL:
-                    bad += 1
+        tot, bad, worst = boundary_probes(S2, buf)
         rec("P2.dirichlet", tot >= 4 and bad == 0,
             f"{tot-bad}/{tot} boundary probes within {P2_TOL} (worst channel error {worst:.1f})")
 
         # ---------------- P3 harmonic / mean-value property
-        def mean_value_stats(scene, buf):
-            W_ = scene["width"]
-            rnd = random.Random(20260810)
-            diffs = []
-            tries = 0
-            while len(diffs) < 60 and tries < 4000:
-                tries += 1
-                x = rnd.uniform(0.12, 0.88)
-                y = rnd.uniform(0.12, 0.88)
-                r = rnd.uniform(0.035, 0.075)
-                if dist_to_scene(x, y, scene) < r * 1.25:
-                    continue
-                if x - r < 0.02 or x + r > 0.98 or y - r < 0.02 or y + r > 0.98:
-                    continue
-                cx, cy = int(x * W_), int(y * W_)
-                centre = px_at(buf, W_, cx, cy)
-                acc = [0.0, 0.0, 0.0]
-                K = 64
-                for i in range(K):
-                    th = 2 * math.pi * i / K
-                    sx = int((x + r * math.cos(th)) * W_)
-                    sy = int((y + r * math.sin(th)) * W_)
-                    p = px_at(buf, W_, sx, sy)
-                    for k in range(3):
-                        acc[k] += p[k]
-                diffs.append(max(abs(acc[k] / K - centre[k]) for k in range(3)))
-            return diffs
-
         buf3 = render(S2, P3_SAMPLES, 7)
         d = mean_value_stats(S2, buf3)
         mean_d = sum(d) / max(len(d), 1)
@@ -268,14 +308,8 @@ def run(url, verbose=True):
         # ---------------- P6 seam == screen
         render(S2, 1024, 5)
         seam = page.evaluate("() => DC.pixels()")
-        shot = page.locator("#dc-canvas").screenshot()
-        from PIL import Image
-        im = Image.open(io.BytesIO(shot)).convert("RGBA")
-        sw, sh = im.size
+        im = canvas_image(page, S2["width"], S2["height"])
         got = list(im.tobytes())
-        if (sw, sh) != (S2["width"], S2["height"]):
-            im = im.resize((S2["width"], S2["height"]), Image.NEAREST)
-            got = list(im.tobytes())
         e6 = rmse(seam, got)
         rec("P6.seam_is_screen", e6 <= P6_TOL,
             f"DC.pixels() vs browser screenshot of the visible canvas: RMSE {e6:.2f} (tol {P6_TOL})")
@@ -291,33 +325,14 @@ def run(url, verbose=True):
         page2.click("#dc-render")
         page2.wait_for_function("() => document.getElementById('dc-status')"
                                 ".dataset.state === 'done'", timeout=240000)
-        shot2 = page2.locator("#dc-canvas").screenshot()
-        im2 = Image.open(io.BytesIO(shot2)).convert("RGBA")
         scn = json.loads(page2.get_attribute("#dc-canvas", "data-scene"))
-        w2, h2 = im2.size
-        if (w2, h2) != (scn["width"], scn["height"]):
-            im2 = im2.resize((scn["width"], scn["height"]), Image.NEAREST)
+        im2 = canvas_image(page2, scn["width"], scn["height"])
         ui_buf = list(im2.tobytes())
         d7 = mean_value_stats(scn, ui_buf)
         m7 = sum(d7) / max(len(d7), 1)
         rec("P7.ui_harmonic", len(d7) >= 20 and m7 <= P3_MEAN_TOL * 1.6,
             f"UI-driven canvas (no DC.* call) mean-value error {m7:.2f} over {len(d7)} probes")
-        W7 = scn["width"]
-        bad7 = tot7 = 0
-        for (a, b, lc, rc) in segments(scn):
-            mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-            dx, dy = b[0] - a[0], b[1] - a[1]
-            L = math.hypot(dx, dy) or 1.0
-            nx, ny = -dy / L, dx / L
-            for sgn in (+1, -1):
-                qx, qy = mx + sgn * nx * (3.0 / W7), my + sgn * ny * (3.0 / W7)
-                if dist_to_scene(qx, qy, scn) < (3.0 / W7) * 0.8:
-                    continue
-                want = rc if side_of(qx, qy, a, b) > 0 else lc
-                got_p = px_at(ui_buf, W7, int(qx * W7), int(qy * W7))
-                tot7 += 1
-                if max(abs(got_p[k] - want[k]) for k in range(3)) > P2_TOL:
-                    bad7 += 1
+        tot7, bad7, _w7 = boundary_probes(scn, ui_buf)
         rec("P7.ui_dirichlet", tot7 >= 4 and bad7 == 0,
             f"UI-driven canvas honours boundary data: {tot7-bad7}/{tot7}")
 
