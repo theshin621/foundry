@@ -391,6 +391,49 @@ def run(url, verbose=True):
         rec("P9.escaping", not xss["pwned"] and not xss["injected"],
             f"hostile label did not become markup ({xss})")
 
+        # ---------------- P11 a scene swap MID-RENDER must not contaminate the result
+        # Added after the round-1 checker found that changing the example while a render was in
+        # flight kept accumulating the NEW boundary data into the OLD buffer, then reported
+        # "done" over a blend of two different boundary-value problems (centre-pixel error 62,
+        # ~3x P2's tolerance). Every predicate above was blind to it because P7 selects its
+        # example once, before clicking Render. Driven entirely through the UI: no DC.* call.
+        def ui_render(pg, example, spp):
+            pg.select_option("#dc-example", example)
+            pg.fill("#dc-samples", str(spp))
+            pg.click("#dc-render")
+            pg.wait_for_function("() => document.getElementById('dc-status')"
+                                 ".dataset.state === 'done'", timeout=600000)
+            scn_ = json.loads(pg.get_attribute("#dc-canvas", "data-scene"))
+            return scn_, list(canvas_image(pg, scn_["width"], scn_["height"]).tobytes())
+
+        pgA = browser.new_page(viewport={"width": 1100, "height": 900})
+        pgA.goto(url + SHIP_PATH, wait_until="load")
+        pgA.wait_for_selector("#dc-canvas")
+        scn_c, clean = ui_render(pgA, "loop", 1024)
+
+        pgB = browser.new_page(viewport={"width": 1100, "height": 900})
+        pgB.goto(url + SHIP_PATH, wait_until="load")
+        pgB.wait_for_selector("#dc-canvas")
+        pgB.select_option("#dc-example", "three")
+        pgB.fill("#dc-samples", "6000")
+        pgB.click("#dc-render")
+        pgB.wait_for_function("() => document.getElementById('dc-status')"
+                              ".dataset.state === 'running'", timeout=30000)
+        time.sleep(12)                      # let a real partial average build up
+        scn_s, swapped = ui_render(pgB, "loop", 1024)   # swap mid-flight, then render for real
+        e11 = rmse(clean, swapped)
+        d11 = mean_value_stats(scn_s, swapped)
+        m11 = sum(d11) / max(len(d11), 1)
+        # two independent 1024-spp renders of the same scene differ by MC noise alone:
+        # sqrt(2) * 127.5/sqrt(1024) ~ 5.6 worst case. 14 leaves headroom and is far under the
+        # 62-level contamination the checker measured.
+        rec("P11.midrender_swap_clean", e11 <= 14.0,
+            f"scene swapped mid-render then rendered: RMSE vs a clean render of the same scene "
+            f"= {e11:.2f} (tol 14.0; contamination measured at 62 before the fix)")
+        rec("P11.midrender_swap_harmonic", len(d11) >= 20 and m11 <= P3_MEAN_TOL * 1.6,
+            f"and the result is still harmonic: mean-value error {m11:.2f} over {len(d11)} probes")
+        pgA.close(); pgB.close()
+
         # ---------------- P10 the inlined shared primitives have not drifted from lib/
         try:
             r10 = subprocess.run([sys.executable, os.path.join(REPO, "tools", "build-011.py"),

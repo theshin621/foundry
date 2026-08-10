@@ -82,8 +82,11 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
       boundary. The build's oracle checks exactly this, on the rendered pixels, in a real browser.</li>
       <li><b>It is Monte Carlo, so it is noisy and the noise is the honest part.</b> Error falls as
       1/√samples. Doubling samples does not double quality; quadrupling halves the error.</li>
-      <li><b>Nothing leaves your machine.</b> No upload, no server, no account. The SVG is parsed by
-      your own browser and the pixels never go anywhere.</li>
+      <li><b>Your artwork never leaves your machine.</b> The SVG is parsed by your own browser and
+      the pixels are never uploaded — there is no account, no storage, and no image ever reaches a
+      server. Being exact about the one exception: the page sends a single cookieless first-party
+      ping recording that this URL was visited, and nothing else. No file, no pixels, no
+      identifier.</li>
       <li><b>Software rendering is slow.</b> On a machine without a working GPU path this falls back
       to a software rasteriser and a high sample count takes minutes. That is the honest cost of a
       per-pixel stochastic solver.</li>
@@ -419,8 +422,39 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
     w = Math.max(16, Math.min(MAX_DIM, w | 0));
     h = Math.max(16, Math.min(MAX_DIM, h | 0));
     if (w === W && h === H) return;
+    stopRun();
     W = w; H = h;
     if (pAcc) allocTargets();
+  }
+
+  /* Halt whatever is in flight and settle its promise. EVERY path that changes what is being
+   * solved must call this first.
+   *
+   * Found by the round-1 checker, and it is the sibling of the bug the gen token was added for:
+   * gen stopped two render loops racing, but the scene-select and file-input handlers reassigned
+   * state.scene WITHOUT stopping the loop, so a running average kept accumulating — now against
+   * the NEW boundary data, into the OLD buffer. The page then reported "done" over a blend of two
+   * different boundary-value problems, which is not a solution to either. Measured contamination
+   * at the centre pixel: 62 levels, ~3x the oracle's own tolerances. Ordinary users click the
+   * example dropdown while a slow render is still going; this is not an exotic path. */
+  function stopRun() {
+    state.gen = (state.gen + 1) | 0;
+    state.running = false;
+    if (pending) { var r = pending; pending = null; r(); }
+  }
+
+  /* The one way the scene changes. */
+  function setScene(scene, sourceHtml) {
+    stopRun();
+    state.scene = JSON.parse(JSON.stringify(scene));
+    if (scene.width && scene.height) setResolution(scene.width, scene.height);
+    state.scene.width = W; state.scene.height = H;
+    clearAcc();
+    show();
+    canvas.setAttribute('data-scene', JSON.stringify(state.scene));
+    if (sourceHtml !== undefined) srcEl.innerHTML = sourceHtml;
+    statusEl.dataset.state = 'idle';
+    statusEl.textContent = 'scene loaded (' + W + '×' + H + ') — press Render';
   }
   function bindQuad(p) {
     var loc = gl.getAttribLocation(p, 'aPos');
@@ -506,11 +540,9 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
 
   function start(samples, seed) {
     if (state.err) return Promise.reject(new Error(state.err));
-    /* supersede any run in flight: bump the token, and settle its promise so no caller is left
-     * waiting forever and no unhandled rejection reaches the page. */
-    state.gen = (state.gen + 1) | 0;
+    /* supersede any run in flight, then take the new token */
+    stopRun();
     var g = state.gen;
-    if (pending) { var old = pending; pending = null; old(); }
     state.seed = (seed === undefined ? state.seed : seed) >>> 0;
     clearAcc();
     state.target = Math.max(1, samples | 0);
@@ -594,6 +626,16 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
     return dflt.slice();
   }
 
+  /* One clamp, used by the button AND by the seam. Previously the button clamped to [1,16384]
+   * and DC.render() did not, and `parseInt('0') || 512` silently substituted 512 for a typed 0
+   * because 0 is falsy — both found by the round-1 checker. isFinite() first, so 0 clamps to the
+   * stated minimum instead of vanishing into the default. */
+  function clampSamples(v) {
+    var n = parseInt(v, 10);
+    if (!isFinite(n)) return 512;
+    return Math.max(1, Math.min(16384, n));
+  }
+
   /* ---------------------------------------------------------------- UI */
   var sel = document.getElementById('dc-example');
   var inSamples = document.getElementById('dc-samples');
@@ -620,24 +662,19 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
   resIn.addEventListener('change', function () {
     var n = parseInt(resIn.value, 10) || 128;
     setResolution(n, n);
-    state.scene.width = W; state.scene.height = H;
-    canvas.setAttribute('data-scene', JSON.stringify(state.scene));
-    statusEl.dataset.state = 'idle';
-    statusEl.textContent = 'resolution ' + W + '×' + H + ' — press Render';
+    var sc = JSON.parse(JSON.stringify(state.scene));
+    sc.width = W; sc.height = H;      // else setScene would restore the OLD resolution
+    setScene(sc);
   });
 
   sel.addEventListener('change', function () {
-    state.scene = JSON.parse(JSON.stringify(EXAMPLES[sel.value].scene));
-    state.scene.width = W; state.scene.height = H;
-    srcEl.innerHTML = 'source: <b>' + esc(EXAMPLES[sel.value].name) + '</b> (built-in)';
-    canvas.setAttribute('data-scene', JSON.stringify(state.scene));
-    statusEl.dataset.state = 'idle';
-    statusEl.textContent = 'scene loaded — press Render';
+    var sc = JSON.parse(JSON.stringify(EXAMPLES[sel.value].scene));
+    sc.width = W; sc.height = H;
+    setScene(sc, 'source: <b>' + esc(EXAMPLES[sel.value].name) + '</b> (built-in)');
   });
 
   btnRender.addEventListener('click', function () {
-    var n = Math.max(1, Math.min(16384, parseInt(inSamples.value, 10) || 512));
-    start(n, (state.seed + 1) >>> 0);
+    start(clampSamples(inSamples.value), (state.seed + 1) >>> 0);
   });
 
   btnExport.addEventListener('click', function () {
@@ -654,12 +691,9 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
     fr.onload = function () {
       try {
         var curves = curvesFromSVG(String(fr.result));
-        state.scene = { width: W, height: H, curves: curves };
-        canvas.setAttribute('data-scene', JSON.stringify(state.scene));
-        srcEl.innerHTML = 'source: <b>' + esc(f.name) + '</b> — ' + curves.length +
-          ' curve(s). Stroke colour becomes the left side, fill the right.';
-        statusEl.dataset.state = 'idle';
-        statusEl.textContent = 'SVG loaded — press Render';
+        setScene({ width: W, height: H, curves: curves },
+          'source: <b>' + esc(f.name) + '</b> — ' + curves.length +
+          ' curve(s). Stroke colour becomes the left side, fill the right.');
       } catch (e) {
         srcEl.innerHTML = '<span class="bad">could not read ' + esc(f.name) + ': ' +
           esc(e.message) + '</span>';
@@ -670,13 +704,8 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
 
   /* ---------------------------------------------------------------- seam */
   window.DC = {
-    load: function (scene) {
-      state.scene = JSON.parse(JSON.stringify(scene));
-      if (scene.width && scene.height) setResolution(scene.width, scene.height);
-      state.scene.width = W; state.scene.height = H;
-      canvas.setAttribute('data-scene', JSON.stringify(state.scene));
-    },
-    render: function (o) { return start((o && o.samples) || 512, (o && o.seed) || 1); },
+    load: function (scene) { setScene(scene); },
+    render: function (o) { return start(clampSamples(o && o.samples), (o && o.seed) || 1); },
     pixels: function () { return Array.prototype.slice.call(readCanvas()); },
     canvas: function () { return canvas; },
     setLabel: setLabel,

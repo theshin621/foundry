@@ -82,8 +82,11 @@ code{background:#12161b;padding:.05rem .3rem;border-radius:3px}
       boundary. The build's oracle checks exactly this, on the rendered pixels, in a real browser.</li>
       <li><b>It is Monte Carlo, so it is noisy and the noise is the honest part.</b> Error falls as
       1/√samples. Doubling samples does not double quality; quadrupling halves the error.</li>
-      <li><b>Nothing leaves your machine.</b> No upload, no server, no account. The SVG is parsed by
-      your own browser and the pixels never go anywhere.</li>
+      <li><b>Your artwork never leaves your machine.</b> The SVG is parsed by your own browser and
+      the pixels are never uploaded — there is no account, no storage, and no image ever reaches a
+      server. Being exact about the one exception: the page sends a single cookieless first-party
+      ping recording that this URL was visited, and nothing else. No file, no pixels, no
+      identifier.</li>
       <li><b>Software rendering is slow.</b> On a machine without a working GPU path this falls back
       to a software rasteriser and a high sample count takes minutes. That is the honest cost of a
       per-pixel stochastic solver.</li>
