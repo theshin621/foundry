@@ -1,0 +1,77 @@
+PROBE-THE-ORACLE — ship 011
+==============================================================
+
+BASELINE (unmutated build) — every predicate must be GREEN or the controls prove nothing
+  {"P1": true, "P2": true, "P3": true, "_P3v": 3.94, "P4": true, "_P4v": 1.91, "P5.seed": true, "P6": true, "P9.escaping": true, "P7": true}
+
+[C1-nearest-colour] must turn P3 RED
+  replace the random walk with 'take the nearest boundary colour' — a Voronoi fill. Looks plausible, is not harmonic, and is deterministic.
+  P3 = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P4": false, "P5.seed": false, "P6": true, "P9.escaping": true}
+
+[C2-affine-ramp] must turn P2 RED
+  THE CONSTRUCTED BREAK (see §Independent attempt): replace the field with a linear ramp. An affine function IS harmonic, so it satisfies the mean-value property exactly and P3 alone cannot see it. P2 must be what catches it.
+  P2 = False  -> RED as claimed
+  collateral: {"P1": true, "P3": true, "P4": false, "P5.seed": false, "P6": true, "P9.escaping": true}
+
+[C3-sides-swapped] must turn P2 RED
+  swap which side of each curve gets which colour. The field stays perfectly harmonic; only the boundary data is wrong.
+  P2 = False  -> RED as claimed
+  collateral: {"P1": true, "P3": true, "P4": true, "P5.seed": true, "P6": true, "P9.escaping": true}
+
+[C4-seed-ignored] must turn P5.seed RED
+  ignore the caller's seed. Every render becomes the same sequence — the estimator is no longer stochastic in the way the page claims.
+  P5.seed = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P3": true, "P4": true, "P6": true, "P9.escaping": true}
+
+[C5-frozen-image] must turn P4 RED
+  stop accumulating after 16 samples but keep the counter climbing. The page reports 4096 samples over a 16-sample image: the exact shape of a static asset pretending to converge.
+  P4 = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P3": false, "P5.seed": true, "P6": true, "P9.escaping": true}
+
+[C6-seam-not-screen] must turn P6 RED
+  return a correct buffer from DC.pixels() while blanking the visible canvas. This is ship 008's failure exactly — a verified seam over a dead deliverable — and P6 exists for it.
+  P6 = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P3": true, "P4": false, "P5.seed": false, "P9.escaping": true}
+
+[C7-dead-button] must turn P7 RED
+  leave the automation seam fully working and make the Render button do nothing. Every predicate that talks to DC.* still passes.
+  P7 = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P3": true, "P4": true, "P5.seed": true, "P6": true, "P9.escaping": true}
+
+[C8-unescaped-label] must turn P9.escaping RED
+  interpolate the caption straight into innerHTML.
+  P9.escaping = False  -> RED as claimed
+  collateral: {"P1": true, "P2": true, "P3": true, "P4": true, "P5.seed": true, "P6": true}
+
+[C9-2d-canvas] must turn P1 RED
+  take a 2D context on the canvas before the engine runs, so getContext('webgl2') can only return null. A page that then claims to render is claiming something impossible.
+  P1 = False  -> RED as claimed
+  collateral: {}
+
+==============================================================
+INDEPENDENT BREAK ATTEMPT (v4 clause b), stated before the controls were written:
+
+  Attempt A1 — 'pass P3 without solving anything.' The mean-value property is satisfied EXACTLY by
+  any affine function, so a plain linear ramp is a perfect harmonic fake. This is a real hole in
+  P3 and it is why S2 carries three curves whose two-sided colour data no affine function can
+  match, and why P2 is a separate predicate rather than folded into P3. C2 is that attack, run.
+
+  Attempt A2 — 'pass everything through the seam while the page is dead.' Ship 008 did this by
+  accident. P6 (seam == screenshot) and P7 (drive the real buttons, never touch DC.*) were written
+  for it before any code existed. C6 and C7 are that attack, run.
+
+  Attempt A3 — 'pass P4 with a deterministic renderer by adding noise.' A faker could dither the
+  output per seed and produce a 1/sqrt(N)-looking curve. This attempt SUCCEEDS against P4 alone.
+  It fails against P3+P2 together, because dither is not harmonic and the dither amplitude needed
+  to fake the convergence curve is the same amplitude P3 measures. Recorded as a known limit of
+  P4 in isolation rather than patched, because the composite is already sound.
+
+  Attempt A4 — 'satisfy P2 and P3 on the oracle's scenes only, by hard-coding them.' Not defended
+  against by any predicate here, and honestly stated: the oracle's scenes are in a public repo.
+  What makes it unrewarding rather than impossible is P7, which renders whatever scene the PAGE
+  declares, and P5.scene, which requires a different scene to produce a different image. A build
+  that hard-coded S1/S2/S3 would still have to solve the UI's own example. Left as a stated limit.
+
+==============================================================
+9/9 controls flipped their predicate as claimed
