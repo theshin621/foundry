@@ -16,14 +16,19 @@
     "posted_on": null
    },
    "signal": {
-    "d7_visits": 0,
-    "d7_installs": 0,
-    "d30_visits": 0,
-    "inbound": 0,
-    "revenue": 0,
-    "as_of": "2026-08-09T09:48:36Z",
-    "source": "https://tailorfarms.com/_b/stats (armed 2026-08-09 ~09:45Z; window 2026-07-31..2026-08-09 read live: zero hits on every path — instrument-read, the beacon went live minutes before this reading)",
-    "note": "d7/d30 windows truncate at 2026-08-09, the day the instrument went live — earlier visits were never measurable and are not claimed"
+    "as_of": "2026-08-10T02:42:32Z",
+    "source": "https://tailorfarms.com/_b/stats",
+    "read_via": "GitHub Actions run 31350511164 (.github/workflows/beacon-stats.yml) — the sandbox cannot fetch the origin (BOTTLENECKS #2); a runner outside it can",
+    "window": {
+     "from": "2026-08-01",
+     "to": "2026-08-10",
+     "days": 10
+    },
+    "caveat": "instrument-read, NOT oracle-certified: the verification layer built to attest these numbers FAILED its checker twice today (ledger row 10) and is unmerged. These values are trusted on the weaker but real ground that this fire obtained the run id from api.github.com BEFORE the artifact existed and watched the run complete. Treated as measured; not treated as proven.",
+    "path": "/",
+    "qualified_visits_10d": 15,
+    "distinct_days": 2,
+    "note": "hub — the fleet's only traffic; 15 visits over 2 distinct days and nothing distinguishes them from Theshin or the maker"
    },
    "status": "live",
    "kill_criterion": "n/a — infrastructure ship; lives while the loop lives",
@@ -48,14 +53,19 @@
     "posted_on": null
    },
    "signal": {
-    "d7_visits": 0,
-    "d7_installs": 0,
-    "d30_visits": 0,
-    "inbound": 0,
-    "revenue": 0,
-    "as_of": "2026-08-09T09:48:36Z",
-    "source": "https://tailorfarms.com/_b/stats (armed 2026-08-09 ~09:45Z; window 2026-07-31..2026-08-09 read live: zero hits on every path — instrument-read, the beacon went live minutes before this reading)",
-    "note": "d7/d30 windows truncate at 2026-08-09, the day the instrument went live — earlier visits were never measurable and are not claimed"
+    "as_of": "2026-08-10T02:42:32Z",
+    "source": "https://tailorfarms.com/_b/stats",
+    "read_via": "GitHub Actions run 31350511164 (.github/workflows/beacon-stats.yml) — the sandbox cannot fetch the origin (BOTTLENECKS #2); a runner outside it can",
+    "window": {
+     "from": "2026-08-01",
+     "to": "2026-08-10",
+     "days": 10
+    },
+    "caveat": "instrument-read, NOT oracle-certified: the verification layer built to attest these numbers FAILED its checker twice today (ledger row 10) and is unmerged. These values are trusted on the weaker but real ground that this fire obtained the run id from api.github.com BEFORE the artifact existed and watched the run complete. Treated as measured; not treated as proven.",
+    "path": "/002-gha-trigger/",
+    "qualified_visits_10d": 0,
+    "distinct_days": 0,
+    "note": "ZERO recorded visits across the full 10-day window. Branch B needs >=250 over >=3 distinct days; this ship is at 0/250."
    },
    "status": "live",
    "kill_criterion": "<300 unique visits to /002-gha-trigger/ in the 30 days after publish -> graveyard.md (per-path pageviews, the only unit the cookieless beacon measures)",
@@ -114,14 +124,19 @@
     "posted_on": null
    },
    "signal": {
-    "d7_visits": 0,
-    "d7_installs": 0,
-    "d30_visits": 0,
-    "inbound": 0,
-    "revenue": 0,
-    "as_of": "2026-08-09T09:48:36Z",
-    "source": "https://tailorfarms.com/_b/stats (armed 2026-08-09 ~09:45Z; window 2026-07-31..2026-08-09 read live: zero hits on every path — instrument-read, the beacon went live minutes before this reading)",
-    "note": "d7/d30 windows truncate at 2026-08-09, the day the instrument went live — earlier visits were never measurable and are not claimed"
+    "as_of": "2026-08-10T02:42:32Z",
+    "source": "https://tailorfarms.com/_b/stats",
+    "read_via": "GitHub Actions run 31350511164 (.github/workflows/beacon-stats.yml) — the sandbox cannot fetch the origin (BOTTLENECKS #2); a runner outside it can",
+    "window": {
+     "from": "2026-08-01",
+     "to": "2026-08-10",
+     "days": 10
+    },
+    "caveat": "instrument-read, NOT oracle-certified: the verification layer built to attest these numbers FAILED its checker twice today (ledger row 10) and is unmerged. These values are trusted on the weaker but real ground that this fire obtained the run id from api.github.com BEFORE the artifact existed and watched the run complete. Treated as measured; not treated as proven.",
+    "path": "/004-khanya-school-tutor/",
+    "qualified_visits_10d": 0,
+    "distinct_days": 0,
+    "note": "ZERO recorded visits across the full 10-day window. Branch B needs >=250 over >=3 distinct days; this ship is at 0/250."
    },
    "status": "live",
    "kill_criterion": "d30 per-path visits <25 once the beacon token lands (beacon still absent fleet-wide)",
@@ -143,14 +158,19 @@
     "posted_on": null
    },
    "signal": {
-    "d7_visits": 0,
-    "d7_installs": 0,
-    "d30_visits": 0,
-    "inbound": 0,
-    "revenue": 0,
-    "as_of": "2026-08-09T09:48:36Z",
-    "source": "https://tailorfarms.com/_b/stats (armed 2026-08-09 ~09:45Z; window 2026-07-31..2026-08-09 read live: zero hits on every path — instrument-read, the beacon went live minutes before this reading)",
-    "note": "d7/d30 windows truncate at 2026-08-09, the day the instrument went live — earlier visits were never measurable and are not claimed"
+    "as_of": "2026-08-10T02:42:32Z",
+    "source": "https://tailorfarms.com/_b/stats",
+    "read_via": "GitHub Actions run 31350511164 (.github/workflows/beacon-stats.yml) — the sandbox cannot fetch the origin (BOTTLENECKS #2); a runner outside it can",
+    "window": {
+     "from": "2026-08-01",
+     "to": "2026-08-10",
+     "days": 10
+    },
+    "caveat": "instrument-read, NOT oracle-certified: the verification layer built to attest these numbers FAILED its checker twice today (ledger row 10) and is unmerged. These values are trusted on the weaker but real ground that this fire obtained the run id from api.github.com BEFORE the artifact existed and watched the run complete. Treated as measured; not treated as proven.",
+    "path": "/005-maccleaner/",
+    "qualified_visits_10d": 0,
+    "distinct_days": 0,
+    "note": "ZERO recorded visits across the full 10-day window. Branch B needs >=250 over >=3 distinct days; this ship is at 0/250."
    },
    "status": "live",
    "kill_criterion": "d30 per-path visits <25 once the beacon token lands",
