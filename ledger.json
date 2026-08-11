@@ -16,19 +16,13 @@
     "posted_on": null
    },
    "signal": {
-    "as_of": "2026-08-10T10:35:39Z",
-    "source": "https://tailorfarms.com/_b/stats",
-    "read_via": "GitHub Actions run 31379803876 (.github/workflows/beacon-stats.yml) at commit c5249a9, committed to public/beacon-stats.json and read out of git by this fire. HTTP 200. The relay is checker-PASSed (round 4, 35 predicates, every one with an isolating control) and merged.",
+    "measurable": true,
+    "qualified_visits": 30,
+    "distinct_days": 3,
     "path": "/",
-    "window": "2026-08-01 -> 2026-08-10 (10d)",
-    "qualified_visits": 20,
-    "distinct_days": 2,
-    "by_day": {
-     "2026-08-09": 13,
-     "2026-08-10": 7
-    },
-    "caveat": "MEASURED, not claimed. Zero here means measured-zero, which is a different value from unmeasured; no ledger row in this file conflates them. Nothing distinguishes the hub's visits from Theshin's own or the maker's — the beacon is cookieless by design and cannot, and self=1 is the only exclusion it has.",
-    "branch_b_progress": "20/250 qualified visits, 2/3 distinct days (MOD-2 threshold, trailing 7d)"
+    "note": "Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire",
+    "as_of": "2026-08-11T02:59:18Z"
    },
    "status": "live",
    "kill_criterion": "n/a — infrastructure ship; lives while the loop lives",
@@ -53,16 +47,13 @@
     "posted_on": null
    },
    "signal": {
-    "as_of": "2026-08-10T10:35:39Z",
-    "source": "https://tailorfarms.com/_b/stats",
-    "read_via": "GitHub Actions run 31379803876 (.github/workflows/beacon-stats.yml) at commit c5249a9, committed to public/beacon-stats.json and read out of git by this fire. HTTP 200. The relay is checker-PASSed (round 4, 35 predicates, every one with an isolating control) and merged.",
-    "path": "/002-gha-trigger/",
-    "window": "2026-08-01 -> 2026-08-10 (10d)",
+    "measurable": true,
     "qualified_visits": 0,
     "distinct_days": 0,
-    "by_day": {},
-    "caveat": "MEASURED, not claimed. Zero here means measured-zero, which is a different value from unmeasured; no ledger row in this file conflates them. Nothing distinguishes the hub's visits from Theshin's own or the maker's — the beacon is cookieless by design and cannot, and self=1 is the only exclusion it has.",
-    "branch_b_progress": "0/250 qualified visits, 0/3 distinct days (MOD-2 threshold, trailing 7d)"
+    "path": "/002-gha-trigger/",
+    "note": "Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire",
+    "as_of": "2026-08-11T02:59:18Z"
    },
    "status": "live",
    "kill_criterion": "<300 unique visits to /002-gha-trigger/ in the 30 days after publish -> graveyard.md (per-path pageviews, the only unit the cookieless beacon measures)",
@@ -88,8 +79,9 @@
    },
    "signal": {
     "measurable": false,
-    "note": "killed 2026-08-06; branch dark, no public path — nothing to measure",
-    "as_of": "2026-08-09T09:48:36Z"
+    "note": "killed 2026-08-06; branch dark, no public path — nothing to measure Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "as_of": "2026-08-11T02:59:18Z",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire"
    },
    "status": "killed",
    "kill_criterion": "n/a - never published. KILLED instead by the anti-grind clause written into briefs/2026-08-06.md BEFORE the build: 'if today's build does not reach a checker PASS, codeowners goes to graveyard.md and never re-enters.'",
@@ -121,16 +113,13 @@
     "posted_on": null
    },
    "signal": {
-    "as_of": "2026-08-10T10:35:39Z",
-    "source": "https://tailorfarms.com/_b/stats",
-    "read_via": "GitHub Actions run 31379803876 (.github/workflows/beacon-stats.yml) at commit c5249a9, committed to public/beacon-stats.json and read out of git by this fire. HTTP 200. The relay is checker-PASSed (round 4, 35 predicates, every one with an isolating control) and merged.",
-    "path": "/004-khanya-school-tutor/",
-    "window": "2026-08-01 -> 2026-08-10 (10d)",
+    "measurable": true,
     "qualified_visits": 0,
     "distinct_days": 0,
-    "by_day": {},
-    "caveat": "MEASURED, not claimed. Zero here means measured-zero, which is a different value from unmeasured; no ledger row in this file conflates them. Nothing distinguishes the hub's visits from Theshin's own or the maker's — the beacon is cookieless by design and cannot, and self=1 is the only exclusion it has.",
-    "branch_b_progress": "0/250 qualified visits, 0/3 distinct days (MOD-2 threshold, trailing 7d)"
+    "path": "/004-khanya-school-tutor/",
+    "note": "Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire",
+    "as_of": "2026-08-11T02:59:18Z"
    },
    "status": "live",
    "kill_criterion": "d30 per-path visits <25 once the beacon token lands (beacon still absent fleet-wide)",
@@ -152,16 +141,13 @@
     "posted_on": null
    },
    "signal": {
-    "as_of": "2026-08-10T10:35:39Z",
-    "source": "https://tailorfarms.com/_b/stats",
-    "read_via": "GitHub Actions run 31379803876 (.github/workflows/beacon-stats.yml) at commit c5249a9, committed to public/beacon-stats.json and read out of git by this fire. HTTP 200. The relay is checker-PASSed (round 4, 35 predicates, every one with an isolating control) and merged.",
-    "path": "/005-maccleaner/",
-    "window": "2026-08-01 -> 2026-08-10 (10d)",
+    "measurable": true,
     "qualified_visits": 0,
     "distinct_days": 0,
-    "by_day": {},
-    "caveat": "MEASURED, not claimed. Zero here means measured-zero, which is a different value from unmeasured; no ledger row in this file conflates them. Nothing distinguishes the hub's visits from Theshin's own or the maker's — the beacon is cookieless by design and cannot, and self=1 is the only exclusion it has.",
-    "branch_b_progress": "0/250 qualified visits, 0/3 distinct days (MOD-2 threshold, trailing 7d)"
+    "path": "/005-maccleaner/",
+    "note": "Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire",
+    "as_of": "2026-08-11T02:59:18Z"
    },
    "status": "live",
    "kill_criterion": "d30 per-path visits <25 once the beacon token lands",
@@ -184,8 +170,9 @@
    },
    "signal": {
     "measurable": false,
-    "note": "checker-FAIL, branch unmerged and dark — no public path to measure",
-    "as_of": "2026-08-09T09:48:36Z"
+    "note": "checker-FAIL, branch unmerged and dark — no public path to measure Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "as_of": "2026-08-11T02:59:18Z",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire"
    },
    "status": "failed",
    "kill_criterion": "n/a - never published. The anti-grind clause written into briefs/2026-08-07.md BEFORE the build ('one fix cycle and one targeted re-check, and no second day') fired on the round-2 FAIL. Does NOT re-enter tomorrow as a rebuild. Only the founder can overturn that.",
@@ -221,8 +208,9 @@
    },
    "signal": {
     "measurable": false,
-    "note": "checker-FAIL, branch unmerged and dark — no public path to measure",
-    "as_of": "2026-08-09T09:48:36Z"
+    "note": "checker-FAIL, branch unmerged and dark — no public path to measure Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "as_of": "2026-08-11T02:59:18Z",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire"
    },
    "status": "failed",
    "kill_criterion": "would have been: d30 per-path visits to /007-ssh-config-resolver/ < 25. Never armed - nothing was deployed.",
@@ -255,8 +243,10 @@
    "signal": {
     "self_measurement": "the beacon measures the fleet, not itself; its liveness signal IS /_b/stats answering 200",
     "stats_endpoint_live": true,
-    "as_of": "2026-08-10T10:35:39Z",
-    "note": "the beacon measures the fleet, not itself; its liveness signal IS /_b/stats answering 200, which it did at this timestamp (public/beacon-stats.json, http 200). Fleet totals at this read: hub 20 visits across 2 distinct days, all three ship pages measured-zero."
+    "as_of": "2026-08-11T02:59:18Z",
+    "note": "the beacon measures the fleet, not itself; its liveness signal IS /_b/stats answering 200, which it did at this timestamp (public/beacon-stats.json, http 200). Fleet totals at this read: hub 20 visits across 2 distinct days, all three ship pages measured-zero. Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "measurable": false,
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire"
    },
    "status": "live",
    "kill_criterion": "infra — lives while the loop lives; provisioning deadline met 2026-08-09 (KV bound, /_b/stats 200 live). Standing failure criterion: /_b/stats non-200 for >24h or a checker showing the oracle green on an inert beacon = immediate BOTTLENECKS entry + rebuild.",
@@ -288,8 +278,9 @@
    "disposition": "FAILED — AND THE FAILURE RECONFIRMS THE SHIPPED FIX FROM A SECOND DIRECTION. While this fire was suspended, the live session shipped BOTTLENECKS #1's third clause: 'for liveness-of-markup claims the oracle executes the page in a real browser (Chromium) and observes the behaviour itself — the hand-written parse-and-match band is deleted, not repaired.' This artifact IS a hand-written parse-and-match band for exactly that claim, built before that clause landed. Its two-round history is independent evidence for the clause: every defect in both rounds was a place where static analysis predicted browser behaviour and got it wrong, and the checker's standing residual in BOTH rounds was that no browser was available to ground-truth against. A static oracle that tries to answer 'will this execute?' is re-deriving a browser and will regenerate siblings indefinitely. The correct disposition is therefore NOT a third fix cycle but retirement of the approach. SALVAGE: the 36-case corpus (esp. the 9 present-but-inert cases) is real, reusable material as INPUT to the browser-truth oracle — each case is a page whose expected liveness is known, which is exactly what a Chromium oracle needs to be tested against. Chromium is available in the sandbox at /opt/pw-browsers/chromium, so this is buildable.",
    "signal": {
     "measurable": false,
-    "note": "checker-FAIL, branch unmerged and dark — no public path, nothing to measure",
-    "as_of": "2026-08-09"
+    "note": "checker-FAIL, branch unmerged and dark — no public path, nothing to measure Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "as_of": "2026-08-11T02:59:18Z",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire"
    },
    "kill_criterion": "n/a — infra, never published. Died to the anti-grind clause after 2 rounds / 2 independent verdicts / 0 PASS.",
    "residuals_at_death": [
@@ -315,8 +306,9 @@
    "disposition": "MERGED to main on a checker PASS with an explicit 'merge as-is' recommendation, under v4 MOD-1 infra autonomy. BOTTLENECKS #2 moves to fix-shipped. Note on process: the anti-grind clause would have stopped this after round 2 on the daily cadence. It ran to four rounds because Theshin asked for it live and in his own words ('fix all foundry issues so that everything works'), which is his call to make and is recorded here rather than assumed.",
    "signal": {
     "measurable": false,
-    "note": "infra — no public path. Its output is every other row's signal block.",
-    "as_of": "2026-08-10T07:00:00Z"
+    "note": "infra — no public path. Its output is every other row's signal block. Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "as_of": "2026-08-11T02:59:18Z",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire"
    },
    "kill_criterion": "n/a — infra, never published. Standing failure criterion: /_b/stats non-200 for >24h, or the oracle returning anything other than PASS on two consecutive fires.",
    "residuals_at_death": null,
@@ -341,9 +333,9 @@
    "disposition": "STAGED, NOT MERGED, and dark — branch `ship/011-diffusion-curves`, no public path.\n\nThe gate, read at run start and not moved by this fire: BOTTLENECKS #1 still records `Checker-validated: pending` at HEAD, so v4 MOD-1's condition for autonomous ship merges (\"fix shipped AND checker-validated\") is not met and ship merges remain Theshin's one-click \"go\". This fire could have argued that row 10's round-4 PASS satisfies the clause and deliberately did not: entry #1's own rule bars the fix author from judging its validation, and the argument would loosen a gate in the arguer's favour. Flagged to Theshin as a one-sentence call he can make either way — does an INFRA round-4 PASS satisfy #1's \"ship-shaped build\" clause, or must a consumer ship PASS first?\n\nIndependently of that gate, the round-2 verdict is PARTIAL with an explicit \"merge after fixing X\", so this would not merge autonomously even if the gate were open. The named X is one narrow patch on the error-state path that does not touch the render path.\n\nTo ship it: `go 11` merges the branch; the page then publishes at tailorfarms.com/011-diffusion-curves/ per MOD-3.",
    "signal": {
     "measurable": false,
-    "note": "staged and dark — no public path exists yet, so measured-zero is not available and would be a lie if written as 0. The instrument itself IS readable and was read this fire: public/beacon-stats.json, fetched by GitHub-Actions run at 2026-08-10T10:35:39Z, HTTP 200, window 2026-08-01 -> 2026-08-10. Fleet state at that read: hub / = 20 visits across 2 distinct days (13 on 08-09, 7 on 08-10); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Second consecutive fire to read its own instrument out of git rather than carry an assumption.",
-    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay, merged 5ef3d7b on a round-4 checker PASS)",
-    "as_of": "2026-08-10T10:35:39Z"
+    "note": "staged and dark — no public path exists yet, so measured-zero is not available and would be a lie if written as 0. Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire",
+    "as_of": "2026-08-11T02:59:18Z"
    },
    "kill_criterion": "PER-PATH BEACON VISITS, the only thing the instrument measures. Kill if, after 500 qualified visits to /011-diffusion-curves/ or 14 days from publish (whichever comes first): fewer than 25 PNG exports, OR exports/render-sessions below 5%. Auto-kill regardless of traffic if the WebGL context-loss error state fires for more than 20% of sessions that start a render — a solver nobody's hardware can run is not a product. Nothing here is measurable until the ship is merged and published; the clock starts at publish, not at build.",
    "residuals_at_death": "n/a — not dead",
@@ -355,6 +347,27 @@
     "ACCEPTED LIMIT: the oracle runs on SwiftShader, software WebGL2. It proves the GL path executes and is correct; it does not prove behaviour on any particular vendor's driver. The context-loss handling exists precisely because software rendering is where that path is exercised.",
     "ACCEPTED LIMIT: colour is averaged in sRGB, not linear light. Physically the wrong space; it is the space the boundary colours are specified in, and changing it would change what 'the colour you set' means at the boundary. Stated on the page under 'Limits, stated'."
    ]
+  },
+  {
+   "n": "12",
+   "date": "2026-08-11",
+   "slug": "chat-export-redactor",
+   "kind": "ship",
+   "status": "failed",
+   "one_liner": "drop a WhatsApp .txt or Telegram result.json into the page and every participant becomes a consistent pseudonym while phone numbers, emails, links and vCard contacts are stripped — in the tab, with the file never leaving the machine",
+   "gap_source_url": "MECHANISM CARD 2, research/mechanisms/2026-08-09-pilot-cards.md — Utrecht D3I / Boeschoten et al. (CCR 2022) + Port (JOSS 2023): process data-download packages entirely client-side. Second in the ordered queue Theshin handed the loop on 2026-08-10 (\"1-5 , now\"), and independently the 2026-08-10 scout's own carried recommendation. Occupant hunt run twice (2026-08-10 and 2026-08-11): printchat.app, WhatsR (CRAN), waexport, cleanor, whatsapp-chat-analyze. CORRECTION, filed by the round-1 checker against this fire's own scout: the brief called printchat.app \"server-side and paid\"; printchat's own public copy claims 100% client-side WebAssembly processing with redaction behind a $1.99/export paywall. The scout was wrong on the architecture half. The surviving edge is free-vs-paid and open-vs-proprietary, NOT \"the only client-side one\" — recorded here rather than quietly dropped, because a ledger that launders its own scout's errors is worthless.",
+   "deploy_url": "NOT DEPLOYED — branch ship/012-chat-export-redactor, unmerged, dark on the hub, and it should stay that way until the round-2 SEVERE is closed by a rebuild.",
+   "checker_verdict": "ROUND 1 (independent subagent, sonnet — DIFFERENT MODEL from the maker/opus-5, refutation-seeking, driven cold against the architect's oracle) — VERDICT: FAIL. Oracle 40/40 and probe 10/10 reproduced clean by the checker itself. SIX findings, THREE SEVERE. [SEVERE 1] a group member named only in a WhatsApp system line (\"Alice added Dumi Ratsaka\", \"X left\", \"X changed the subject\") is never redacted while the page reports \"2 participant(s) pseudonymised\" — verbatim: \"someone shares a group export with an LLM/lawyer/researcher believing 'every participant gets a consistent pseudonym' (the page's own claim); a person who joined, left, or was renamed via a group-management event is fully doxxed by name in a file the tool marked DONE.\" [SEVERE 2] same class in Telegram: names inside a service message's `members` array, and later mentions of them, survive. [SEVERE 3] matching was case-sensitive — \"thanks ALICE ... alice will be late\" survives; verbatim: \"Note the ARCHITECT's own oracle checks residual identifiers case-insensitively, so this defect would have been caught immediately had any of the five architect fixtures included a differently-cased mention — none do, which is why 40/40 stayed green.\" [MEDIUM 4] diacritic variants (Zoë -> zoe) survive. [MEDIUM 5] bare domains without a scheme are not stripped though the page claims links are. [LOW 6] credentialed URLs produce corrupted output \"[link removed] removed]/x\". [LOW/PROCESS 7] the scout's printchat.app characterisation is wrong — see gap_source_url.\n\nROUND 2 (FRESH adversary, targeted re-check after the one permitted fix cycle) — VERDICT: FAIL. FIX STATUS: all six fixes HOLD, each verified against inputs the adversary wrote itself rather than the cases that motivated the fix. THREE NEW FINDINGS, all explicitly siblings of the three places the fix touched. [SEVERE, sibling of fix 1] the system-line patterns are `$`-anchored and the parser leaves a trailing newline on the final record when the file ends in one — which exported text files do — so a person named ONLY in a system line that is ALSO the last line of the file is still leaked in cleartext with the page reporting DONE; verbatim: \"Confirmed the trigger is precisely the trailing \\\\n: the identical fixture with no trailing newline at EOF redacts correctly. Fix is a one-line msg.trim() before matching.\" [MEDIUM, sibling of fixes 3/4] two different people whose names fold to the same base (Rene Botha / René Botha) collapse into one pseudonym while the mapping still lists two. [MEDIUM, sibling of fix 2] a Telegram handle seen before its owner's display name is promoted to its own participant number, splitting one person in two. It declined to report the disclosed over-redaction behaviour as a defect: \"this is an explicitly disclosed, intentional design tradeoff.\" It also named the oracle's own blind spot — no fixture named a person exclusively in a TERMINAL system line, and wa-group.txt only looked like that canary.",
+   "maker_note": "Oracle-before-code was followed to the letter and the artifact still failed twice. What the oracle DID buy, measured rather than claimed: it caught two real defects before any checker saw the page (blob downloads are refused on file://, so the first oracle would have certified a code path no visitor runs; and a CSS specificity bug left the download link live on a file the page had just rejected — the single worst failure this product can have). What it did NOT buy is coverage of cases its author did not imagine, and the round-1 checker put the knife in precisely: the oracle compares case-insensitively, so ONE differently-cased fixture would have caught SEVERE 3 on the first run. The architect wrote five fixtures and each one was a case he already knew how to handle. Borrowed-primitive discipline held again (whatsapp-chat-parser@4.0.2 verified byte-identical to upstream by the checker; zero findings against it) and every single defect in both rounds was in the hand-written band around it — the fourth consecutive artifact where that is true.",
+   "disposition": "FAILED, unmerged, dark. One fix cycle is the rule; it was used; a persisting FAIL stays unmerged. The rebuild lane (Amendment 2026-08-02b.3) applies: the three round-2 findings are the build order for a future rebuild, and oracles/012-chat-export-redactor/ now carries wa-terminal-system.txt, which is RED against this artifact by design, so no rebuild can pass without closing the SEVERE. lib/chat-redact.js and lib/vendor/ stay on the branch and are deliberately NOT merged to lib/, so the shared library stays clean (the ship-007 precedent).",
+   "signal": {
+    "measurable": false,
+    "note": "never published, so there is no path to measure and a 0 would be a fabrication. Instrument-read this fire from public/beacon-stats.json (BOTTLENECKS #2 relay), fetched by GitHub-Actions run 31454011286 at 2026-08-11T02:59:18Z, HTTP 200, oracle VERDICT PASS. Fleet state at that read: hub / = 30 qualified visits across 3 distinct days (13 on 08-09, 14 on 08-10, 3 on 08-11); /002-gha-trigger/ = 0; /004-khanya-school-tutor/ = 0; /005-maccleaner/ = 0. Third consecutive fire to read its own instrument out of git rather than carry an assumption. MOD-2 Branch B on the best-performing path: 30/250 qualified visits, 3/3 distinct days — the distinct-days half of the threshold is met on the hub for the first time; the volume half is not, and the hub is not a ship.",
+    "source": "public/beacon-stats.json (BOTTLENECKS #2 relay); oracle PASS this fire",
+    "as_of": "2026-08-11T02:59:18Z"
+   },
+   "kill_criterion": "PER-PATH BEACON VISITS, the only thing the instrument measures. Had it published: kill if /012-chat-export-redactor/ takes fewer than 40 qualified visits in any trailing 14-day window after one discovery post. The mechanism card's own \"<30 files processed\" was REJECTED at scout time as unmeasurable — Cloudflare's free beacon is pageview-only, and a criterion the instrument cannot read makes Sunday triage ceremonial (Amendment 2026-08-02b.5). Moot while unmerged.",
+   "residuals_at_death": "Three, all named by the round-2 fresh adversary and none repaired: (1) SEVERE, trailing-newline anchor in the system-line patterns; (2) MEDIUM, fold-collision merging two people into one pseudonym; (3) MEDIUM, Telegram handle-before-name splitting one person into two. Plus one documented limit of the ORACLE itself, stated rather than hidden: it stops watching the network once the download completes, so a post-download exfiltration is outside its observation window."
   }
  ]
 }
