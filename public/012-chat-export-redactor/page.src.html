@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Export Redactor — foundry day 012</title>
+<meta name="description" content="Strip names, numbers, emails and links out of a WhatsApp or Telegram chat export, in your browser. The file never leaves your machine.">
+<style>
+:root{--dim:#4b535c;--ok:#7ee08a;--bad:#ff8a8a;--acc:#8ab4ff}
+body{margin:0;min-height:100vh;background:#0b0d10;color:#e8eaed;font:15px/1.65 ui-monospace,Menlo,monospace}
+main{max-width:44rem;margin:0 auto;padding:3rem 1.25rem}
+h1{font-size:1.35rem;margin:0 0 .4rem}
+.sub{color:var(--dim);margin:0 0 2rem}
+.drop{border:1px dashed #2c333c;border-radius:8px;padding:2rem 1.25rem;text-align:center;background:#0e1116}
+.drop.over{border-color:var(--acc);background:#101827}
+input[type=file]{display:block;margin:1rem auto 0;color:var(--dim);max-width:100%}
+#status{margin:1.25rem 0 0;min-height:1.5rem}
+#status.err{color:var(--bad)} #status.ok{color:var(--ok)}
+.row{display:flex;gap:.75rem;flex-wrap:wrap;margin:1.25rem 0 0}
+a.btn{display:inline-block;background:#18202b;border:1px solid #2c333c;color:#e8eaed;padding:.5rem .9rem;border-radius:6px;text-decoration:none}
+a.btn:hover{border-color:var(--acc)}
+pre{background:#0e1116;border:1px solid #1c222a;border-radius:8px;padding:1rem;overflow:auto;max-height:22rem;white-space:pre-wrap;word-break:break-word;font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:1rem}
+td,th{border-bottom:1px solid #1c222a;text-align:left;padding:.35rem .5rem}
+.note{border-left:2px solid #2c333c;padding-left:1rem;color:#aab2bd;font-size:13.5px}
+footer{margin-top:3rem;color:var(--dim);font-size:.8rem}footer a{color:var(--dim)}
+/* !important is load-bearing, not laziness: `a.btn` is (0,1,1) and `.hide` is (0,1,0), so
+   without it the download link stays clickable on a file the page just rejected. The oracle
+   caught exactly that on the garbage-input fixture. */
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Chat Export Redactor</h1>
+<p class="sub">Drop a WhatsApp <code>.txt</code> export or a Telegram <code>result.json</code>.
+Everyone gets a consistent pseudonym; phone numbers, emails, links and vCard contacts are stripped.
+Timestamps and structure are left exactly as they were.</p>
+
+<div class="drop" id="drop">
+  <div>Drop the export here — or choose a file</div>
+  <input type="file" id="file" accept=".txt,.json,text/plain,application/json">
+</div>
+
+<p id="status">Waiting for a file.</p>
+
+<div class="row">
+  <a class="btn hide" id="dl-clean" download>↓ sanitised file</a>
+  <a class="btn hide" id="dl-map" download>↓ mapping (keep this private)</a>
+</div>
+
+<table id="who" class="hide"><thead><tr><th>in your file</th><th>becomes</th></tr></thead><tbody id="who-body"></tbody></table>
+
+<h3 style="margin-top:2.5rem">Preview</h3>
+<pre id="preview">—</pre>
+
+<h3 style="margin-top:2.5rem">To evaluate this you need to understand…</h3>
+<div class="note">
+<p>1. <b>Nothing is uploaded.</b> There is no server and no request: the file is read with
+<code>FileReader</code> and processed in this tab. Open DevTools → Network and watch it do nothing.
+That is the entire reason this exists rather than a website you paste a transcript into.</p>
+<p>2. <b>Pseudonyms are consistent and reversible only by you.</b> The same person is the same
+<i>Participant N</i> everywhere in the file, and the same in a second run of the same file, so the
+conversation still reads. The mapping is a separate download that never touches the sanitised file.</p>
+<p>3. <b>Bare first names are redacted too.</b> Replacing “Alice Mokoena” and leaving “thanks Alice”
+in a message body is the failure that makes redaction theatre. Every component of every name is
+substituted on word boundaries, including non-ASCII ones.</p>
+<p>4. <b>It over-redacts on purpose.</b> If a participant is called Will, the word “will” goes too.
+For a privacy tool the expensive mistake is the one in the other direction.</p>
+<p>5. <b>What it does NOT do:</b> media, images inside a <code>.zip</code>, voice notes, or
+identification by writing style. It removes identifiers. It does not make a chat unattributable —
+and anyone who already knows the participants will still recognise them from the content.</p>
+</div>
+
+<h3 style="margin-top:2.5rem">Built from</h3>
+<p class="sub" style="margin:0">Message-header and author detection is
+<a href="https://github.com/Pustur/whatsapp-chat-parser" style="color:var(--acc)">whatsapp-chat-parser
+v4.0.2</a> by Loris Bettazza, MIT-licensed, inlined verbatim — the locale zoo of WhatsApp timestamp
+formats is exactly the kind of core this foundry ports instead of hand-rolling. Redaction logic:
+<code>lib/chat-redact.js</code>. Verified against
+<code>oracles/012-chat-export-redactor/</code> — 10 predicates driven in a real browser, plus 10
+negative controls proving the oracle can go red.</p>
+
+<footer>built by <a href="../">foundry</a> · day 012 · verified before ship</footer>
+</main>
+
+<script>/*__VENDOR_PARSER__*/</script>
+<script>/*__ESC__*/</script>
+<script>/*__CHAT_REDACT__*/</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var statusEl = $('#status'), preview = $('#preview'), drop = $('#drop');
+  var dlClean = $('#dl-clean'), dlMap = $('#dl-map'), who = $('#who'), whoBody = $('#who-body');
+  var urls = [];
+
+  function reset() {
+    window.__CR_DONE = false;
+    urls.forEach(URL.revokeObjectURL); urls = [];
+    [dlClean, dlMap, who].forEach(function (e) { e.classList.add('hide'); });
+    preview.textContent = '—';
+    whoBody.textContent = '';
+  }
+
+  function say(msg, cls) {
+    statusEl.className = cls || '';
+    statusEl.textContent = msg;          /* textContent, never innerHTML — input reaches here */
+  }
+
+  function offer(a, text, name, type) {
+    var u = URL.createObjectURL(new Blob([text], { type: type }));
+    urls.push(u);
+    a.href = u; a.setAttribute('download', name);
+    a.classList.remove('hide');
+  }
+
+  function handle(file) {
+    reset();
+    say('Reading ' + esc(file.name) + '…');
+    var r = new FileReader();
+    r.onerror = function () { say('ERROR — could not read that file.', 'err'); };
+    r.onload = function () {
+      var out;
+      try {
+        /* looked up on window at call time, so the oracle's negative controls can wrap it */
+        out = window.ChatRedact.redact(String(r.result), file.name);
+      } catch (e) {
+        say('ERROR — ' + esc(e && e.message ? e.message : 'could not read that as a chat export'), 'err');
+        return;
+      }
+      var base = file.name.replace(/\.[^.]+$/, '');
+      offer(dlClean, out.clean, base + '.redacted' + (out.format === 'telegram' ? '.json' : '.txt'),
+            out.format === 'telegram' ? 'application/json' : 'text/plain');
+      offer(dlMap, JSON.stringify({ note: 'Keep this file private. It is the only way back.', map: out.map }, null, 1),
+            base + '.mapping.json', 'application/json');
+
+      Object.keys(out.map).forEach(function (k) {
+        var tr = document.createElement('tr');
+        var a = document.createElement('td'), b = document.createElement('td');
+        a.textContent = k; b.textContent = out.map[k];   /* textContent: no HTML from input */
+        tr.appendChild(a); tr.appendChild(b); whoBody.appendChild(tr);
+      });
+      who.classList.remove('hide');
+
+      preview.textContent = out.clean.length > 4000
+        ? out.clean.slice(0, 4000) + '\n… (' + (out.clean.length - 4000) + ' more characters)'
+        : out.clean;
+
+      say('DONE — ' + out.participants.length + ' participant(s) pseudonymised, format ' +
+          out.format + '. Nothing was uploaded.', 'ok');
+      window.__CR_DONE = true;
+    };
+    r.readAsText(file);
+  }
+
+  $('#file').addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) handle(e.target.files[0]);
+  });
+  ['dragenter', 'dragover'].forEach(function (n) {
+    drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (n) {
+    drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]);
+  });
+  reset();
+})();
+</script>
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "2f5f0b288b074bd29a0b32ee4e1c9e17"}'></script>
+<!-- first-party cookieless beacon — inlined verbatim from lib/beacon-firstparty.snippet.html -->
+<script>
+(function(){
+  try{
+    if(navigator.webdriver) return;
+    var body = JSON.stringify({ path: location.pathname + location.search, self: /(^|[?&])self=1([&#]|$)/.test(location.search) });
+    var blob = new Blob([body], {type:'text/plain'});
+    if(!(navigator.sendBeacon && navigator.sendBeacon('/_b', blob))){ fetch('/_b', {method:'POST', body:body, keepalive:true, headers:{'content-type':'text/plain'}}).catch(function(){}); }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
