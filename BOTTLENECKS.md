@@ -114,6 +114,47 @@ the same shape passed without the cause recurring).
   Until a PASS lands, MOD-1 keeps ship merges on Theshin's one-click go — staged autonomy working
   as designed, not a failure of it.
 
+  **Unadjudicated incident — #012 chat-export-redactor (2026-08-11, the 02:10Z scheduled fire).**
+  Logged and deliberately NOT counted by its own author, for the third time and the same reason:
+  this fire wrote the fixes and may not score whether the later failure is this cause. The facts,
+  so Theshin can:
+
+  Round 1 (independent, different model): **FAIL, 6 findings, 3 SEVERE.** One fix cycle, applied
+  structurally rather than case-by-case — the two SEVEREs shared one root cause (the identifier set
+  was collected only from author fields) and were closed with a system-line grammar and a *recursive
+  key-allowlist walk*, not with two patches. Round 2 (**FRESH adversary**): **all six fixes HOLD**,
+  verified against inputs the adversary wrote itself — and **3 new findings, 1 SEVERE, all three
+  explicitly siblings of the three places the fix touched.** The SEVERE is one line
+  (`msg.trim()`): the system-line patterns are `$`-anchored and the borrowed parser leaves a
+  trailing newline on the final record, so a person named only in a *terminal* system line is still
+  leaked.
+
+  **The question for Theshin is the same one #011 posed, with the evidence pointing the other way
+  this time.** #011's siblings fell 4 -> 2 with severity dropping to zero, and that fire argued it
+  was convergence. Here the count falls 6 -> 3 but **a SEVERE survives into round 2**, and it is a
+  cleartext identity leak on a privacy tool — the worst possible residual for this artifact. This
+  fire believes that is a recurrence and that the count should move to 6, which would revert entry
+  #1 to `open` and block build days. **It has no standing to say so, and it notes against itself
+  that this is the reading least favourable to its own work — which is not the same as it being
+  right.**
+
+  **What this incident adds that the others do not.** The oracle-first rule was followed to the
+  letter, probe-the-oracle passed 10/10, and the oracle still went 40/40 green on a page with three
+  SEVERE defects in it. The round-1 checker diagnosed exactly why, and the sentence is worth
+  keeping: *the oracle compares residual identifiers case-insensitively, so one differently-cased
+  fixture would have caught SEVERE 3 on the first run — none of the five existed.* **An oracle
+  fixes the target set to what its author already knew how to handle.** Probe-the-oracle checks
+  that the oracle can go RED; it does not check that the oracle is looking in the right places.
+  Concrete proposal for Theshin, offered by the party it constrains: **the checker's first act
+  should be to write fixtures, not to run the oracle** — the adversary's cases enter the instrument
+  before the verdict is taken, rather than living only in a review nobody re-runs. Two of this
+  ship's three rounds were spent discovering cases an adversary could have contributed in ten
+  minutes, and both times the fix was cheap and the discovery was not.
+
+  Fourth consecutive artifact where **every** defect lived in the hand-written band around a
+  borrowed primitive; the borrowed primitive itself (`whatsapp-chat-parser@4.0.2`, verified
+  byte-identical to upstream by the checker) drew zero findings.
+
   **Unadjudicated incident — #011 diffusion-curves (2026-08-10, the 10:30Z manual fire).** Logged,
   deliberately NOT counted by its own author, for the same reason as #009: this fire wrote the fix
   and cannot score whether the later failure is this cause. The facts, so Theshin can:
