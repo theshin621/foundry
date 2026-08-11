@@ -1,0 +1,101 @@
+{
+  "_comment": "ORACLE DATASET for ship 012 chat-export-redactor. Authored by the ARCHITECT on 2026-08-11 BEFORE any artifact code existed (v4: NO ORACLE, NO BUILD). Every field below fixes the target set the builder codes to; the builder may not edit this file, and the checker drives the staged page against THIS, never against builder-authored cases.",
+  "page_contract": {
+    "_comment": "The DOM/JS surface the oracle drives. Fixed before the build so the oracle is not shaped around whatever the builder happened to produce.",
+    "file_input": "#file",
+    "status_el": "#status",
+    "status_done_token": "DONE",
+    "status_error_token": "ERROR",
+    "download_clean_btn": "#dl-clean",
+    "download_map_btn": "#dl-map",
+    "preview_el": "#preview",
+    "done_flag": "window.__CR_DONE",
+    "pure_api": "window.ChatRedact.redact(text, filename) -> {clean, map, participants, format}"
+  },
+  "fixtures": [
+    {
+      "file": "wa-ios.txt",
+      "format": "whatsapp-ios",
+      "participants": 3,
+      "lines": 12,
+      "identifiers": [
+        "Alice Mokoena", "Alice", "Mokoena",
+        "Brendan Nkosi", "Brendan", "Nkosi",
+        "Chipo Dube", "Chipo", "Dube",
+        "Dumi Ratsaka", "Dumi", "Ratsaka",
+        "+27 82 555 0134", "82 555 0134", "555 0134",
+        "+27 71 555 0199", "555 0199",
+        "brendan.nkosi@example.co.za",
+        "https://example.com/pricing", "example.com"
+      ],
+      "must_survive": ["invoice", "spreadsheet", "tomorrow", "budget", "forward"],
+      "timestamps_verbatim": [
+        "[2024/03/15, 14:23:07]", "[2024/03/15, 14:24:11]", "[2024/03/15, 14:24:40]",
+        "[2024/03/15, 14:25:02]", "[2024/03/15, 14:26:33]", "[2024/03/15, 14:27:01]",
+        "[2024/03/15, 14:28:19]", "[2024/03/15, 14:29:00]"
+      ]
+    },
+    {
+      "file": "wa-android.txt",
+      "format": "whatsapp-android",
+      "participants": 2,
+      "lines": 5,
+      "identifiers": [
+        "Farai Chikafu", "Farai", "Chikafu",
+        "Nomsa Zulu", "Nomsa", "Zulu",
+        "0824440111"
+      ],
+      "must_survive": ["shipment", "reference", "deadline", "Friday", "encrypted"],
+      "timestamps_verbatim": [
+        "15/03/2024, 14:23", "15/03/2024, 14:24", "15/03/2024, 14:25",
+        "15/03/2024, 14:26", "15/03/2024, 14:27"
+      ]
+    },
+    {
+      "file": "telegram.json",
+      "format": "telegram",
+      "participants": 2,
+      "identifiers": [
+        "Alice Mokoena", "Alice", "Mokoena",
+        "Brendan Nkosi", "Brendan", "Nkosi",
+        "user448812", "user991044", "448812", "991044",
+        "+27 82 555 0134", "brendan.nkosi@example.co.za"
+      ],
+      "must_survive": ["invoice", "budget", "message"],
+      "timestamps_verbatim": [
+        "2024-03-15T14:23:07", "2024-03-15T14:24:11", "2024-03-15T14:25:02"
+      ],
+      "json_message_count": 3
+    },
+    {
+      "file": "wa-xss.txt",
+      "format": "whatsapp-ios",
+      "xss_probe": true,
+      "identifiers": ["Sipho", "Thandi Mabaso", "Thandi", "Mabaso"],
+      "must_survive": ["hello", "reply"],
+      "timestamps_verbatim": ["[2024/03/15, 14:23:07]", "[2024/03/15, 14:24:11]"]
+    },
+    {
+      "file": "notachat.bin",
+      "format": "unrecognised",
+      "expect_error": true
+    }
+  ],
+  "predicates": {
+    "P1_client_side": "While a fixture is processed, ZERO network requests leave the page other than to the page's own origin beacon path (/_b, /_b/*) or cloudflareinsights. Measured by Chromium request interception. The whole product claim is 'the file never leaves your machine'; if this predicate is not measured the ship is a lie regardless of how well it redacts.",
+    "P2_zero_residual": "For every string in the fixture's `identifiers`, 0 case-insensitive occurrences in the DOWNLOADED sanitised file. Name components are listed separately on purpose: a redactor that replaces 'Alice Mokoena' but leaves a bare 'Alice' in a message body has not redacted anything that matters.",
+    "P3_bijection": "The downloaded mapping is injective (no two originals share a pseudonym) and total over the participant set; len(distinct pseudonyms) == fixture.participants for chat participants.",
+    "P4_structure": "Output line count == input line count, and every string in `timestamps_verbatim` appears in the output, in the same relative order as the input.",
+    "P5_determinism": "Two independent browser contexts processing the same fixture produce byte-identical sanitised output.",
+    "P6_non_destruction": "Every token in `must_survive` still appears in the output. A redactor that blanks the file passes P2 trivially and is useless.",
+    "P7_telegram_valid": "For the telegram fixture the sanitised output parses as JSON and has `json_message_count` messages, and every `from` value is a pseudonym.",
+    "P8_no_map_leak": "The sanitised download contains no pseudonym->original mapping; the mapping is a separate download only.",
+    "P9_xss_inert": "After processing wa-xss.txt, window.__pwned and window.__pwned2 are undefined in the real browser, and the preview element contains the payload as TEXT. Liveness claim -> executed in Chromium, never asserted from a markup parse (BOTTLENECKS #1 clause 3).",
+    "P10_bad_input": "notachat.bin drives the status element to the ERROR token and NO sanitised download is offered. Silently emitting a 'done' state over an unparsed file is the failure mode that gets somebody doxxed."
+  },
+  "probe_contract": {
+    "_comment": "PROBE-THE-ORACLE (v4, promoted from BOTTLENECKS #1's own analysis). An oracle is trusted only after both halves pass.",
+    "negative_controls": "probe.py wraps window.ChatRedact.redact in the live page with a deliberately broken implementation, one per predicate, and asserts the oracle goes RED. A control the oracle does not catch is a FAIL finding against the oracle, not against the artifact.",
+    "independent_break": "A documented attempt to construct an artifact that passes every predicate and is still wrong. Result recorded in probe.py's header whether or not it succeeded."
+  }
+}
