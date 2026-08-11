@@ -1,0 +1,31 @@
+{
+ "name": "Project",
+ "type": "personal_chat",
+ "id": 7712,
+ "messages": [
+  {
+   "id": 1,
+   "type": "message",
+   "date": "2024-03-15T14:23:07",
+   "from": "Alice Mokoena",
+   "from_id": "user448812",
+   "text": "Hi Brendan, can you send the invoice?"
+  },
+  {
+   "id": 2,
+   "type": "message",
+   "date": "2024-03-15T14:24:11",
+   "from": "Brendan Nkosi",
+   "from_id": "user991044",
+   "text": "sure, my new number is +27 82 555 0134"
+  },
+  {
+   "id": 3,
+   "type": "message",
+   "date": "2024-03-15T14:25:02",
+   "from": "Alice Mokoena",
+   "from_id": "user448812",
+   "text": "thanks Brendan, mail brendan.nkosi@example.co.za about the budget"
+  }
+ ]
+}

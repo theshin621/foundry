@@ -1,0 +1,2 @@
+[2024/03/15, 14:23:07] <img src=x onerror="window.__pwned=1"> Sipho: hello there
+[2024/03/15, 14:24:11] Thandi Mabaso: <script>window.__pwned2=1</script> reply here
