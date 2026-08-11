@@ -1,0 +1,12 @@
+[2024/03/15, 14:23:07] Alice Mokoena: Hi Brendan, can you send the invoice?
+[2024/03/15, 14:24:11] Brendan Nkosi: sure, my new number is +27 82 555 0134
+[2024/03/15, 14:24:40] Brendan Nkosi: mail it to brendan.nkosi@example.co.za instead
+[2024/03/15, 14:25:02] Alice Mokoena: thanks Brendan. Also see https://example.com/pricing
+[2024/03/15, 14:26:33] Chipo Dube: Alice do we still meet tomorrow about the budget?
+[2024/03/15, 14:27:01] Alice Mokoena: yes tomorrow at ten, bring the spreadsheet
+[2024/03/15, 14:28:19] Chipo Dube: BEGIN:VCARD
+VERSION:3.0
+FN:Dumi Ratsaka
+TEL;type=CELL:+27 71 555 0199
+END:VCARD
+[2024/03/15, 14:29:00] Brendan Nkosi: got it, will forward to Dumi

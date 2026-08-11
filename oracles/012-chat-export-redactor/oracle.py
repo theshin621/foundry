@@ -22,10 +22,14 @@ EXIT 0 = PASS (every predicate green). EXIT 1 = FAIL. EXIT 2 = CANNOT-CERTIFY (t
 oracle could not run; it declines to bless a page it could not read -- ship 009's one
 good idea, kept).
 """
+import functools
+import http.server
 import json
 import os
 import re
+import socketserver
 import sys
+import threading
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -58,8 +62,29 @@ def in_order(seq, hay):
 
 
 # ---------------------------------------------------------------- the run
+def serve(directory):
+    """Serve the artifact over http rather than file://.
+
+    NOT a convenience. A file:// page is a different security origin to the one real
+    visitors get: Chromium refuses blob: downloads there, and an oracle that worked
+    around that (by reading the DOM instead of the download) would be certifying a
+    code path no user ever runs. The page is judged on the transport it ships on.
+    """
+    h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
+    httpd = socketserver.TCPServer(("127.0.0.1", 0), h)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd, "http://127.0.0.1:%d/" % httpd.server_address[1]
+
+
 def run(target, is_url):
     from playwright.sync_api import sync_playwright
+
+    httpd = None
+    if not is_url:
+        art = pathlib.Path(target).resolve()
+        httpd, base = serve(art.parent)
+        target, is_url = base + art.name, True
+    origin = target.rsplit("/", 1)[0] + "/"
 
     fixtures = MANIFEST["fixtures"]
 
@@ -76,7 +101,7 @@ def run(target, is_url):
             reqs = []
             if collect_requests:
                 page.on("request", lambda r: reqs.append(r.url))
-            page.goto(target if is_url else "file://" + os.path.abspath(target))
+            page.goto(target)
             page.wait_for_selector(C["file_input"], timeout=15000)
             page.set_input_files(C["file_input"], str(FIX / fixture_file))
             # Wait for the page's own completion flag OR an error status; never sleep
@@ -152,9 +177,9 @@ def run(target, is_url):
 
             # P1 — the architectural claim, measured.
             leaks = [u for u in r["requests"]
-                     if not re.search(r"(^file://|/_b(\b|/)|cloudflareinsights\.com"
+                     if not re.search(r"(/_b(\b|/)|cloudflareinsights\.com"
                                       r"|^data:|^blob:|^about:)", u)
-                     and not (is_url and u.startswith(target.rsplit("/", 2)[0]))]
+                     and not u.startswith(origin)]
             rec("P1.clientside:%s" % tag, not leaks, "egress: %s" % leaks[:3])
 
             # P2 — zero residual identifiers.
@@ -223,7 +248,10 @@ def run(target, is_url):
         b = process("wa-ios.txt")["clean"]
         rec("P5.determinism", a is not None and a == b,
             "two runs differ" if a != b else "")
+        browser.close()
 
+    if httpd:
+        httpd.shutdown()
     return results
 
 
