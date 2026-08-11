@@ -1,0 +1,8 @@
+8/11/26, 09:00 - Alice Mokoena created group "Onboarding"
+8/11/26, 09:01 - Alice Mokoena added Dumi Ratsaka and Zoë Müller
+8/11/26, 09:02 - Alice Mokoena: welcome Dumi, glad you're here
+8/11/26, 09:03 - Bongani Zulu: hey DUMI nice to meet you, also zoe
+8/11/26, 09:04 - Bongani Zulu: thanks ALICE for the update, alice will be late
+8/11/26, 09:05 - Alice Mokoena: reset link is example.com/reset?token=abc
+8/11/26, 09:06 - Bongani Zulu: mirror at https://user:pass@files.example/x
+8/11/26, 09:07 - Dumi Ratsaka left

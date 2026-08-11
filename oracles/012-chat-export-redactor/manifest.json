@@ -19,20 +19,43 @@
       "participants": 3,
       "lines": 12,
       "identifiers": [
-        "Alice Mokoena", "Alice", "Mokoena",
-        "Brendan Nkosi", "Brendan", "Nkosi",
-        "Chipo Dube", "Chipo", "Dube",
-        "Dumi Ratsaka", "Dumi", "Ratsaka",
-        "+27 82 555 0134", "82 555 0134", "555 0134",
-        "+27 71 555 0199", "555 0199",
+        "Alice Mokoena",
+        "Alice",
+        "Mokoena",
+        "Brendan Nkosi",
+        "Brendan",
+        "Nkosi",
+        "Chipo Dube",
+        "Chipo",
+        "Dube",
+        "Dumi Ratsaka",
+        "Dumi",
+        "Ratsaka",
+        "+27 82 555 0134",
+        "82 555 0134",
+        "555 0134",
+        "+27 71 555 0199",
+        "555 0199",
         "brendan.nkosi@example.co.za",
-        "https://example.com/pricing", "example.com"
+        "https://example.com/pricing",
+        "example.com"
       ],
-      "must_survive": ["invoice", "spreadsheet", "tomorrow", "budget", "forward"],
+      "must_survive": [
+        "invoice",
+        "spreadsheet",
+        "tomorrow",
+        "budget",
+        "forward"
+      ],
       "timestamps_verbatim": [
-        "[2024/03/15, 14:23:07]", "[2024/03/15, 14:24:11]", "[2024/03/15, 14:24:40]",
-        "[2024/03/15, 14:25:02]", "[2024/03/15, 14:26:33]", "[2024/03/15, 14:27:01]",
-        "[2024/03/15, 14:28:19]", "[2024/03/15, 14:29:00]"
+        "[2024/03/15, 14:23:07]",
+        "[2024/03/15, 14:24:11]",
+        "[2024/03/15, 14:24:40]",
+        "[2024/03/15, 14:25:02]",
+        "[2024/03/15, 14:26:33]",
+        "[2024/03/15, 14:27:01]",
+        "[2024/03/15, 14:28:19]",
+        "[2024/03/15, 14:29:00]"
       ]
     },
     {
@@ -41,14 +64,66 @@
       "participants": 2,
       "lines": 5,
       "identifiers": [
-        "Farai Chikafu", "Farai", "Chikafu",
-        "Nomsa Zulu", "Nomsa", "Zulu",
+        "Farai Chikafu",
+        "Farai",
+        "Chikafu",
+        "Nomsa Zulu",
+        "Nomsa",
+        "Zulu",
         "0824440111"
       ],
-      "must_survive": ["shipment", "reference", "deadline", "Friday", "encrypted"],
+      "must_survive": [
+        "shipment",
+        "reference",
+        "deadline",
+        "Friday",
+        "encrypted"
+      ],
       "timestamps_verbatim": [
-        "15/03/2024, 14:23", "15/03/2024, 14:24", "15/03/2024, 14:25",
-        "15/03/2024, 14:26", "15/03/2024, 14:27"
+        "15/03/2024, 14:23",
+        "15/03/2024, 14:24",
+        "15/03/2024, 14:25",
+        "15/03/2024, 14:26",
+        "15/03/2024, 14:27"
+      ]
+    },
+    {
+      "file": "wa-group.txt",
+      "format": "whatsapp-android",
+      "participants": 4,
+      "lines": 8,
+      "identifiers": [
+        "Alice Mokoena",
+        "Alice",
+        "ALICE",
+        "alice",
+        "Mokoena",
+        "Bongani Zulu",
+        "Bongani",
+        "Zulu",
+        "Dumi Ratsaka",
+        "Dumi",
+        "DUMI",
+        "Ratsaka",
+        "Zoë Müller",
+        "Zoë",
+        "zoe",
+        "Müller",
+        "example.com/reset",
+        "example.com",
+        "files.example",
+        "user:pass"
+      ],
+      "must_survive": [
+        "welcome",
+        "update",
+        "mirror",
+        "glad"
+      ],
+      "timestamps_verbatim": [
+        "8/11/26, 09:00 - ",
+        "8/11/26, 09:01 - ",
+        "8/11/26, 09:07 - "
       ]
     },
     {
@@ -56,14 +131,28 @@
       "format": "telegram",
       "participants": 2,
       "identifiers": [
-        "Alice Mokoena", "Alice", "Mokoena",
-        "Brendan Nkosi", "Brendan", "Nkosi",
-        "user448812", "user991044", "448812", "991044",
-        "+27 82 555 0134", "brendan.nkosi@example.co.za"
+        "Alice Mokoena",
+        "Alice",
+        "Mokoena",
+        "Brendan Nkosi",
+        "Brendan",
+        "Nkosi",
+        "user448812",
+        "user991044",
+        "448812",
+        "991044",
+        "+27 82 555 0134",
+        "brendan.nkosi@example.co.za"
       ],
-      "must_survive": ["invoice", "budget", "message"],
+      "must_survive": [
+        "invoice",
+        "budget",
+        "message"
+      ],
       "timestamps_verbatim": [
-        "2024-03-15T14:23:07", "2024-03-15T14:24:11", "2024-03-15T14:25:02"
+        "2024-03-15T14:23:07",
+        "2024-03-15T14:24:11",
+        "2024-03-15T14:25:02"
       ],
       "json_message_count": 3
     },
@@ -71,9 +160,55 @@
       "file": "wa-xss.txt",
       "format": "whatsapp-ios",
       "xss_probe": true,
-      "identifiers": ["Sipho", "Thandi Mabaso", "Thandi", "Mabaso"],
-      "must_survive": ["hello", "reply"],
-      "timestamps_verbatim": ["[2024/03/15, 14:23:07]", "[2024/03/15, 14:24:11]"]
+      "identifiers": [
+        "Sipho",
+        "Thandi Mabaso",
+        "Thandi",
+        "Mabaso"
+      ],
+      "must_survive": [
+        "hello",
+        "reply"
+      ],
+      "timestamps_verbatim": [
+        "[2024/03/15, 14:23:07]",
+        "[2024/03/15, 14:24:11]"
+      ]
+    },
+    {
+      "file": "telegram-service.json",
+      "format": "telegram",
+      "participants": 4,
+      "identifiers": [
+        "Alice Mokoena",
+        "Alice",
+        "Mokoena",
+        "Bongani Zulu",
+        "Bongani",
+        "Zulu",
+        "Zanele Nkosi",
+        "Zanele",
+        "Nkosi",
+        "Thabo Sithole",
+        "Thabo",
+        "thabo",
+        "Sithole",
+        "user448812",
+        "user773311",
+        "448812",
+        "+27 82 555 0134"
+      ],
+      "must_survive": [
+        "welcome",
+        "budget",
+        "invite_members"
+      ],
+      "timestamps_verbatim": [
+        "2024-03-15T14:23:07",
+        "2024-03-15T14:24:11",
+        "2024-03-15T14:25:02"
+      ],
+      "json_message_count": 3
     },
     {
       "file": "notachat.bin",
@@ -97,5 +232,6 @@
     "_comment": "PROBE-THE-ORACLE (v4, promoted from BOTTLENECKS #1's own analysis). An oracle is trusted only after both halves pass.",
     "negative_controls": "probe.py wraps window.ChatRedact.redact in the live page with a deliberately broken implementation, one per predicate, and asserts the oracle goes RED. A control the oracle does not catch is a FAIL finding against the oracle, not against the artifact.",
     "independent_break": "A documented attempt to construct an artifact that passes every predicate and is still wrong. Result recorded in probe.py's header whether or not it succeeded."
-  }
+  },
+  "_round1_addendum": "Fixtures wa-group.txt and telegram-service.json were added on 2026-08-11 AFTER the round-1 checker (independent, different model) found three SEVERE defects the original five fixtures could not see: names that appear only in a group-management system line, names inside a Telegram service message's members array, and case/diacritic variants of a redacted name. The architect's fixtures were incomplete and the checker proved it; these cases are added so the repairs are held by a predicate rather than by a promise. They are CHECKER-DERIVED, not builder-authored -- the distinction the v4 contract cares about."
 }

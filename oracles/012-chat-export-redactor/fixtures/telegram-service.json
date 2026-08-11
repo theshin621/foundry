@@ -1,0 +1,53 @@
+{
+ "name": "Onboarding",
+ "type": "private_group",
+ "id": 991,
+ "messages": [
+  {
+   "id": 1,
+   "type": "service",
+   "date": "2024-03-15T14:23:07",
+   "actor": "Alice Mokoena",
+   "actor_id": "user448812",
+   "action": "invite_members",
+   "members": [
+    "Zanele Nkosi",
+    "Thabo Sithole"
+   ]
+  },
+  {
+   "id": 2,
+   "type": "message",
+   "date": "2024-03-15T14:24:11",
+   "from": "Alice Mokoena",
+   "from_id": "user448812",
+   "text": "welcome Zanele and Thabo, glad to have you"
+  },
+  {
+   "id": 3,
+   "type": "message",
+   "date": "2024-03-15T14:25:02",
+   "from": "Bongani Zulu",
+   "from_id": "user773311",
+   "text": [
+    {
+     "type": "plain",
+     "text": "ping "
+    },
+    {
+     "type": "mention",
+     "text": "@thabo"
+    },
+    {
+     "type": "plain",
+     "text": " about the budget"
+    }
+   ],
+   "contact_information": {
+    "first_name": "Thabo",
+    "last_name": "Sithole",
+    "phone_number": "+27 82 555 0134"
+   }
+  }
+ ]
+}
