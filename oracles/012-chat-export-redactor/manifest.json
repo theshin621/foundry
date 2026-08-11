@@ -127,6 +127,31 @@
       ]
     },
     {
+      "file": "wa-terminal-system.txt",
+      "format": "whatsapp-ios",
+      "participants": 2,
+      "lines": 3,
+      "identifiers": [
+        "Priya Naidoo",
+        "Priya",
+        "Naidoo",
+        "Zanele Mthembu",
+        "Zanele",
+        "Mthembu"
+      ],
+      "must_survive": [
+        "team",
+        "welcome",
+        "left"
+      ],
+      "timestamps_verbatim": [
+        "[2024/03/15, 14:23:07]",
+        "[2024/03/15, 14:24:11]",
+        "[2024/03/15, 14:25:00]"
+      ],
+      "_expected_state_2026_08_11": "RED — round-2 SEVERE finding 1 (trailing-newline anchor)"
+    },
+    {
       "file": "telegram.json",
       "format": "telegram",
       "participants": 2,
@@ -233,5 +258,6 @@
     "negative_controls": "probe.py wraps window.ChatRedact.redact in the live page with a deliberately broken implementation, one per predicate, and asserts the oracle goes RED. A control the oracle does not catch is a FAIL finding against the oracle, not against the artifact.",
     "independent_break": "A documented attempt to construct an artifact that passes every predicate and is still wrong. Result recorded in probe.py's header whether or not it succeeded."
   },
-  "_round1_addendum": "Fixtures wa-group.txt and telegram-service.json were added on 2026-08-11 AFTER the round-1 checker (independent, different model) found three SEVERE defects the original five fixtures could not see: names that appear only in a group-management system line, names inside a Telegram service message's members array, and case/diacritic variants of a redacted name. The architect's fixtures were incomplete and the checker proved it; these cases are added so the repairs are held by a predicate rather than by a promise. They are CHECKER-DERIVED, not builder-authored -- the distinction the v4 contract cares about."
+  "_round1_addendum": "Fixtures wa-group.txt and telegram-service.json were added on 2026-08-11 AFTER the round-1 checker (independent, different model) found three SEVERE defects the original five fixtures could not see: names that appear only in a group-management system line, names inside a Telegram service message's members array, and case/diacritic variants of a redacted name. The architect's fixtures were incomplete and the checker proved it; these cases are added so the repairs are held by a predicate rather than by a promise. They are CHECKER-DERIVED, not builder-authored -- the distinction the v4 contract cares about.",
+  "_round2_addendum": "Fixture wa-terminal-system.txt added 2026-08-11 by the OPERATOR after the round-2 FRESH adversary named the exact gap: no fixture named a person EXCLUSIVELY in a system line that is also the LAST line of the file. wa-group.txt looked like the canary and was not — its Dumi Ratsaka is collected earlier via a non-final 'added' line, masking the failure. This fixture is RED against ship 012 as built, and that is the point: the instrument now holds the defect so no future rebuild can pass without closing it. Adding it is verification infrastructure, NOT the ship's second fix cycle — the artifact was not touched."
 }
