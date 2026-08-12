@@ -95,14 +95,53 @@ export default {
       // with margin). Coverage: ?days=N (default 10, enough for the trailing-7-day
       // stop-condition metric with margin) across all countable paths, or a deep
       // ?path=/one-ship/&days=30 single-path query for d30 reads. Both bounded.
+      // ---------------------------------------------------------------------
+      // WINDOW FLOOR — ship 013, 2026-08-12. Oracle: oracles/013-stats-window-floor/.
+      //
+      // WHAT WAS WRONG. The line here used to be `while (paths.length * days >
+      // HARD_CAP) days--;` — it paid for fleet growth out of the DAY dimension, which
+      // is the one dimension the stop-condition is denominated in. MOD-2's threshold is
+      // "≥250 qualified visits, ≥3 distinct days, in any trailing-SEVEN-day window", so
+      // the metric became unreadable at 7 countable paths (window 6d) — two merges away
+      // at the time of writing — and at 45 paths `days` reached 0, `dates` was an empty
+      // array, `window.from` was `undefined`, and every path returned `{}`. A total
+      // blackout, byte-identical on the wire to an honestly quiet fleet. Measured, not
+      // argued: the oracle drives this handler at fleet sizes 1..60 and the pre-fix code
+      // fails P1 at 13 of 21 sizes and P2 at 3.
+      //
+      // THE RULE NOW. The day dimension has a floor and the PATH dimension absorbs
+      // growth — because a missing path is visible to the consumer and a missing day is
+      // not. Whatever is dropped is NAMED in `truncated`, and coverage is a computed
+      // obligation rather than a courtesy: the endpoint must return as many paths as the
+      // floor allows. (That last clause exists because probe-the-oracle clause (b) broke
+      // the first oracle with a worker that returned one path and honestly declared the
+      // other fifty-nine omitted — disclosure without coverage is still a blind
+      // instrument.) The relay in lib/relay_fetch.py fans out per-path so the artifact
+      // the loop actually reads stays COMPLETE at any fleet size; this endpoint's
+      // all-paths mode is a convenience with a declared limit, no longer the source of
+      // truth.
+      // ---------------------------------------------------------------------
       const HARD_CAP = 44;
+      const FLOOR_DAYS = 7;    // MOD-2's trailing-7 window. Never traded away.
+      const MAX_DAYS = 10;
       const one = url.searchParams.get('path');
-      const paths = one ? (COUNTABLE.has(one) ? [one] : []) : [...COUNTABLE];
-      if (one && paths.length === 0) {
+      const all = one ? (COUNTABLE.has(one) ? [one] : []) : [...COUNTABLE];
+      if (one && all.length === 0) {
         return new Response(JSON.stringify({ error: 'unknown-path' }), { status: 404, headers: JSON_HEADERS });
       }
-      let days = Math.max(1, Math.min(parseInt(url.searchParams.get('days') || '10', 10) || 10, one ? 30 : 10));
-      while (paths.length * days > HARD_CAP) days--;
+
+      const asked = Math.max(1, Math.min(parseInt(url.searchParams.get('days') || String(MAX_DAYS), 10) || MAX_DAYS, one ? 30 : MAX_DAYS));
+      let days = asked;
+      let paths = all;
+      if (!one && all.length * days > HARD_CAP) {
+        // Shrink days only as far as the floor, then stop and shed paths instead.
+        days = Math.max(FLOOR_DAYS, Math.floor(HARD_CAP / all.length));
+        paths = all.slice(0, Math.min(all.length, Math.floor(HARD_CAP / days)));
+      }
+      // Belt and braces: a zero- or negative-day window must be inexpressible, whatever
+      // arithmetic above ever changes. `days` is the length of `dates` by construction.
+      days = Math.max(1, days);
+
       const now = Date.now();
       const dates = Array.from({ length: days }, (_, i) => new Date(now - i * 86400000).toISOString().slice(0, 10));
       const keys = [];
@@ -114,11 +153,26 @@ export default {
         if (n > 0) (out[p] ||= {})[d] = n;   // zero days omitted; absent path = zero visits
       });
       for (const p of paths) out[p] ||= {};
-      return new Response(JSON.stringify({
+
+      const body = {
         generated: new Date().toISOString(),
         window: { days, from: dates[dates.length - 1], to: dates[0] },
         paths: out,
-      }, null, 1), { headers: JSON_HEADERS });
+      };
+      const omitted = all.filter((p) => !paths.includes(p));
+      if (omitted.length) {
+        // Named, never silent. A consumer that cannot see this block is reading a
+        // complete answer; one that can see it knows exactly what it is missing and can
+        // fetch those paths individually (?path=…&days=30 is bounded at 30 gets).
+        body.truncated = {
+          paths_omitted: omitted,
+          reason: 'subrequest-cap',
+          detail: `${all.length} countable paths x ${days}d exceeds the ${HARD_CAP}-get budget; ` +
+                  `the ${FLOOR_DAYS}-day floor is held and paths are shed instead. ` +
+                  `Fetch an omitted path with ?path=<path>&days=<n>.`,
+        };
+      }
+      return new Response(JSON.stringify(body, null, 1), { headers: JSON_HEADERS });
     }
 
     // ---- everything else: the static site, exactly as before.

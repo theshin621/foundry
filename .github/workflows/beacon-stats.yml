@@ -75,7 +75,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read the live beacon and record it with provenance
+      # SHIP 013 (2026-08-12): the inline reader below is replaced by lib/relay_fetch.py.
+      # WHY: the inline version made ONE all-paths call. Since ship 013 the endpoint holds a
+      # 7-day window floor and sheds PATHS instead of days when the 44-read budget binds, so a
+      # single call returns a truthful answer about a SUBSET of the fleet and declares the rest
+      # omitted. The relay now fans out one bounded single-path call per omitted path and merges,
+      # so the committed artifact stays COMPLETE at any fleet size. A path whose retry fails is
+      # left absent and named — never written as zero.
+      # The artifact shape is unchanged apart from an added `stats.fanout` block, so
+      # oracles/beacon-stats-relay/oracle.py and lib/beacon_stats.py keep working untouched.
+      # Extracted to a file rather than kept inline so it is executable cold by
+      # oracles/013-stats-window-floor/oracle.mjs (predicate P8) — an inline heredoc cannot be
+      # driven by an oracle, which is why the old reader was never tested.
+      - name: Read the live beacon (fan-out) and record it with provenance
+        env:
+          SOURCE_URL: https://tailorfarms.com/_b/stats
+        run: |
+          python3 lib/relay_fetch.py --source "$SOURCE_URL" --out public/beacon-stats.json
+          python3 -c "import json;d=json.load(open('public/beacon-stats.json'));print(json.dumps(d,indent=1,sort_keys=True)[:4000])"
+
+      - name: Legacy inline reader (retained, disabled — kept for one cycle as the rollback path)
+        if: ${{ false }}
         env:
           SOURCE_URL: https://tailorfarms.com/_b/stats
         run: |
