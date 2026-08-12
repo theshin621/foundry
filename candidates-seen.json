@@ -360,6 +360,38 @@
    "lane": "MECHANISM-CARD 4",
    "verdict": "NOT PICKED — implementation risk",
    "note": "Theshin's queue position 4. The card names its own risk: the WASM port of Tight-Inclusion CCD is the day-build stretch. Yesterday's fire already burned a re-scope on a day-build gate misjudgement (WebGPU -> WebGL2); two stretches in three days is how a loop stops shipping."
+  },
+  {
+   "slug": "password-csv-remapper",
+   "date": "2026-08-12",
+   "segment": "other/security",
+   "lane": "EVERGREEN",
+   "verdict": "CARRIED — tomorrow's pick",
+   "note": "Remap a password-manager CSV export to another manager's schema, entirely in-browser. Occupant hunt run three ways: what exists is each vendor's ONE-DIRECTIONAL import doc (Bitwarden/1Password/LastPass import into themselves only) plus single-pair CLI scripts on GitHub (bitwarden2lastpass, enpass-to-1password, SpassConverter). No many-to-many no-signup web page found. Promo-motive check is unusually strong: nobody markets migration AWAY from their own product, so the absence is structural rather than a gap someone wants me to believe in. Structural edge: the file is plaintext passwords, so 'never leaves your browser' disqualifies every server-side competitor by construction. Borrowable core: Papa Parse (MIT). Not built today because the infra fix was the only thing that could publish (ship merges are on Theshin's go)."
+  },
+  {
+   "slug": "ics-conflict-finder",
+   "date": "2026-08-12",
+   "segment": "other/productivity",
+   "lane": "EVERGREEN",
+   "verdict": "NOT PICKED — ranked #2",
+   "note": "Drop in 2+ .ics exports, get every overlapping time range. Occupant hunt: the ICS MERGE category is saturated (icsmerger, icsfile, konverter, systoolsgroup, stefanseegerer) plus one diff tool (filediffs.com); none expand RRULE recurrence and flag temporal overlap. The products that do (CalendarBridge, SyncBlock) are live OAuth sync services, not drop-a-file tools. Honest weakness: a soft gap adjacent to a crowded category, not a clean one. Borrowable core: rrule.js (MIT) — recurrence math is exactly what this factory has learned not to hand-roll."
+  },
+  {
+   "slug": "torrent-file-inspector",
+   "date": "2026-08-12",
+   "segment": "media",
+   "lane": "EVERGREEN",
+   "verdict": "NOT PICKED — ranked #3, not carried",
+   "note": "Decode a .torrent locally: file list, trackers, info hash. Real occupants exist (luciopaiva/torrent-file-viewer, axelbase analyzer, mkbrr CLI). Weakest discovery path of the three and a legally-adjacent framing."
+  },
+  {
+   "slug": "(ORIGINAL + CLONE lanes empty — 8th consecutive run)",
+   "date": "2026-08-12",
+   "segment": "—",
+   "lane": "ORIGINAL+CLONE",
+   "verdict": "lane empty",
+   "note": "Dated hooks were found and none survived the day-build gate: GitHub Copilot's August model deprecations (github.blog 2026-07-31) and the GitHub Spark deprecation (2026-08-04) both concern hosted proprietary products with NO local artifact a static page could parse — there is nothing to paste in. AI-crawler robots.txt generators: page 1 already full. E-invoicing mandates: no deadline inside the 14-day window. CLONE: an ATS resume keyword checker (clone of Jobscan, corroborated paid revenue) died on occupancy — eight free no-signup incumbents on page 1 (Gotresumebuilder, KudosWall, Loopcv, Enhancv, WahResume, Jobalytics, AutoApplyMax), so the lane's only edge (free, no signup) is already spent. Eighth consecutive empty on both why-now lanes; every death across the streak is OCCUPANT HUNT, never why-now."
   }
  ],
  "dropped_on_occupancy": [
