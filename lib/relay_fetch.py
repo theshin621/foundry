@@ -52,6 +52,21 @@ MAX_FANOUT = 60          # a hard stop; a fleet past this needs a paged relay, n
 FLOOR_DAYS = 7           # MOD-2's trailing-7 window — the artifact must never be shorter
 
 
+def as_dict(x):
+    """x if it is a dict, else None.
+
+    FIX CYCLE, checker round 1 finding 2 [medium]. The first draft guarded the top-level
+    `paths` field with an isinstance check but reached `.get()` on `window`, `truncated`
+    and the per-path payloads through `x or {}`, which only defends against None/falsy —
+    a list, int, string or bool sails through and raises AttributeError. The module's own
+    docstring promises it never raises, and a crash here is worse than a wrong number:
+    the workflow step dies, the commit step is skipped, and the STALE artifact is left in
+    place with nobody told. Fixed as a class rather than at the one site the checker
+    named — every untrusted mapping now goes through this one door.
+    """
+    return x if isinstance(x, dict) else None
+
+
 def now_utc():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -131,7 +146,12 @@ def read(source):
                         % sorted(base.keys())[:8] if isinstance(base, dict) else "not an object")
         return out
 
-    window = base.get("window") or {}
+    window = as_dict(base.get("window"))
+    if window is None:
+        out["ok"] = False
+        out["error"] = "endpoint returned a non-object `window`: %r" % (base.get("window"),)
+        out["stats"] = None
+        return out
     days = window.get("days")
     if not isinstance(days, int) or days < 1:
         out["ok"] = False
@@ -147,8 +167,9 @@ def read(source):
         out["stats"] = None
         return out
 
-    truncated = base.get("truncated") or {}
-    omitted = [p for p in (truncated.get("paths_omitted") or []) if isinstance(p, str)]
+    truncated = as_dict(base.get("truncated")) or {}
+    raw_omitted = truncated.get("paths_omitted")
+    omitted = [p for p in raw_omitted if isinstance(p, str)] if isinstance(raw_omitted, list) else []
 
     fanout = {"requests": 0, "omitted_by_endpoint": list(omitted),
               "recovered": [], "unreadable": []}
@@ -162,13 +183,13 @@ def read(source):
         url = with_query(source, path=path, days=days)
         st, one, e = get_json(url)
         fanout["requests"] += 1
-        if e is not None or not isinstance(one, dict) or not isinstance(one.get("paths"), dict) \
-                or path not in one["paths"]:
+        one_paths = as_dict(as_dict(one) and one.get("paths"))
+        if e is not None or one_paths is None or not isinstance(one_paths.get(path), dict):
             fanout["unreadable"].append({"path": path,
-                                         "error": e or "response did not contain the path",
+                                         "error": e or "response did not contain a usable row for the path",
                                          "http": st})
             continue
-        one_days = (one.get("window") or {}).get("days")
+        one_days = (as_dict(one.get("window")) or {}).get("days")
         if one_days != days:
             # Merging a different window would produce an artifact whose declared window
             # is a lie for some of its paths. Refuse the row rather than blend windows.
@@ -176,7 +197,7 @@ def read(source):
                                          "error": "window mismatch: single-path read returned %r days, "
                                                   "all-paths window is %d" % (one_days, days)})
             continue
-        base["paths"][path] = one["paths"][path]
+        base["paths"][path] = one_paths[path]
         fanout["recovered"].append(path)
 
     still_missing = [d["path"] for d in fanout["unreadable"]] + fanout.get("not_attempted", [])

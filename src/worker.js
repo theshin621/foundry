@@ -130,8 +130,23 @@ export default {
         return new Response(JSON.stringify({ error: 'unknown-path' }), { status: 404, headers: JSON_HEADERS });
       }
 
+      // FIX CYCLE, same day, checker round 1 finding 1 [severe]. The first draft applied
+      // the floor ONLY inside the growth branch, so `?days=1` with no `?path=` returned a
+      // one-day all-paths window with nothing declared — the exact silent short window
+      // this ship exists to abolish, reachable today through a documented query
+      // parameter. It is fixed structurally rather than by special-casing that input:
+      //   * the floor is applied to the ASK, before any other arithmetic, for every
+      //     all-paths read; and
+      //   * `window` now ALWAYS carries `requested` and `floor`, so a window that is not
+      //     what the caller asked for is self-declaring in both dimensions — the day
+      //     dimension no longer has to rely on the `truncated` block, which only ever
+      //     described the path dimension. Silence is now structurally unavailable.
+      // A single-path read (`?path=`) is a deliberate narrow query, not a fleet metric,
+      // so it keeps its 1..30 range; the floor is a property of the ALL-PATHS answer the
+      // stop-condition is computed from. That exception is stated here and asserted by
+      // the oracle rather than left implicit.
       const asked = Math.max(1, Math.min(parseInt(url.searchParams.get('days') || String(MAX_DAYS), 10) || MAX_DAYS, one ? 30 : MAX_DAYS));
-      let days = asked;
+      let days = one ? asked : Math.max(FLOOR_DAYS, asked);
       let paths = all;
       if (!one && all.length * days > HARD_CAP) {
         // Shrink days only as far as the floor, then stop and shed paths instead.
@@ -156,7 +171,16 @@ export default {
 
       const body = {
         generated: new Date().toISOString(),
-        window: { days, from: dates[dates.length - 1], to: dates[0] },
+        // `requested` and `floor` are ALWAYS present (checker round 1 finding 1): a
+        // consumer can compare them to `days` and see any adjustment in the day
+        // dimension without having to know this endpoint's rules.
+        window: {
+          days,
+          from: dates[dates.length - 1],
+          to: dates[0],
+          requested: asked,
+          floor: one ? null : FLOOR_DAYS,
+        },
         paths: out,
       };
       const omitted = all.filter((p) => !paths.includes(p));

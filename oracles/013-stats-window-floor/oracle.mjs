@@ -282,6 +282,45 @@ async function runWorkerPredicates() {
     if (ok && counter.gets <= HARD_CAP) console.log(`  P6 DEEP SINGLE PATH   ok — ${DEEP_DAYS} days, ${counter.gets} gets`);
   }
 
+  // P10 — EXPLICIT ?days ON AN ALL-PATHS READ.
+  // ADDED BY CHECKER ROUND 1, FINDING 1 [severe]. The oracle's own blind spot, and the
+  // most valuable thing round 1 produced: every P1/P2/P9 call above sends an EMPTY query
+  // string, and P6 is the only predicate that sends `?days=` — always together with
+  // `?path=`, which routes through the single-path branch. So "?days=1 with no ?path="
+  // was never executed, and the first draft answered it with a one-day all-paths window
+  // and no declaration: the exact silent short window this ship exists to abolish,
+  // reachable through a documented query parameter. P1's docstring claimed "an all-paths
+  // read never returns window.days < 7" and the oracle had no case that could falsify it.
+  // This is BOTTLENECKS #1's 2026-08-11 lesson landing again — an oracle fixes the target
+  // set to what its author already knew how to handle — so the case enters the INSTRUMENT
+  // rather than living in a review nobody re-runs.
+  {
+    const paths = fleetPaths(4);
+    const worker = await loadWorker(paths);
+    const nowMs2 = Date.now();
+    let ok = true;
+    for (const q of ['0', '1', '3', '6', '7', '9', '10', '-5', 'abc', '7.9', '1e9', '1&days=99', '']) {
+      const { kv } = makeKV(paths, nowMs2);
+      const { status, body } = await callStats(worker, kv, `?days=${q}`);
+      const w = body && body.window;
+      if (status !== 200 || !w || !(w.days >= FLOOR) || w.days !== (body.paths ? w.days : -1)) {
+        ok = false; failures.push(`P10: ?days=${q} -> status=${status} window=${JSON.stringify(w)} (all-paths window below the ${FLOOR}-day floor or malformed)`); continue;
+      }
+      // The adjustment must be self-declaring: a consumer can see what it asked for.
+      if (!Number.isInteger(w.requested) || w.floor !== FLOOR) {
+        ok = false; failures.push(`P10: ?days=${q} -> window does not declare requested/floor: ${JSON.stringify(w)}`);
+      }
+    }
+    // …and the single-path branch keeps its narrow range, declared as exempt.
+    const { kv } = makeKV(paths, nowMs2);
+    const narrow = await callStats(worker, kv, `?path=${encodeURIComponent(paths[1])}&days=2`);
+    if (!(narrow.status === 200 && narrow.body.window.days === 2 && narrow.body.window.floor === null)) {
+      ok = false; failures.push(`P10: single-path ?days=2 should stay narrow and declare floor:null, got ${JSON.stringify(narrow.body?.window)}`);
+    }
+    check('P10', ok, 'see above');
+    if (ok) console.log('  P10 EXPLICIT ?days    ok — 13 all-paths asks held at the floor; single-path exempt and declared');
+  }
+
   // P7 — the error paths must survive the fix.
   {
     const paths = fleetPaths(4);
