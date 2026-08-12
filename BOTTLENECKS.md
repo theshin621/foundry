@@ -22,7 +22,7 @@ the same shape passed without the cause recurring).
   N defects, the one permitted fix cycle closes all N, and the re-check finds fresh siblings of the
   fixes — usually one line away from what was just repaired. The loop cannot currently tell a
   *converging* ship from a *grinding* one, so the anti-grind clause kills both.
-- **count:** 5 confirmed, **+1 unadjudicated** (see incident #9 below — the fix author may not judge whether it is this cause, so it is logged and left for Theshin)
+- **count:** 5 confirmed, **+4 unadjudicated** (#009, #011, #012, #013 below — each logged by the very fire that wrote the fix, and therefore scored by none of them. The bookkeeping is a fact; the adjudication is Theshin's.)
 - **incidents:**
   - **#003 codeowners** (2026-08-06) — 3 builds, 7 independent verdicts, 0 PASS. Killed →
     `graveyard.md`.
@@ -113,6 +113,59 @@ the same shape passed without the cause recurring).
   clause needs a clean PASS): the queued /_b/stats window fix is the next validation candidate.
   Until a PASS lands, MOD-1 keeps ship merges on Theshin's one-click go — staged autonomy working
   as designed, not a failure of it.
+
+  **Unadjudicated incident — #013 stats-window-floor (2026-08-12, the 02:11Z scheduled fire).**
+  Logged and deliberately NOT counted by its own author, for the fourth time and the same reason.
+  The facts, so Theshin can:
+
+  Round 1 (independent, different model): **FAIL, 2 findings, 1 SEVERE + 1 MEDIUM.** One fix
+  cycle, applied structurally rather than case-by-case — the SEVERE (a 7-day floor enforced only
+  inside the growth branch, so `?days=1` on an all-paths read returned a silent 1-day window) was
+  closed by moving the floor onto the *ask* and by making `window` always carry `requested` and
+  `floor`, so a day-dimension adjustment is self-declaring rather than relying on a `truncated`
+  block that only ever described paths; the MEDIUM (an `AttributeError` on a non-dict `window`)
+  was closed with an `as_dict()` gate placed on every untrusted mapping rather than on the one
+  site named. Round 2 (**FRESH adversary**, independent of round 1): **both fixes HOLD**, verified
+  against inputs the adversary wrote itself (fleet sizes 1–80, `?days=1..15`, non-dict values of
+  every plain type) — and **3 new findings, 2 SEVERE, all three explicitly siblings of the two
+  places the fix touched.**
+
+  **The trajectory points the wrong way and this fire says so against its own work.** #011 fell
+  4 → 2 with severity dropping to zero and argued convergence; #012 fell 6 → 3 with one SEVERE
+  surviving. Here the count RISES 2 → 3 and the severe count RISES 1 → 2. Two rounds, two
+  independent adversaries, **zero PASS**. Branch `infra/013-stats-window-floor` unmerged, ledger
+  row 13 `failed`, both verdicts verbatim. MOD-1's autonomous-infra-merge did not fire, because a
+  FAIL is not a PASS.
+
+  **What this incident adds that the others do not, and it is the sharpest evidence in the entry.**
+  Round 2's severest finding is not in the product at all — **it is in the oracle, and it is a
+  sibling of the fix that was made to the oracle.** Round 1 found that the oracle never sent
+  `?days=` without also sending `?path=`; the fix added predicate P10 to close exactly that gap;
+  round 2 then showed that P10 inspects only the `window` object and never `body.paths`, so a
+  worker that silently deletes every path but one **whenever the caller types `?days=`** passes
+  P1–P10 and the oracle exits 0. The 2026-08-09 rebuild had already found one such hole
+  (probe-the-oracle clause (b), a worker that returned one path and *declared* the rest omitted);
+  this one is strictly worse because it declares nothing, and it was introduced **by the repair of
+  the first one.** The entry's own generalisation — *"every fix has been one layer up from the
+  last"* — now has an instance where the layer is the instrument, the fix was written in response
+  to a checker, and the sibling appeared inside the same file in the same cycle.
+
+  **The concrete proposal this incident makes, offered by the party it constrains.** #012 proposed
+  that *the checker's first act should be to write fixtures, not to run the oracle.* This run is
+  evidence for that proposal and evidence that it is not sufficient on its own: both adversaries
+  DID write their own cases first, and both found real defects the oracle could not see — but the
+  oracle they were auditing had been amended by the maker in between, and nobody re-audited the
+  amendment. The narrower rule that would have caught round 2's severe finding is mechanical:
+  **a predicate added during a fix cycle is maker-authored verification and must be probed by the
+  same probe-the-oracle discipline as the original oracle** — negative control plus an independent
+  attempt to pass it while being wrong. P10 received neither. That is a rule change to the
+  ARCHITECT/CHECKER contract and is therefore proposed, not adopted.
+
+  **Adjudication question for Theshin, stated plainly.** If this counts, entry #1 moves to 6 and
+  reverts to `open`, which under the build-day rule **blocks build days until a fix ships** — the
+  loop would spend its next fires on the cause rather than on ships. This fire believes that is
+  the correct reading and notes against itself both that this is the least flattering reading of
+  its own work and that it has no standing to make the call.
 
   **Unadjudicated incident — #012 chat-export-redactor (2026-08-11, the 02:10Z scheduled fire).**
   Logged and deliberately NOT counted by its own author, for the third time and the same reason:
