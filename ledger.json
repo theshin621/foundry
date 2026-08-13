@@ -415,6 +415,53 @@
    },
    "status": "failed",
    "kill_criterion": "Instrumental, not visit-based (infra publishes no page): if public/beacon-stats.json is ever committed with a window shorter than 7 days, or with a countable path silently absent rather than declared, the fix has failed and reverts. NOT YET IN FORCE \u2014 the branch is unmerged."
+  },
+  {
+   "n": 14,
+   "date": "2026-08-13",
+   "slug": "beacon-liveness-oracle",
+   "one_liner": "A browser-truth oracle for the claim health.json has been asserting with a substring since the fleet moved first-party: does each live ship page actually FIRE a countable first-party beacon? Serves public/ locally, executes every page in Chromium, and observes the beacon AT THE RECEIVING END. Renames has_beacon -> beacon_bytes_served (a delivery check, honestly named) and adds a browser-measured beacon_liveness block.",
+   "gap_source_url": "internal \u2014 measured this fire, 2026-08-13, before any code existed. Executing the four live pages in Chromium proved the beacon LIVE on all of them (so the fleet's ten days of zeros are real demand data, not a broken instrument), and on the way past showed health-check.yml's has_beacon is \"'/_b'\" in body: a liveness-of-markup claim asserted by string matching, the construct BOTTLENECKS #1 clause 3 forbids. That field had already failed this exact way once (it matched cloudflareinsights.com until 2026-08-10 while ship 008 had removed that beacon).",
+   "deploy_url": null,
+   "kind": "infra",
+   "checker_verdict": "ROUND 1 (independent checker, sonnet \u2014 DIFFERENT MODEL from the maker/opus-5, refutation-seeking, wrote its own fixtures BEFORE running the maker's, then neutered predicates one at a time). VERDICT: FAIL, 4 findings, 2 SEVERE. SEVERE 1 \u2014 \"A page that client-redirects to another live page in the fleet is reported FAIL even though a genuine, correctly-formed, correctly-bound beacon was delivered \u2014 the oracle's own stated FAIL semantics ('no such POST occurred') is false for this case... rec['path'] is never updated to the page's actual final URL after navigation, so P8 compares the *requested* path against the *delivered* path and calls a live beacon dead.\" SEVERE 2 \u2014 \"Contrary to the commit message's claim ('Probe-the-oracle 23/23: every predicate has a control that flips it'), P5, P6, and P7 have **zero** controls in the shipped 23-case suite that require them... almost every fixture in probe.py fails to deliver at all, so P5/P6/P7/P8 all fail together vacuously via a shared-empty bodies(), and the one fixture meant to isolate P8 ('wrong-page-bound') also happens to omit the self key, so P10 catches it too... This is the literal failure mode BOTTLENECKS #1 names for incident #2 round 3 ('ten predicates that had NO negative control... never exercising the round's headline fix'), reproduced inside the artifact whose own docstring cites that lesson, and it lands on P8 \u2014 the exact predicate written to prevent this artifact's own worst historical failure (#008 round 4's vacuous binding).\" MEDIUM 3 \u2014 popup beacons observed at page rather than context level produce a false FAIL on P5. LOW 4 \u2014 stale self-contradicting header comment left in health-check.yml.\n\nONE FIX CYCLE (the permitted one), APPLIED STRUCTURALLY RATHER THAN CASE-BY-CASE. Finding 1: bind to page.url AFTER navigation (final_path) instead of the requested path, and make the redirect case a standing control. Finding 2: P5/P6/P7 were not independent predicates at all \u2014 nothing parses unless it arrived and nothing arrives unless it was sent \u2014 so they were DELETED into one predicate carrying a detailed reason string rather than given synthetic controls, and probe.py was rewritten to NEUTER EVERY PREDICATE IN TURN and fail if any changes no verdict, making \"every predicate has a control\" a machine-checked property instead of a sentence in a commit message. Finding 3: ctx-level listeners. Finding 4: comment corrected. Result claimed: 27/27 controls behaved, 7/7 predicates genuinely controlled.\n\nROUND 2 (FRESH adversary, sonnet, independent of round 1, targeted re-check). VERDICT: FAIL, 4 findings, ALL FOUR SEVERE, AND THE ADVERSARY CLASSIFIES EVERY ONE AS A SIBLING OF A FIX. Verbatim summary: \"Ship 014's fix cycle correctly closed the two defects it claimed to close for the exact shapes it tested (client redirect binding to final_path; predicate decoration collapsed into P4, with neuter genuinely unreachable from the CLI and clause (c)'s 27/27\u00b77/7 reproducing cold) \u2014 but the pattern from BOTTLENECKS #1 held again: the final_path field drops the query string entirely, leaving P6's self-flag check permanently keyed to the *requested* query via dead fallback code, producing false FAILs on any live redirect that changes ?self=1 in either direction; and the popup-attribution fix never actually touches P5's binding logic (its own probe.py control, b2-popup, is a decorative fixture that evaluates location in the opener's frame, not the popup's, and thus 'passes' without exercising the claim), while the same wire() change it shipped introduces two fresh regressions \u2014 an unrelated popup error now fails an otherwise-live page's P7, and a popup that never settles hangs ctx.close() indefinitely (reproduced past 90 seconds) \u2014 four SEVERE findings, all siblings of the two fixes, all one code block away from what was just repaired.\"\n\nTWO ROUNDS, TWO INDEPENDENT ADVERSARIES, ZERO PASS. Branch infra/014-beacon-liveness-oracle unmerged. The anti-grind clause binds and a persisting FAIL is a legitimate outcome, not a failure of the gate.",
+   "distribution": {
+    "registry_pr": null,
+    "hub": false,
+    "x_draft": "none \u2014 the 2026-08-09 distribution policy authors a draft only when a ship is PUBLISHED to tailorfarms.com. This is infra, checker-FAILed and unmerged."
+   },
+   "signal": {
+    "measurable": false,
+    "note": "infra, checker-FAILed and unmerged \u2014 it publishes no page, so a visit count would be a fabrication rather than a measurement. The fleet-wide instrument read this fire is recorded in beacon_instrument below and is the honest signal for the day.",
+    "beacon_instrument": {
+     "as_of": "2026-08-13T02:28:55Z",
+     "read_at": "2026-08-13T03:18:30Z",
+     "source": "https://tailorfarms.com/_b/stats",
+     "verdict": "PASS",
+     "provenance": "https://github.com/theshin621/foundry/actions/runs/31660945995",
+     "stats": {
+      "generated": "2026-08-13T02:28:55.337Z",
+      "paths": {
+       "/": {
+        "2026-08-09": 13,
+        "2026-08-10": 14,
+        "2026-08-11": 45,
+        "2026-08-12": 9
+       },
+       "/002-gha-trigger/": {},
+       "/004-khanya-school-tutor/": {},
+       "/005-maccleaner/": {}
+      },
+      "window": {
+       "days": 10,
+       "from": "2026-08-04",
+       "to": "2026-08-13"
+      }
+     }
+    }
+   },
+   "status": "failed",
+   "kill_criterion": "Instrumental, not visit-based (infra publishes no page). If a future fire ever merges a beacon_liveness verdict into public/health.json that reads PASS while a page's beacon is provably inert in a real browser, this artifact has failed at its one job and is killed rather than repaired. Standing residual, recorded by the maker against its own work: round 2 demonstrated that the hand-written attribution band around Playwright regenerated four SEVERE defects inside one fix cycle, so the oracle as it stands is NOT trustworthy and must not be wired into any gate until it PASSes cold."
   }
  ]
 }

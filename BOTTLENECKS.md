@@ -22,7 +22,7 @@ the same shape passed without the cause recurring).
   N defects, the one permitted fix cycle closes all N, and the re-check finds fresh siblings of the
   fixes — usually one line away from what was just repaired. The loop cannot currently tell a
   *converging* ship from a *grinding* one, so the anti-grind clause kills both.
-- **count:** 5 confirmed, **+4 unadjudicated** (#009, #011, #012, #013 below — each logged by the very fire that wrote the fix, and therefore scored by none of them. The bookkeeping is a fact; the adjudication is Theshin's.)
+- **count:** 5 confirmed, **+5 unadjudicated** (#009, #011, #012, #013, #014 below — each logged by the very fire that wrote the fix, and therefore scored by none of them. The bookkeeping is a fact; the adjudication is Theshin's.)
 - **incidents:**
   - **#003 codeowners** (2026-08-06) — 3 builds, 7 independent verdicts, 0 PASS. Killed →
     `graveyard.md`.
@@ -113,6 +113,61 @@ the same shape passed without the cause recurring).
   clause needs a clean PASS): the queued /_b/stats window fix is the next validation candidate.
   Until a PASS lands, MOD-1 keeps ship merges on Theshin's one-click go — staged autonomy working
   as designed, not a failure of it.
+
+  **Unadjudicated incident — #014 beacon-liveness-oracle (2026-08-13, the 02:11Z scheduled fire).**
+  Logged and deliberately NOT counted by its own author, for the fifth time and the same reason.
+  The facts, so Theshin can:
+
+  Round 1 (independent, different model): **FAIL, 4 findings, 2 SEVERE.** One fix cycle, applied
+  structurally rather than case-by-case, and one of the two fixes was a *deletion*: the checker
+  showed that three of the oracle's predicates were **decoration** — neutering any of them changed
+  no verdict, because they were not independent (nothing parses unless it arrived, nothing arrives
+  unless it was sent), while the commit message asserted "23/23, every predicate has a control that
+  flips it". They were collapsed into one predicate, and `probe.py` was rewritten to **neuter every
+  predicate in turn and fail if any changes no verdict**, converting that claim from a sentence into
+  a machine-checked property. Round 2 (**FRESH adversary**, independent of round 1): the two named
+  defects **hold closed for the shapes tested**, clause (c)'s 27/27 · 7/7 reproduces cold, and the
+  `neuter` seam is confirmed unreachable from the CLI — **and 4 new findings, ALL FOUR SEVERE, every
+  one classified by the adversary as a sibling of a fix.**
+
+  **The trajectory is the worst this entry has recorded and this fire says so against its own work.**
+  #011 fell 4 → 2 with severity to zero. #012 fell 6 → 3 with one SEVERE surviving. #013 ROSE 2 → 3
+  with severe 1 → 2. Here the count holds at 4 → 4 while the severe count RISES **2 → 4**, and the
+  sibling attribution is no longer arguable — the adversary named the parent fix for each finding
+  unprompted. Two rounds, two independent adversaries, **zero PASS.** Branch
+  `infra/014-beacon-liveness-oracle` unmerged, ledger row 14 `failed`, both verdicts verbatim.
+  MOD-1's autonomous-infra-merge did not fire, because a FAIL is not a PASS.
+
+  **What this incident adds, and it is the sharpest evidence in the entry to date.** #013's headline
+  was that a predicate added to close an oracle gap grew its own sibling inside the same cycle — the
+  pattern reaching the instrument. This incident is one turn further in: **the fix whose entire
+  purpose was to eliminate decorative verification shipped a decorative control of its own.** Round 1
+  killed three predicates for having no control that isolates them. The fix cycle added a machine
+  check for exactly that failure — and also added `b2-popup`, a positive control whose fixture
+  evaluates `location` in the *opener's* frame rather than the popup's, so it passes without ever
+  exercising the claim it exists to prove, and the popup fix it was supposed to validate **was never
+  actually made**: the request listener the fix moved to context level populates a field `judge()`
+  never reads, while the binding predicate still keys off the opener's URL. Clause (c) could not
+  catch this, because a decorative *fixture* still flips a verdict — it just flips it for the wrong
+  reason. The generalisation this entry has been building toward gets one more layer: **borrowing a
+  correct primitive does not make the caller correct; making the caller's verification machine-checked
+  does not make the fixtures honest.** Every fix in this entry's history has been one layer up from
+  the last, and the layer is now the fixture that feeds the machine check.
+
+  **A second, narrower fact worth keeping.** The same `wire()` change introduced two regressions in
+  code that previously could not fail at all: an uncaught error in an *unrelated* popup now fails an
+  otherwise-live page, and a popup that never settles hangs `ctx.close()` indefinitely (reproduced
+  past 90 seconds, twice). Before the fix, popups were invisible, so neither was reachable. **A fix
+  that widens what an instrument observes widens what can wedge it**, and this one would have hung a
+  GitHub Actions step with no message and no CANNOT-CERTIFY until the job's multi-hour ceiling.
+
+  **Adjudication question for Theshin, stated plainly and unchanged from #013.** If this counts,
+  entry #1 moves to 6 and reverts to `open`, which under the build-day rule **blocks build days until
+  a fix ships**. #013's fire believed that was the correct reading. This fire believes it more
+  strongly, because here the sibling attribution was made by an adversary rather than inferred by the
+  author, and because the artifact that regenerated defects was itself the anti-decoration fix. It
+  notes against itself, as its predecessors did, both that this is the least flattering reading of its
+  own work and that it has no standing to make the call.
 
   **Unadjudicated incident — #013 stats-window-floor (2026-08-12, the 02:11Z scheduled fire).**
   Logged and deliberately NOT counted by its own author, for the fourth time and the same reason.
