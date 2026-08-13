@@ -32,19 +32,22 @@ is not false. An unverified neutralisation makes every other predicate meaningle
 
 WHAT EACH PREDICATE BUYS, AND THE BREAK IT CLOSES
 -------------------------------------------------
-P5 requires the request path to equal '/_b' EXACTLY. `startswith('/_b')` would be
-   passed by a page that only ever loads `/_bootstrap.js`.
-P6 requires method POST with a non-empty body. `url.includes('/_b')` alone would be
-   passed by `<img src="/_b">`, which fires a GET and sends no beacon.
-P7 requires the body to be JSON carrying a string `path` — proves it is THIS beacon
-   rather than any POST the page happens to make.
-P8 binds `body.path` to the page the request came from. #008 round 4 died because
-   `verify_bodies` matched each expectation independently, so N directives could be
-   satisfied by one surviving live element. Per-page browser contexts already isolate
-   the observations; P8 makes the binding explicit rather than relying on that.
-P9 fails a page that raised an uncaught error, because a page that throws may have
-   thrown before the beacon ran and a later beacon from some other code path would
-   still satisfy P5-P8.
+P1-P3 establish that there is anything to judge at all (targets exist, pages loaded,
+   the bot guard is down). All three decline rather than condemn.
+P4 the delivery claim: a payload reached `/_b` that parses as JSON carrying a string
+   `path`. Exact-path, so `/_bootstrap.js` does not satisfy it; delivery-based, so
+   `<img src="/_b">` (a GET carrying nothing) does not either. Its `detail` names WHICH
+   of the four ways it failed, which is why it is one predicate and not four —
+   see judge()'s docstring on decoration.
+P5 binds the payload to the page that ACTUALLY SENT IT — `page.url` after navigation,
+   not the URL requested. #008 round 4 died because `verify_bodies` matched each
+   expectation independently, so N directives could be satisfied by one live element.
+P6 the countability claim, which is not the same as the liveness claim: a page that
+   always declares `self:true` fires perfectly and is discarded by the worker as
+   self-traffic, so it is invisible in `/_b/stats` forever. Checked both ways.
+P7 fails a page that raised an uncaught error, because a page that throws may have
+   thrown before the beacon ran, and some other code path's beacon would still
+   satisfy P4-P6.
 
 KNOWN LIMITS — what survived probe.py clause (b), stated rather than glossed
 ---------------------------------------------------------------------------
@@ -197,8 +200,14 @@ def observe(base_url, paths, sink, mask_webdriver=True):
                     if urllib.parse.urlsplit(req.url).path == BEACON_PATH:
                         s.append({"method": req.method})
 
-                page.on("request", on_request)
-                page.on("pageerror", lambda e, s=errors: s.append(str(e)[:300]))
+                def wire(pg):
+                    # CONTEXT-level, not page-level: a beacon fired from a popup is
+                    # still this page's beacon. (Checker 2026-08-13 finding 3.)
+                    pg.on("request", on_request)
+                    pg.on("pageerror", lambda e, s=errors: s.append(str(e)[:300]))
+
+                wire(page)
+                ctx.on("page", wire)
 
                 with _Quiet.lock:
                     start = len(sink)
@@ -218,6 +227,15 @@ def observe(base_url, paths, sink, mask_webdriver=True):
                 except Exception as e:  # noqa: BLE001
                     rec["webdriver"] = "unreadable: %s" % type(e).__name__
 
+                # The beacon reports where the page ENDED UP, so the binding check must
+                # compare against that, not against what was requested. Before this,
+                # a page that client-redirected delivered a perfect beacon and was
+                # called dead. (Checker 2026-08-13 finding 1.)
+                try:
+                    rec["final_path"] = urllib.parse.urlsplit(page.url).path
+                except Exception:  # noqa: BLE001
+                    rec["final_path"] = None
+
                 ctx.close()  # flushes any beacon still in flight before the snapshot
                 with _Quiet.lock:
                     rec["delivered"] = list(sink[start:])
@@ -228,42 +246,46 @@ def observe(base_url, paths, sink, mask_webdriver=True):
 
 
 # ------------------------------------------------------------------------ predicates
-def judge(records):
-    """Returns (verdict, predicate_results). Each predicate is independently checkable
-    so a checker can neuter exactly one and confirm the verdict flips."""
+def judge(records, neuter=()):
+    """Returns (verdict, predicate_results).
+
+    `neuter` forces the named predicate IDs to pass. It is a TEST SEAM, reachable only
+    from probe.py and never from the CLI: probe.py neuters each predicate in turn and
+    requires at least one control to flip, which turns "every predicate has a control"
+    from a claim in a commit message into a machine-checked property. The 2026-08-13
+    checker showed why that matters — three of the original predicates had no isolating
+    control anywhere in the suite while the commit message asserted 23/23.
+
+    THE PREDICATE SET IS DELIBERATELY SMALL. The first version had P5 (browser issued a
+    POST), P6 (server received a non-empty body) and P7 (the body parses as JSON with a
+    path) as three predicates. They are not independent: nothing can be received unless
+    it was sent, and nothing parses unless it was received, so P5 and P6 could never fail
+    while a later one passed. Neutering either changed no verdict — the definition of
+    decoration. They are now ONE predicate with a detailed reason string, which keeps the
+    diagnostic value without pretending to be three independent checks. Deleted, not
+    repaired.
+    """
     P = []
 
-    def add(pid, desc, ok, detail="", fatal_kind="FAIL"):
-        P.append({"id": pid, "desc": desc, "ok": bool(ok), "detail": detail,
-                  "kind": fatal_kind})
+    def add(pid, desc, ok, detail="", kind="FAIL"):
+        if pid in neuter:
+            ok, detail = True, "NEUTERED by probe"
+        P.append({"id": pid, "desc": desc, "ok": bool(ok), "detail": detail, "kind": kind})
 
-    add("P2", "at least one live page-bearing target", len(records) > 0,
+    add("P1", "at least one live page-bearing target", len(records) > 0,
         "%d targets" % len(records), "CANNOT-CERTIFY")
 
     bad_http = [r["path"] for r in records if r.get("http") != 200]
-    add("P3", "every target returned HTTP 200", not bad_http,
+    add("P2", "every target returned HTTP 200", not bad_http,
         "not-200: %s" % bad_http, "CANNOT-CERTIFY")
 
     bad_wd = [(r["path"], r.get("webdriver")) for r in records
               if r.get("webdriver") is not False]
-    add("P4", "navigator.webdriver measured false inside every page", not bad_wd,
+    add("P3", "navigator.webdriver measured false inside every page", not bad_wd,
         "flag still up: %s" % bad_wd, "CANNOT-CERTIFY")
 
-    # P5-P8 are deliberately NOT layered behind each other's non-emptiness. Each is
-    # evaluated over ALL records, so none of them can pass vacuously because an earlier
-    # one found nothing to inspect — the failure mode that let #008's `verify_bodies`
-    # report green while N expectations shared one live element.
-    no_hit = [r["path"] for r in records
-              if not any(b["method"] == "POST" for b in r["beacons"])]
-    add("P5", "every page issued a POST to exactly %s" % BEACON_PATH, not no_hit,
-        "silent: %s" % no_hit)
-
-    undelivered = [r["path"] for r in records
-                   if not [d for d in r["delivered"] if (d["body"] or "").strip()]]
-    add("P6", "every page DELIVERED a non-empty body to the server", not undelivered,
-        "nothing arrived: %s" % undelivered)
-
     def bodies(r):
+        """Delivered payloads that are a JSON object carrying a string `path`."""
         out = []
         for d in r["delivered"]:
             try:
@@ -274,39 +296,49 @@ def judge(records):
                 out.append(obj)
         return out
 
-    no_body = [r["path"] for r in records if not bodies(r)]
-    add("P7", "every delivered body is JSON carrying a string 'path'", not no_body,
-        "unparseable/foreign: %s" % no_body)
+    def why_silent(r):
+        if not r["delivered"]:
+            return "nothing arrived at %s" % BEACON_PATH
+        if not [d for d in r["delivered"] if (d["body"] or "").strip()]:
+            return "arrived with an empty body"
+        return "arrived but no payload is JSON carrying a string 'path'"
+
+    silent = [(r["path"], why_silent(r)) for r in records if not bodies(r)]
+    add("P4", "every page DELIVERED a first-party beacon payload to %s" % BEACON_PATH,
+        not silent, "not counted: %s" % silent)
 
     unbound = []
     for r in records:
         bs = bodies(r)
-        want = urllib.parse.urlsplit(r["path"]).path
+        if not bs:
+            continue  # already fatal under P4; reporting it twice hides the real cause
+        want = r.get("final_path") or urllib.parse.urlsplit(r["path"]).path
         if not any(urllib.parse.urlsplit(b["path"]).path == want for b in bs):
-            unbound.append((r["path"], [b["path"] for b in bs]))
-    add("P8", "every delivered body binds to the page that sent it", not unbound,
-        "mismatched: %s" % unbound)
+            unbound.append((r["path"], want, [b["path"] for b in bs]))
+    add("P5", "every payload binds to the page that actually sent it", not unbound,
+        "mismatched (path, expected, delivered): %s" % unbound)
 
-    # P10 exists because of clause (b): a page can satisfy P5-P9 in full and still be
-    # invisible in /_b/stats forever, by always declaring self:true — the worker
-    # discards self-traffic. "The beacon fires" and "the visit is countable" are not
-    # the same claim, and only the second one is what the ledger steers by. The flag
-    # must MATCH the way the page was actually requested, in both directions.
+    # A page can satisfy everything above and still be invisible in /_b/stats forever by
+    # always declaring self:true — the worker discards self-traffic. "The beacon fires"
+    # and "the visit is countable" are different claims and only the second is what the
+    # ledger steers by. Checked in BOTH directions so a hard-coded self:false also fails.
     miscounted = []
     for r in records:
-        asked_self = "self=1" in urllib.parse.urlsplit(r["path"]).query.split("&")
+        q = urllib.parse.urlsplit(r.get("final_path") or r["path"]).query
+        if not q:
+            q = urllib.parse.urlsplit(r["path"]).query
+        asked = "self=1" in q.split("&")
         for b in bodies(r):
-            if b.get("self") is not asked_self:
+            if b.get("self") is not asked:
                 miscounted.append((r["path"], "self=%r, requested self=1: %r"
-                                   % (b.get("self"), asked_self)))
-    add("P10", "the self-traffic flag matches how the page was requested",
+                                   % (b.get("self"), asked)))
+    add("P6", "the self-traffic flag matches how the page was requested",
         not miscounted, "miscounted: %s" % miscounted)
 
     threw = [(r["path"], r["errors"]) for r in records if r["errors"]]
-    add("P9", "no page raised an uncaught error", not threw, "errors: %s" % threw)
+    add("P7", "no page raised an uncaught error", not threw, "errors: %s" % threw)
 
-    blocked = [p for p in P if not p["ok"] and p["kind"] == "CANNOT-CERTIFY"]
-    if blocked:
+    if [p for p in P if not p["ok"] and p["kind"] == "CANNOT-CERTIFY"]:
         return "CANNOT-CERTIFY", P
     if [p for p in P if not p["ok"]]:
         return "FAIL", P
@@ -355,7 +387,8 @@ def main(argv=None):
 
     verdict, P = judge(records)
     report.update(verdict=verdict, targets=paths, predicates=P, records=[
-        {"path": r["path"], "http": r.get("http"), "webdriver": r.get("webdriver"),
+        {"path": r["path"], "final_path": r.get("final_path"),
+         "http": r.get("http"), "webdriver": r.get("webdriver"),
          "requests": [b["method"] for b in r["beacons"]],
          "delivered": r["delivered"],
          "errors": r["errors"]} for r in records])

@@ -1,7 +1,11 @@
 # .github/workflows/health-check.yml
 #
-# WHY THIS FILE LIVES IN tools/ — see the header of ship-preview.yml. The PAT
-# cannot push anything under .github/workflows/, by design.
+# 2026-08-13 (ship 014): the two lines that used to be here said this file lives in
+# tools/ because "the PAT cannot push anything under .github/workflows/, by design".
+# That stopped being true on 2026-08-05, when Theshin rotated the PAT with the
+# Workflows scope — this file is now written directly and tools/workflows/README.md
+# records the change. A comment that contradicts its own file's location is how a
+# future fire talks itself into copying a stale mirror over a fixed one.
 #
 # WHAT IT DOES
 # The build sandbox cannot reach the live origin (WebFetch is provenance-gated in

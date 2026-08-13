@@ -2,31 +2,35 @@
 """
 oracles/beacon-liveness/probe.py — PROBE-THE-ORACLE for beacon-liveness.
 
-Mandatory under PLAYBOOK §ARCHITECT (v4). Two clauses, both exercised here:
+Mandatory under PLAYBOOK §ARCHITECT (v4). Three clauses:
 
   (a) NEGATIVE CONTROL — break the artifact in each way the oracle claims to catch and
-      confirm it goes RED. A predicate with no control that flips is decoration; entry
-      #2 round 3 shipped ten of those and reported 18/18 while never exercising its own
-      headline fix.
+      confirm it goes RED.
   (b) INDEPENDENT BREAK ATTEMPT — construct a page the oracle still passes while the
-      thing it certifies is not true. Whatever survives is recorded as a KNOWN LIMIT in
-      the oracle's docstring rather than quietly left in.
+      thing it certifies is not true. Survivors are recorded as KNOWN LIMITS in
+      oracle.py's docstring rather than quietly left in.
+  (c) NO DECORATION — added 2026-08-13 after the checker refuted this file's own
+      predecessor. Every predicate is NEUTERED IN TURN and at least one control must
+      flip. A predicate whose neutering changes no verdict is not verified by this
+      suite, and saying "23/23" about it is the failure BOTTLENECKS #1 (entry #2,
+      round 3) already paid for once: ten predicates with no control, reported 18/18,
+      headline fix never exercised. The previous version of this file made exactly
+      that claim and three of its predicates were decoration. This clause is now a
+      machine-checked property rather than a sentence in a commit message.
 
-Every fixture is a full page built here, served from a temp dir, and run through the
-real `oracle.py` as a subprocess — the same entry point a fire or a checker calls. The
-probe never imports the predicates and re-implements them.
+Each fixture is observed in a real browser ONCE; the recorded observations are then
+re-judged under every neutering. Browser time is the expensive part, and re-judging is
+free, so clause (c) costs almost nothing.
 
 Run:  python3 oracles/beacon-liveness/probe.py [-v]
-Exit: 0 all controls behaved · 1 at least one did not.
+Exit: 0 everything behaved · 1 a control misbehaved or a predicate is decoration.
 """
-import json
 import os
-import subprocess
 import sys
 import tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ORACLE = os.path.join(HERE, "oracle.py")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import oracle  # noqa: E402  (the real module — predicates are never re-implemented here)
 
 # The real snippet, byte-for-byte from lib/beacon-firstparty.snippet.html.
 LIVE = """<script>
@@ -46,188 +50,166 @@ def page(inner):
             "<body><h1>probe</h1>%s</body></html>" % inner)
 
 
-def raw_post(body_js, path="'/_b'"):
+def post(body_js, path="'/_b'"):
     return ("<script>fetch(%s,{method:'POST',body:%s,"
             "headers:{'content-type':'text/plain'}}).catch(function(){});</script>"
             % (path, body_js))
 
 
-# name -> (page html, expected verdict, what it controls)
-CASES = {
-    # ---- positive control -------------------------------------------------------
-    "live-snippet": (page(LIVE), "PASS", "the real artifact must be blessed"),
+SELF_OK = "JSON.stringify({path:location.pathname+location.search,self:false})"
 
-    # ---- clause (a): the inert-markup vectors the substring test passes ---------
-    "absent": (page(""), "FAIL", "no snippet at all"),
-    "in-template": (page("<template>%s</template>" % LIVE), "FAIL",
-                    "BOTTLENECKS #1 incident #4 vector"),
-    "in-noscript": (page("<noscript>%s</noscript>" % LIVE), "FAIL",
-                    "BOTTLENECKS #1 incident #4 vector"),
-    "in-comment": (page("<!-- %s -->" % LIVE), "FAIL", "commented out"),
-    "as-json-block": (page(LIVE.replace("<script>", "<script type=\"application/json\">")),
-                      "FAIL", "BOTTLENECKS #1 incident #009 vector"),
+# name -> (html, request-path, expected verdict, what it controls)
+CASES = [
+    # ---- positive controls ------------------------------------------------------
+    ("live-snippet", page(LIVE), "/live-snippet/", "PASS",
+     "the real artifact must be blessed"),
+    ("self-1-declared", None, "/live-snippet/?self=1", "PASS",
+     "P6 bidirectional: the real snippet honours ?self=1"),
 
-    # ---- clause (a): predicate-by-predicate controls ----------------------------
-    "wrong-path": (page(LIVE.replace("'/_b'", "'/_beacon'")), "FAIL",
-                   "P5: exact path, not a prefix"),
-    "prefix-path": (page("<script>fetch('/_bootstrap.js').catch(function(){});</script>"),
-                    "FAIL", "P5: /_bootstrap.js must not satisfy /_b"),
-    "img-get-only": (page("<img src='/_b' alt=''>"), "FAIL",
-                     "P6: a GET sends no beacon"),
-    "empty-body": (page(raw_post("''")), "FAIL", "P6: empty body is not a delivery"),
-    "not-json": (page(raw_post("'hello'")), "FAIL", "P7: body must parse"),
-    "json-no-path": (page(raw_post("JSON.stringify({self:false})")), "FAIL",
-                     "P7: body must carry a string path"),
-    "json-path-not-string": (page(raw_post("JSON.stringify({path:42})")), "FAIL",
-                             "P7: path must be a string"),
-    "wrong-page-bound": (page(raw_post("JSON.stringify({path:'/somewhere-else/'})")),
-                         "FAIL", "P8: body must bind to its own page"),
-    "throws": (page(LIVE + "<script>null.x;</script>"), "FAIL",
-               "P9: an uncaught error invalidates the observation"),
+    # ---- (a) the inert-markup vectors a substring test passes -------------------
+    ("absent", page(""), "/absent/", "FAIL", "no snippet at all"),
+    ("in-template", page("<template>%s</template>" % LIVE), "/in-template/", "FAIL",
+     "BOTTLENECKS #1 incident #4 vector"),
+    ("in-noscript", page("<noscript>%s</noscript>" % LIVE), "/in-noscript/", "FAIL",
+     "BOTTLENECKS #1 incident #4 vector"),
+    ("in-comment", page("<!-- %s -->" % LIVE), "/in-comment/", "FAIL", "commented out"),
+    ("as-json-block", page(LIVE.replace("<script>", '<script type="application/json">')),
+     "/as-json-block/", "FAIL", "BOTTLENECKS #1 incident #009 vector"),
 
-    # ---- P10 controls, added at design time after clause (b) broke the oracle ----
-    "always-self": (page(raw_post("JSON.stringify({path:location.pathname,self:true})")),
-                    "FAIL", "P10: a page that hides from its own stats is not live"),
-    "no-self-key": (page(raw_post("JSON.stringify({path:location.pathname})")),
-                    "FAIL", "P10: the flag must be present, not merely falsy"),
-}
+    # ---- (a) P4: delivery, with each reason isolated ----------------------------
+    ("wrong-path", page(LIVE.replace("'/_b'", "'/_beacon'")), "/wrong-path/", "FAIL",
+     "P4: exact path, not a near miss"),
+    ("prefix-path", page("<script>fetch('/_bootstrap.js').catch(function(){});</script>"),
+     "/prefix-path/", "FAIL", "P4: /_bootstrap.js must not satisfy /_b"),
+    ("img-get-only", page("<img src='/_b' alt=''>"), "/img-get-only/", "FAIL",
+     "P4: a GET sends no payload"),
+    ("empty-body", page(post("''")), "/empty-body/", "FAIL", "P4: empty is not delivery"),
+    ("not-json", page(post("'hello'")), "/not-json/", "FAIL", "P4: body must parse"),
+    ("json-no-path", page(post("JSON.stringify({self:false})")), "/json-no-path/",
+     "FAIL", "P4: body must carry a path"),
+    ("json-path-not-string", page(post("JSON.stringify({path:42,self:false})")),
+     "/json-path-not-string/", "FAIL", "P4: path must be a string"),
 
+    # ---- (a) P5: binding, ISOLATED. The checker's finding 2 was that the old
+    # binding fixture also tripped the self-flag check, so neutering the binding
+    # predicate changed nothing and it shipped unverified. self is correct here.
+    ("wrong-page-bound", page(post("JSON.stringify({path:'/somewhere-else/',self:false})")),
+     "/wrong-page-bound/", "FAIL", "P5 ISOLATED: binds to another page, self correct"),
+    ("redirects", page("<script>location.replace('/live-snippet/');</script>"),
+     "/redirects/", "PASS",
+     "P5: a client redirect delivers a real beacon and must NOT be called dead"),
 
-def run(pages_dir, paths, extra=()):
-    r = subprocess.run(
-        [sys.executable, ORACLE, "--pages-dir", pages_dir, "--paths", *paths, "--json",
-         *extra],
-        capture_output=True, text=True, timeout=180)
-    try:
-        return json.loads(r.stdout)["verdict"], r
-    except Exception:  # noqa: BLE001
-        return "UNPARSEABLE(rc=%s) %s" % (r.returncode, r.stderr[-300:]), r
+    # ---- (a) P6: the self flag, isolated in both directions ---------------------
+    ("always-self", page(post("JSON.stringify({path:location.pathname,self:true})")),
+     "/always-self/", "FAIL", "P6 ISOLATED: hides from its own stats, binding correct"),
+    ("no-self-key", page(post("JSON.stringify({path:location.pathname})")),
+     "/no-self-key/", "FAIL", "P6: the flag must be present, not merely falsy"),
+    ("self-1-consistent", None, "/always-self/?self=1", "PASS",
+     "P6 must not fail a page whose self:true is CORRECT"),
+
+    # ---- (a) P7: uncaught errors, isolated (a live, bound, correctly-flagged
+    # beacon that also throws) ----------------------------------------------------
+    ("throws", page(post(SELF_OK) + "<script>null.x;</script>"), "/throws/", "FAIL",
+     "P7 ISOLATED: everything else passes, the page still threw"),
+
+    # ---- (b) independent break attempts -----------------------------------------
+    ("b1-handrolled", page(post(SELF_OK)), "/b1-handrolled/", "PASS",
+     "(b) EXPECTED — certifies behaviour, not markup provenance"),
+    ("b2-popup", page(
+        "<script>var w=window.open('about:blank');"
+        "w.fetch('/_b',{method:'POST',body:" + SELF_OK +
+        ",headers:{'content-type':'text/plain'}}).catch(function(){});</script>"),
+     "/b2-popup/", "PASS",
+     "(b) a popup's beacon is still this page's beacon"),
+    ("b3-gesture-only", page(
+        "<script>document.addEventListener('click',function(){fetch('/_b',{method:'POST',"
+        "body:" + SELF_OK + ",headers:{'content-type':'text/plain'}});});</script>"),
+     "/b3-gesture-only/", "FAIL",
+     "(b) SURVIVES as a false RED — KNOWN LIMIT 1"),
+]
+
+# ---- (a) verdict-class controls: ground truth unavailable -----------------------
+SPECIAL = [
+    ("missing-page", ["/does-not-exist/"], "CANNOT-CERTIFY", {},
+     "P2: a page that did not load cannot be judged dead"),
+    ("no-targets", [], "CANNOT-CERTIFY", {},
+     "P1: zero targets is not a clean bill of health"),
+    ("p3-flag-up", ["/live-snippet/"], "CANNOT-CERTIFY", {"mask_webdriver": False},
+     "P3: bot guard up -> decline, never a confident false FAIL"),
+    ("one-dead-among-live", ["/live-snippet/", "/in-template/", "/live-snippet/"],
+     "FAIL", {}, "#008 round 4: N expectations must not share one live element"),
+]
+
+PREDICATES = ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]
 
 
 def main():
     verbose = "-v" in sys.argv
-    results, failures = [], []
+    rows, failures = [], []
+    observed = {}  # name -> records, judged repeatedly under different neuterings
 
     with tempfile.TemporaryDirectory() as td:
-        for name, (html, expected, why) in CASES.items():
+        for name, html, path, _exp, _why in CASES:
+            if html is None:
+                continue
             d = os.path.join(td, name)
             os.makedirs(d, exist_ok=True)
             with open(os.path.join(d, "index.html"), "w") as fh:
                 fh.write(html)
-            got, r = run(td, ["/%s/" % name])
-            ok = got == expected
-            results.append((name, expected, got, ok, why))
-            if not ok:
-                failures.append((name, expected, got, r.stdout[-600:]))
 
-        # ---- clause (a), the control this oracle exists because of --------------
-        # A browser-truth oracle that does not neutralise navigator.webdriver reads
-        # ZERO beacons on a live page. The correct behaviour is to DECLINE, never to
-        # report a confident false FAIL. Measured live 2026-08-13 before oracle.py
-        # existed; now a control.
-        d = os.path.join(td, "live-snippet")
-        got, r = run(td, ["/live-snippet/"], extra=["--no-webdriver-mask"])
-        ok = got == "CANNOT-CERTIFY"
-        results.append(("p4-flag-up", "CANNOT-CERTIFY", got, ok,
-                        "P4: bot guard up -> decline, never a false FAIL"))
-        if not ok:
-            failures.append(("p4-flag-up", "CANNOT-CERTIFY", got, r.stdout[-600:]))
+        sink = []
+        httpd, base = oracle.serve(td, sink)
+        try:
+            for name, _html, path, expected, why in CASES:
+                recs = oracle.observe(base, [path], sink)
+                observed[name] = recs
+                got, _ = oracle.judge(recs)
+                ok = got == expected
+                rows.append((name, expected, got, ok, why))
+                if not ok:
+                    failures.append("%s: expected %s, got %s\n%s"
+                                    % (name, expected, got, oracle.judge(recs)[1]))
 
-        # ---- P10 the OTHER way: self=1 traffic must declare itself, and the live
-        # snippet does. Without this control P10 would be satisfiable by a page that
-        # hard-codes self:false, which is the mirror-image lie.
-        got, r = run(td, ["/live-snippet/?self=1"])
-        ok = got == "PASS"
-        results.append(("self-1-declared", "PASS", got, ok,
-                        "P10 bidirectional: real snippet honours ?self=1"))
-        if not ok:
-            failures.append(("self-1-declared", "PASS", got, r.stdout[-600:]))
+            for name, paths, expected, kw, why in SPECIAL:
+                recs = oracle.observe(base, paths, sink, **kw)
+                observed[name] = recs
+                got, _ = oracle.judge(recs)
+                ok = got == expected
+                rows.append((name, expected, got, ok, why))
+                if not ok:
+                    failures.append("%s: expected %s, got %s\n%s"
+                                    % (name, expected, got, oracle.judge(recs)[1]))
+        finally:
+            httpd.shutdown()
 
-        got, r = run(td, ["/always-self/?self=1"])
-        ok = got == "PASS"
-        results.append(("self-1-consistent", "PASS", got, ok,
-                        "P10 must not fail a page whose self:true is CORRECT"))
-        if not ok:
-            failures.append(("self-1-consistent", "PASS", got, r.stdout[-600:]))
+    # ------- clause (c): neuter each predicate, demand that a control flips -------
+    baseline = {n: oracle.judge(r)[0] for n, r in observed.items()}
+    decoration, controlled = [], []
+    for pid in PREDICATES:
+        flipped = [n for n, r in observed.items()
+                   if oracle.judge(r, neuter={pid})[0] != baseline[n]]
+        if flipped:
+            controlled.append((pid, flipped))
+        else:
+            decoration.append(pid)
 
-        # ---- clause (a): ground truth unavailable -------------------------------
-        got, r = run(td, ["/does-not-exist/"])
-        ok = got == "CANNOT-CERTIFY"
-        results.append(("missing-page", "CANNOT-CERTIFY", got, ok,
-                        "P3: a page that did not load cannot be judged dead"))
-        if not ok:
-            failures.append(("missing-page", "CANNOT-CERTIFY", got, r.stdout[-600:]))
+    width = max(len(n) for n, *_ in rows)
+    for name, exp, got, ok, why in rows:
+        print("%-*s  expect %-14s got %-14s %s   %s"
+              % (width, name, exp, got, "ok" if ok else "MISMATCH", why if verbose else ""))
 
-        # ---- clause (a): no vacuous all-pass on an empty target set -------------
-        got, r = run(td, [])
-        ok = got == "CANNOT-CERTIFY"
-        results.append(("no-targets", "CANNOT-CERTIFY", got, ok,
-                        "P2: zero targets is not a clean bill of health"))
-        if not ok:
-            failures.append(("no-targets", "CANNOT-CERTIFY", got, r.stdout[-600:]))
+    print("\n-- clause (c): every predicate must have a control that flips it --")
+    for pid, flipped in controlled:
+        print("%-4s controlled by %s" % (pid, ", ".join(sorted(flipped)[:4])))
+    for pid in decoration:
+        print("%-4s DECORATION — neutering it changes no verdict in this suite" % pid)
 
-        # ---- clause (a): one dead page among live ones must not be masked -------
-        got, r = run(td, ["/live-snippet/", "/in-template/", "/live-snippet/"])
-        ok = got == "FAIL"
-        results.append(("one-dead-among-live", "FAIL", got, ok,
-                        "#008 round 4: N expectations must not share one live element"))
-        if not ok:
-            failures.append(("one-dead-among-live", "FAIL", got, r.stdout[-600:]))
+    print("\n%d/%d controls behaved · %d/%d predicates genuinely controlled"
+          % (len(rows) - len(failures), len(rows), len(controlled), len(PREDICATES)))
 
-        # ---- clause (b): INDEPENDENT BREAK ATTEMPTS -----------------------------
-        # B1 — a page with no snippet that hand-rolls an equivalent POST. EXPECTED to
-        # pass: the oracle certifies behaviour, not the provenance of the markup. This
-        # is recorded so the claim is not overread, not treated as a defect.
-        d = os.path.join(td, "b1-handrolled")
-        os.makedirs(d, exist_ok=True)
-        open(os.path.join(d, "index.html"), "w").write(page(
-            raw_post("JSON.stringify({path:location.pathname,self:false})")))
-        b1, _ = run(td, ["/b1-handrolled/"])
-
-        # B2 — THE REAL BREAK. The beacon fires, delivers, binds, and the visit is
-        # still never counted, because the body always declares self:true and the
-        # worker discards self-traffic. Every predicate is satisfied and the page is
-        # invisible in /_b/stats forever.
-        d = os.path.join(td, "b2-always-self")
-        os.makedirs(d, exist_ok=True)
-        open(os.path.join(d, "index.html"), "w").write(page(
-            raw_post("JSON.stringify({path:location.pathname,self:true})")))
-        b2, _ = run(td, ["/b2-always-self/"])
-
-        # B3 — the beacon fires only on a user gesture, so it is live for a human and
-        # dead for the oracle's headless load. This is the mirror of B2: the oracle
-        # would report FAIL on a page that genuinely counts real visitors.
-        d = os.path.join(td, "b3-gesture-only")
-        os.makedirs(d, exist_ok=True)
-        open(os.path.join(d, "index.html"), "w").write(page(
-            "<script>document.addEventListener('click',function(){"
-            + raw_post("JSON.stringify({path:location.pathname,self:false})")
-              .replace("<script>", "").replace("</script>", "")
-            + "});</script>"))
-        b3, _ = run(td, ["/b3-gesture-only/"])
-
-        breaks = [
-            ("b1-handrolled", b1, "PASS",
-             "EXPECTED — oracle certifies behaviour, not markup provenance"),
-            ("b2-always-self", b2, "FAIL",
-             "CLOSED at design time by P10 (was PASS before P10 existed)"),
-            ("b3-gesture-only", b3, "FAIL",
-             "SURVIVES as a FALSE RED — see KNOWN LIMIT 1 in oracle.py"),
-        ]
-
-    width = max(len(n) for n, *_ in results)
-    for name, exp, got, ok, why in results:
-        print("%-*s  expect %-14s got %-14s %s   %s" % (
-            width, name, exp, got, "ok" if ok else "MISMATCH", why if verbose else ""))
-    print("\n-- clause (b) independent break attempts --")
-    for name, got, exp, note in breaks:
-        print("%-*s  got %-14s %s" % (width, name, got, note))
-
-    print("\n%d/%d controls behaved as specified" % (
-        len(results) - len(failures), len(results)))
-    if failures:
-        for name, exp, got, out in failures:
-            print("\n--- %s: expected %s, got %s ---\n%s" % (name, exp, got, out))
+    if failures or decoration:
+        for f in failures:
+            print("\n--- %s" % f)
         return 1
     return 0
 
