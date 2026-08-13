@@ -59,13 +59,25 @@ jobs:
                       # THIRD-PARTY beacon that ship 008 replaced. Every page reported
                       # has_beacon: true while the field measured a script the loop no
                       # longer depends on. It now looks for the first-party POST target.
+                      #
+                      # 2026-08-13 (ship 014): RENAMED has_beacon -> beacon_bytes_served,
+                      # because the old name asserted a browser BEHAVIOUR and the code is
+                      # a substring test — the construct BOTTLENECKS #1 clause 3 forbids.
+                      # A snippet inside <template>, <noscript>, an HTML comment or a
+                      # <script type="application/json"> leaves this string in `body` with
+                      # the beacon stone dead (incidents #4 and #009). The check is KEPT,
+                      # because "did the CDN serve the bytes we built" is a real and
+                      # useful question — it just is not the liveness question. Liveness
+                      # is answered by oracles/beacon-liveness in the step below, which
+                      # executes the page in Chromium. Two claims, two names, no overlap.
                       return {'path': path, 'http': r.status, 'ok': r.status == 200,
-                              'bytes': len(body), 'has_beacon': "'/_b'" in body}
+                              'bytes': len(body), 'beacon_bytes_served': "'/_b'" in body}
               except urllib.error.HTTPError as e:
-                  return {'path': path, 'http': e.code, 'ok': False, 'bytes': 0, 'has_beacon': False}
+                  return {'path': path, 'http': e.code, 'ok': False, 'bytes': 0,
+                          'beacon_bytes_served': False}
               except Exception as e:
                   return {'path': path, 'http': 0, 'ok': False, 'error': type(e).__name__,
-                          'bytes': 0, 'has_beacon': False}
+                          'bytes': 0, 'beacon_bytes_served': False}
 
           try:
               ships = json.load(open('ledger.json')).get('ships', [])
@@ -97,6 +109,59 @@ jobs:
           os.makedirs('public', exist_ok=True)
           json.dump(out, open('public/health.json', 'w'), indent=1)
           print(json.dumps(out, indent=1))
+          PY
+
+      # ---------------------------------------------------------------- ship 014
+      # The liveness claim, answered by a browser instead of by a substring. This
+      # step NEVER fails the job: an oracle that cannot run must leave an honest
+      # CANNOT-CERTIFY in health.json, exactly as lib/beacon_stats.py leaves an
+      # {"error", "as_of"} block rather than a null. A red X here would also block
+      # the health commit, losing the HTTP probe that did succeed.
+      - name: Measure beacon LIVENESS in a real browser
+        continue-on-error: true
+        run: |
+          set +e
+          pip install playwright --quiet --disable-pip-version-check
+          python3 -m playwright install --with-deps chromium
+          python3 oracles/beacon-liveness/oracle.py --json > /tmp/liveness.json
+          echo "oracle exit: $?"
+          cat /tmp/liveness.json
+
+      - name: Fold the liveness verdict into health.json
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import datetime, json, os
+
+          now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+          try:
+              health = json.load(open('public/health.json'))
+          except Exception as e:
+              raise SystemExit('no health.json to fold into: %r' % e)
+
+          try:
+              rep = json.load(open('/tmp/liveness.json'))
+              if not isinstance(rep, dict) or 'verdict' not in rep:
+                  raise ValueError('report has no verdict')
+              block = {
+                  'as_of': now,
+                  'verdict': rep['verdict'],
+                  'oracle': 'oracles/beacon-liveness',
+                  'failing_predicates': [p['id'] for p in rep.get('predicates', [])
+                                         if not p.get('ok')],
+                  'paths': {r['path']: {'delivered': len(r.get('delivered', [])),
+                                        'http': r.get('http')}
+                            for r in rep.get('records', [])},
+              }
+          except Exception as e:
+              # Unmeasured and measured-dead are DIFFERENT values. Never collapse them.
+              block = {'as_of': now, 'verdict': 'CANNOT-CERTIFY',
+                       'oracle': 'oracles/beacon-liveness',
+                       'error': '%s: %s' % (type(e).__name__, e)}
+
+          health['beacon_liveness'] = block
+          json.dump(health, open('public/health.json', 'w'), indent=1)
+          print(json.dumps(block, indent=1))
           PY
 
       - name: Commit the result if it changed

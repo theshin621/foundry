@@ -1,10 +1,30 @@
-# tools/workflows/ — the two workflows the loop is forbidden to install
+# tools/workflows/ — SUPERSEDED 2026-08-13. Read this before copying anything.
 
-These two files belong at `.github/workflows/`. They are parked here because **no
-scheduled run can ever put them there**, and that is a GitHub rule, not a bug to work
-around.
+**The premise below expired on 2026-08-05.** These files were parked here because the
+loop's PAT lacked the `workflow` scope and could not write `.github/workflows/`. Theshin
+rotated the PAT that day with **Contents + Pull requests + Workflows all read/write**, so
+the loop writes those files directly. `.github/workflows/` is the single source of truth.
 
-## The measurement, so nobody re-derives it
+**`health-check.yml` was DELETED from this directory (ship 014, 2026-08-13)** rather than
+refreshed. It had drifted into a live footgun: the copy here was the pre-2026-08-10 version
+and the README told a future fire it was "ready to `cp` in". Copying it would have silently
+reverted three shipped fixes at once —
+
+| the stale copy said | the fix it would have reverted |
+|---|---|
+| `BASE: https://foundry.theshin-naidu.workers.dev` | MOD-3, the whole fleet moved to `tailorfarms.com` |
+| `r.read(200000)` | 2026-08-10 tail-cut fix; pages are now ~103KB and growing |
+| `'cloudflareinsights.com' in body` | the third-party beacon ship 008 removed — the check that reported `has_beacon: true` on every page **while measuring a script the loop no longer used** |
+
+That last one is BOTTLENECKS #1's failure shape exactly (artifact present, thing inert,
+instrument green), preserved in amber in a file advertised as ready to install. A stale
+mirror of a file that is now directly writable is not a backup, it is a way to reintroduce
+fixed bugs. `ship-preview.yml` is retained only because it is byte-identical to the live
+copy; it carries the same warning.
+
+---
+
+## Historical record — the measurement that put these files here
 
 Probed 2026-08-03 on a throwaway branch with nothing queued behind it:
 
