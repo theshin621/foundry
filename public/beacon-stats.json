@@ -1,20 +1,20 @@
 {
- "fetched_utc": "2026-08-13T02:18:27Z",
+ "fetched_utc": "2026-08-13T02:30:31Z",
  "http": 200,
  "ok": true,
  "provenance": {
-  "head_branch": "main",
-  "head_sha": "97b3e920a464d39ef84d505c060d5ad599d1863b",
+  "head_branch": "infra/014-beacon-liveness-oracle",
+  "head_sha": "2ea6eb23a0df4153a2fa17cacd1315b6ae66aae0",
   "repo": "theshin621/foundry",
   "run_attempt": 1,
-  "run_id": 31660411971,
-  "run_url": "https://github.com/theshin621/foundry/actions/runs/31660411971",
+  "run_id": 31661029627,
+  "run_url": "https://github.com/theshin621/foundry/actions/runs/31661029627",
   "runner": "ubuntu-latest",
   "workflow_path": ".github/workflows/beacon-stats.yml"
  },
  "source_url": "https://tailorfarms.com/_b/stats",
  "stats": {
-  "generated": "2026-08-13T02:18:28.164Z",
+  "generated": "2026-08-13T02:30:31.713Z",
   "paths": {
    "/": {
     "2026-08-09": 13,
