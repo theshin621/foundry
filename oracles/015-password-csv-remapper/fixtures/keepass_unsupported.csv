@@ -1,0 +1,11 @@
+Group,Title,Username,Password,URL,Notes
+Root,GitHub,me@example.com,"p,a""ss w0rd",https://github.com,comma and quote in password
+Root,Bank of Nowhere,user1,"line1
+line2",https://bank.example,embedded newline in password
+Root,Unicode Ünïcødé,ü@example.com,påsswörd nbsp,https://xn--80ak6aa92e.com,unicode + nbsp
+Root,Trailing space  , leading,  spaces  ,https://sp.example,whitespace must be preserved verbatim
+Root,Empty password,nopass@x.com,,https://empty.example,"empty password is a real row, not a skip"
+Root,Semicolon;delim,semi,a;b;c,https://semi.example,semicolons must NOT be treated as delimiters
+Root,=cmd|calc,csvinj,@SUM(1+1),https://inj.example,formula-injection shapes stay literal text
+Root,No notes no url,sparse@example.com,sparsepass,,
+Root,Title and pw only,,onlypass,,

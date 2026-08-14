@@ -1,0 +1,80 @@
+[
+ {
+  "file": "chrome_hard.csv",
+  "format": "chrome",
+  "expect": "convert",
+  "note": "Chrome/Chromium export with every adversarial field shape."
+ },
+ {
+  "file": "bitwarden_hard.csv",
+  "format": "bitwarden",
+  "expect": "convert",
+  "note": "Bitwarden export re-imported to Bitwarden: the identity case. Any mangling here is unambiguous, because input and output share a schema."
+ },
+ {
+  "file": "lastpass_hard.csv",
+  "format": "lastpass",
+  "expect": "convert",
+  "note": "LastPass export. Note `extra` is the notes column and `name` is NOT first."
+ },
+ {
+  "file": "onepassword_hard.csv",
+  "format": "onepassword",
+  "expect": "convert",
+  "note": "1Password 8 export. Capitalised headers: a case-sensitive matcher fails this."
+ },
+ {
+  "file": "chrome_crlf.csv",
+  "format": "chrome",
+  "expect": "convert",
+  "note": "CRLF line endings (a Windows export). Must parse identically to chrome_hard."
+ },
+ {
+  "file": "chrome_bom.csv",
+  "format": "chrome",
+  "expect": "convert",
+  "note": "UTF-8 BOM. A BOM glued to the first header breaks naive header matching, so the format is silently mis-detected or the first column is lost."
+ },
+ {
+  "file": "chrome_header_only.csv",
+  "format": "chrome",
+  "expect": "empty",
+  "note": "Valid header, zero rows. Must report 0 entries explicitly, not fail and not silently emit a header-only file as if it had worked."
+ },
+ {
+  "file": "truly_empty.csv",
+  "format": null,
+  "expect": "refuse",
+  "note": "Zero bytes. No format can be detected, so this must be a named refusal."
+ },
+ {
+  "file": "whitespace_only.csv",
+  "format": null,
+  "expect": "refuse",
+  "note": "Only blank lines. Must refuse, not crash and not report a phantom entry."
+ },
+ {
+  "file": "keepass_unsupported.csv",
+  "format": null,
+  "expect": "refuse",
+  "note": "KeePass export -- a REAL fifth format, deliberately unsupported. The page must refuse by name and emit NO output. If a checker finds this mishandled the answer is a better refusal, never a fifth parser."
+ },
+ {
+  "file": "not_a_csv.csv",
+  "format": null,
+  "expect": "refuse",
+  "note": "JSON with a .csv extension. Extension is not a format check."
+ },
+ {
+  "file": "headers_but_no_match.csv",
+  "format": null,
+  "expect": "refuse",
+  "note": "Well-formed CSV whose headers match no supported format. Must refuse rather than guess a mapping -- a wrong guess on a password file is the worst outcome here."
+ },
+ {
+  "file": "chrome_5k.csv",
+  "format": "chrome",
+  "expect": "convert",
+  "note": "5000 rows. Guards against a page that works on 7 rows and wedges the browser on a real export."
+ }
+]
