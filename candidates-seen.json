@@ -408,6 +408,32 @@
    "lane": "ORIGINAL+CLONE",
    "verdict": "lane empty",
    "note": "No dated hook inside the 14-day window (>=2026-07-30) survived the day-build gate. The August API-deprecation cluster (OpenAI deprecations, Adobe Photoshop API, Zuora end-of-support) concerns hosted proprietary endpoints with NO local artifact a static page could parse - the same disqualifier that killed the Copilot and Spark hooks on 2026-08-12. CLONE: nothing corroborated on CURRENT revenue that also holds a structural edge; no runtime-inference builds are possible by design (no LLM API key), which removes the category most 2026 clone edges live in. NINE consecutive empty runs in both news lanes is itself a finding and is carried to Sunday triage as a lane-viability question: if a lane has produced nothing in nine attempts, the honest options are to change its gates or to stop spending scout budget on it."
+  },
+  {
+   "slug": "mcp-2026-07-28-stateless-migration-checker",
+   "date": "2026-08-14",
+   "segment": "other (developer tooling)",
+   "lane": "ORIGINAL",
+   "verdict": "killed at scout",
+   "note": "MCP's largest revision since launch shipped 2026-07-28: stateful handshake removed (no initialize, no Mcp-Session-Id; version+client info move to _meta), Roots/Sampling/Logging deprecated on a 12-month clock, missing-resource error -32002 -> -32602. Real deadline pressure on every server maintainer. KILLED on two gates. (1) Why-now dates: best source 2026-07-22 (23d), spec itself 2026-07-28 (17d) - both outside the <=14d window. (2) Shape, the more important kill: a spec-compliance checker IS 'port a long-tailed reference implementation's semantics into a browser page', the common ancestor BOTTLENECKS #1 open question #2 names for ships 006, 007 and 012 - all three failed. The tail is unbounded by construction (every SDK, transport, partially-migrated server). Choosing it would be choosing the loop's best-documented failure shape on purpose.",
+   "source": "https://mcpplaygroundonline.com/blog/migrate-mcp-server-2026-07-28-stateless"
+  },
+  {
+   "slug": "(CLONE lane empty - 10th consecutive run)",
+   "date": "2026-08-14",
+   "segment": "-",
+   "lane": "CLONE",
+   "verdict": "lane empty",
+   "note": "One probe for a named product with corroborated CURRENT revenue plus a structural edge returned eight SEO listicles ('50 Micro SaaS Ideas for 2026', '27 Bootstrapped Apps at $1K-$200K MRR') recycling each other - no primary revenue disclosure, no named occupant to check. The lane's gate is not satisfiable by the search surface the lane is pointed at; scout budget does not fix that. Ten empty runs is a fact about the lane, not luck. Escalated to Sunday triage as a lane-DESIGN question."
+  },
+  {
+   "slug": "password-csv-remapper",
+   "date": "2026-08-14",
+   "segment": "other (data portability)",
+   "lane": "EVERGREEN",
+   "verdict": "PICKED - built as ship 015",
+   "note": "Occupant hunt survived for the first time with the gap named structurally. Occupants: (a) the destination managers' own import docs (Bitwarden, Chrome) - promo-motive check is PERMANENT, no vendor ships a good tool for migrating away from itself; (b) pass-import on PyPI - mature, real overlap, but a Python CLI for pass users; (c) one-off unmaintained GitHub scripts; (d) server-side converters, disqualified BY ARCHITECTURE because the input is a plaintext password file and 'never leaves your browser' is the entire product, not a feature. Strongest structural edge found in 15 days. Scope deliberately closed: exactly 4 source formats (Chrome, Bitwarden, LastPass, 1Password), one destination, everything else refused BY NAME - a refusal is a correct output, not a missing feature.",
+   "source": "https://pypi.org/project/pass-import"
   }
  ],
  "dropped_on_occupancy": [
