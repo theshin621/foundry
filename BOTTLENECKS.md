@@ -411,3 +411,60 @@ nominated as Sunday's lead triage item.*
 
 *Opened and fixed 2026-08-10 by the daily fire; merged after four independent verdicts. The fire
 authored the fix and does not score cause-sameness for any later failure.*
+
+---
+
+## Entry #3 — the occupant hunt searches the problem, not the query
+
+- **cause:** the SCOUT's occupant hunt is written as a description of the *problem* and searched as
+  such, so it surfaces the category's documentation and its CLI tooling while missing the
+  **in-browser incumbent that ranks on the phrase a user would actually type**. Every gate downstream
+  then passes correctly on a candidate that should already be dead: the promo-motive check holds, the
+  structural edge is real, the architect builds a good oracle, the builder ships to it — and the
+  thing at the end is a worse duplicate of a page-1 result. No amount of verification rigour can
+  recover from this, because nothing downstream of the pick is *looking* for an occupant.
+- **count:** **1** — this is an incident, not yet a bottleneck. Recorded here at kill time because
+  the CHECKER files causes when a ship dies, and because a cause with one occurrence recorded now is
+  cheaper than a cause reconstructed later. **Under the build-day rule, count 1 blocks nothing.**
+- **incidents:**
+  - **#015 password-csv-remapper** (2026-08-14) — killed at checker, before publication. The scout
+    ran the hunt, named three occupant classes (destination managers' own import docs; `pass-import`
+    as a Python CLI; server-side converters disqualified by architecture), and wrote the edge up as
+    *"the strongest structural edge the loop has found in fifteen days."* The checker, instructed to
+    re-verify the premise against its source, searched **what a user would type** — *"convert chrome
+    passwords csv to bitwarden format"* — and found
+    [tembrica.com/en/bitwarden-converter](https://tembrica.com/en/bitwarden-converter) at **page 1,
+    position 6**: free, no signup, **in-browser**, covering all four of ship 015's formats plus
+    Bitwarden JSON, KeePass 2.x and Firefox, bidirectionally, with an explicit
+    "conversion runs inside your browser tab" privacy claim. The operator independently corroborated
+    it on a separate search, which returned the same tool on a second domain
+    ([timbrica.com](https://timbrica.com/en/bitwarden-converter)).
+
+    **The diagnostic detail is the query, and it is embarrassingly simple.** The scout searched
+    `convert password manager CSV export format to import another free browser tool` — a description
+    of the *problem*. That returns vendor documentation, because vendor documentation is what ranks
+    for descriptive phrasings. The checker searched the *user's* phrasing and the incumbent was on
+    page 1. **The occupant was never hidden. It was never looked for in the place users look.**
+
+- **fix (PROPOSED, not adopted — a gate change never activates from a fire):** the occupant hunt's
+  queries must include, verbatim, **the non-ads discovery path the brief itself claims**. Ship 015's
+  brief stated its discovery path as *"the migration query itself (`export lastpass csv import
+  bitwarden`)"* — and then never ran it. The mechanical rule: **if a brief names a discovery query,
+  the occupant hunt must execute that exact query and record the top ten results, and an in-browser
+  free occupant in that top ten is an automatic scout kill.** This is cheap (one search), it is
+  auditable (the results go in the brief), and it would have killed #015 in about ninety seconds
+  instead of a full build day.
+- **status:** `open` — count 1, no fix shipped, blocking nothing.
+
+**Adjudication note this fire owes, and it cuts against its own convenience.** This may not be a new
+cause at all. Entry #1's **open question #2** already asks whether that entry's cause is really
+upstream *at pick time*, since #006, #007 and #012 were all "port a long-tailed reference
+implementation's semantics". If a reader judges #015 to be another instance of *that* — a bad pick
+dressed in good verification — then this entry should be folded into #1, **#1 moves to 6, and it
+reverts to `open`, which blocks build days.** The fire that authored today's pick is precisely the
+party with an interest in it being a separate, count-1, non-blocking entry, and therefore has no
+standing to make the call. **Filed separately, flagged as possibly-not-separate, ties to Theshin** —
+the same discipline the last five fires applied to their own work.
+
+*Opened 2026-08-14 by the daily fire at kill time. The fire authored the pick this entry indicts and
+does not score cause-sameness.*
