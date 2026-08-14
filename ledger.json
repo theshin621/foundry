@@ -462,6 +462,26 @@
    },
    "status": "failed",
    "kill_criterion": "Instrumental, not visit-based (infra publishes no page). If a future fire ever merges a beacon_liveness verdict into public/health.json that reads PASS while a page's beacon is provably inert in a real browser, this artifact has failed at its one job and is killed rather than repaired. Standing residual, recorded by the maker against its own work: round 2 demonstrated that the hand-written attribution band around Playwright regenerated four SEVERE defects inside one fix cycle, so the oracle as it stands is NOT trustworthy and must not be wired into any gate until it PASSes cold."
+  },
+  {
+   "n": "15",
+   "date": "2026-08-14",
+   "slug": "password-csv-remapper",
+   "kind": "ship",
+   "status": "pending",
+   "one_liner": "Converts a Chrome / Bitwarden / LastPass / 1Password 8 password export into Bitwarden's import CSV, entirely in the browser. Four formats supported, everything else refused BY NAME.",
+   "gap_source_url": "https://pypi.org/project/pass-import",
+   "deploy_url": "https://tailorfarms.com/015-password-csv-remapper/",
+   "checker_verdict": null,
+   "maker_note": "ARCHITECT built the loop's first DIFFERENTIAL oracle: pass_import (a mature third-party importer) computes ground truth on BOTH ends - it parses the fixture to get reference records, and it re-parses the PAGE's output to get actual records, which are compared as multisets per non-empty field. The maker therefore cannot redefine the target set mid-fix-cycle, which is the mechanism BOTTLENECKS #1 has asked for since 2026-08-06 and which the loop had never once used despite 'reference implementation, real dataset' being the ARCHITECT contract's PREFERRED oracle forms. The page is EXECUTED in real Chromium (entry #1 clause 3); there is no markup parsing anywhere in oracle.py. PROBE-THE-ORACLE found SEVEN defects in the oracle BEFORE any product code existed - three severe: an eagerly-evaluated failure MESSAGE crashed a 67/67-green run into CANNOT-CERTIFY; one fixture raising aborted the entire run so 10 of 11 negative controls returned CANNOT-CERTIFY instead of FAIL, making every red light uninformative; and a mutation silently no-opped because its anchor lived in the page shell. Finding 6 is the sharpest: a data-injection break PASSED because no fixture row had an empty optional field, so the mutation never executed - #014's decorative-fixture defect reproduced by the probe's own author, found by the probe rather than by a checker. Scope closed by construction at four formats with named refusals, directly targeting entry #1 open question #2. Borrowed Papa Parse 5 (MIT, sha256 recorded in lib/csv-parse.vendor.sha256) for BOTH parse and unparse so no hand-rolled serialiser sneaks in. Builder self-verdict NOT taken: page reads 106/106 PASS on the architect's oracle, and that number means nothing until an independent adversary on a different model reproduces it cold.",
+   "disposition": "awaiting checker",
+   "signal": {
+    "error": "ship not yet published; no path to read",
+    "as_of": "2026-08-14T02:16:16Z"
+   },
+   "kill_criterion": "/015-password-csv-remapper/ < 10 qualified beacon visits by 2026-09-13 -> graveyard. Read from https://tailorfarms.com/_b/stats, never claimed.",
+   "residuals_at_death": null,
+   "residuals": null
   }
  ]
 }
