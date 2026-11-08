@@ -1,20 +1,20 @@
 {
- "fetched_utc": "2026-11-07T07:39:52Z",
+ "fetched_utc": "2026-11-08T07:49:42Z",
  "http": 200,
  "ok": true,
  "provenance": {
   "head_branch": "main",
-  "head_sha": "f80040d07e6a314d6f36e092601b766680ca5387",
+  "head_sha": "24e60002941f8315331078894f385c891528b4b9",
   "repo": "theshin621/foundry",
   "run_attempt": 1,
-  "run_id": 42352207329,
-  "run_url": "https://github.com/theshin621/foundry/actions/runs/42352207329",
+  "run_id": 42460354971,
+  "run_url": "https://github.com/theshin621/foundry/actions/runs/42460354971",
   "runner": "ubuntu-latest",
   "workflow_path": ".github/workflows/beacon-stats.yml"
  },
  "source_url": "https://tailorfarms.com/_b/stats",
  "stats": {
-  "generated": "2026-11-07T07:39:52.833Z",
+  "generated": "2026-11-08T07:49:42.831Z",
   "paths": {
    "/": {
     "2026-11-01": 1,
@@ -26,8 +26,8 @@
   },
   "window": {
    "days": 10,
-   "from": "2026-10-29",
-   "to": "2026-11-07"
+   "from": "2026-10-30",
+   "to": "2026-11-08"
   }
  }
 }
